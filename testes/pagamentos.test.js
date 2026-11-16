@@ -142,7 +142,7 @@ test('página de pagamento: cliente criado uma vez, preço vindo da Stripe e tes
   assert.equal(sessao.customer, 'cus_1');
   assert.equal(sessao.client_reference_id, ORG);
   assert.deepEqual(sessao.line_items, [{ price: 'price_starter_m', quantity: 1 }]);
-  assert.equal(sessao.subscription_data.trial_period_days, 7);
+  assert.equal(sessao.subscription_data.trial_period_days, 30);
   assert.equal(sessao.subscription_data.metadata.organizacao_id, ORG);
   assert.equal(sessao.locale, 'pt-BR');
   assert.equal(sessao.payment_method_types, undefined, 'sem lista fixa: usa as formas ativadas no painel');
