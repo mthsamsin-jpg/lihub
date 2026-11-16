@@ -1,0 +1,117 @@
+// Servidor do LicitaHub: API de análise de editais (Claude) + sincronização
+// automática com o PNCP. Rode com: npm run servidor
+import { serve } from '@hono/node-server';
+import { criarApp } from './api/app.js';
+import { criarRepositorio } from './api/repositorio.js';
+import { ligarSite } from './api/site.js';
+import { config } from './config.js';
+import { analisarEdital, provedorDaIa } from './ia/analisar-edital.js';
+import { maxBytesPdf, obterEditalDoPncp } from './ia/documento.js';
+import { clienteStripe, criarPagamentos, modoDaChave } from './pagamentos/stripe.js';
+import { sincronizarPncp } from './pncp/sincronizar.js';
+import { criarClienteAdmin, criarClienteDoUsuario } from './supabase.js';
+import { criarLog } from './util.js';
+
+const log = criarLog('servidor');
+
+let admin;
+try {
+  admin = criarClienteAdmin();
+  criarClienteDoUsuario('verificacao'); // confere se a chave pública também está configurada
+} catch (e) {
+  log.erro(e.message);
+  process.exit(1);
+}
+let ia;
+try {
+  ia = provedorDaIa();
+} catch (e) {
+  log.erro(e.message);
+  process.exit(1);
+}
+if (ia.chaveConfigurada) log.info(`Leitura de edital: ${ia.nome}, modelo ${ia.modelo}.`);
+else log.aviso(`${ia.variavelChave} não definida: o servidor sobe, mas as análises de edital (${ia.nome}) vão falhar.`);
+
+const repositorio = criarRepositorio({ admin, criarClienteDoUsuario });
+
+let pagamentos = null;
+if (config.stripe.chaveSecreta) {
+  pagamentos = criarPagamentos({ stripe: clienteStripe(), repositorio, log: criarLog('pagamentos') });
+  const modo = modoDaChave();
+  log.info(`Assinaturas: Stripe em ${modo === 'real' ? 'MODO REAL (cobra de verdade)' : 'modo de teste (dinheiro de mentira)'}.`);
+  if (!config.stripe.segredoWebhook) {
+    log.aviso('STRIPE_WEBHOOK_SECRET não definida: os avisos de pagamento da Stripe vão ser recusados.');
+  }
+} else {
+  log.aviso('STRIPE_SECRET_KEY não definida: assinaturas desligadas.');
+}
+
+const app = criarApp({
+  repositorio,
+  analisar: (entrada) => analisarEdital(entrada),
+  obterEdital: obterEditalDoPncp,
+  pagamentos,
+  opcoes: {
+    origens: config.servidor.origens,
+    analisesSimultaneas: config.servidor.analisesSimultaneas,
+    textoMaxCaracteres: config.servidor.textoMaxCaracteres,
+    pdfMaxBytes: maxBytesPdf(),
+  },
+  log: criarLog('api'),
+});
+
+// O site (pasta site/) sai pelo mesmo endereço da API.
+ligarSite(app, { publico: { supabaseUrl: config.supabase.url, supabaseChave: config.supabase.chavePublica } });
+
+const servidor = serve({ fetch: app.fetch, port: config.servidor.porta }, (info) => {
+  log.info(`Site do LicitaHub em http://localhost:${info.port}  (API em /api, teste: /saude)`);
+  log.info(`Origens liberadas (CORS): ${config.servidor.origens.join(', ')}`);
+});
+servidor.on('error', (erro) => {
+  if (erro.code === 'EADDRINUSE') {
+    log.erro(`A porta ${config.servidor.porta} já está em uso: o LicitaHub provavelmente já está aberto em outra janela. `
+      + 'Use a janela que já está aberta (http://localhost:' + config.servidor.porta + ') ou feche-a antes de abrir de novo.');
+    process.exit(1);
+  }
+  throw erro;
+});
+
+// Faxina: análises presas (ex.: servidor reiniciado no meio de uma análise).
+setInterval(async () => {
+  try {
+    const n = await repositorio.encerrarTravadas(30);
+    if (n) log.aviso(`${n} análise(s) presa(s) marcada(s) como erro.`);
+  } catch (e) {
+    log.erro(e.message);
+  }
+}, 10 * 60_000).unref();
+
+// Sincronização automática (incremental) com o PNCP.
+const controleSync = new AbortController();
+let sincronizando = false;
+async function sincronizarAgora() {
+  if (sincronizando) return;
+  sincronizando = true;
+  try {
+    const r = await sincronizarPncp({ modo: 'atualizacao' }, { supabase: admin, log: criarLog('pncp'), sinal: controleSync.signal });
+    log.info(`PNCP: ${r.gravados} licitação(ões) gravada(s), ${r.ignorados} ignorada(s), ${r.falhas.length} falha(s).`);
+  } catch (e) {
+    if (!controleSync.signal.aborted) log.erro(`Sincronização com o PNCP falhou: ${e.message}`);
+  } finally {
+    sincronizando = false;
+  }
+}
+if (config.servidor.syncIntervaloMin > 0) {
+  setTimeout(sincronizarAgora, 15_000).unref();
+  setInterval(sincronizarAgora, config.servidor.syncIntervaloMin * 60_000).unref();
+  log.info(`Sincronização automática com o PNCP a cada ${config.servidor.syncIntervaloMin} min.`);
+}
+
+function encerrar(sinal) {
+  log.info(`Encerrando (${sinal})...`);
+  controleSync.abort(new Error('Servidor encerrando.'));
+  servidor.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5_000).unref();
+}
+process.once('SIGINT', () => encerrar('SIGINT'));
+process.once('SIGTERM', () => encerrar('SIGTERM'));

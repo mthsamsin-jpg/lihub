@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>LicitaHub · Demonstração</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%232563eb'/%3E%3Ctext x='20' y='27' font-size='20' font-family='Arial' font-weight='700' text-anchor='middle' fill='white'%3EL%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --fundo: #050a16;
+    --cartao: rgba(14, 24, 44, 0.72);
+    --cartao-forte: rgba(18, 31, 58, 0.9);
+    --borda: rgba(96, 165, 250, 0.16);
+    --texto: #e6edf8;
+    --suave: #9aabc8;
+    --azul: #2563eb;
+    --azul-claro: #60a5fa;
+    --verde: #34d399;
+    --amarelo: #fbbf24;
+    --vermelho: #f87171;
+    --raio: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--fundo);
+    color: var(--texto);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -20%;
+    z-index: -1;
+    background:
+      radial-gradient(38% 32% at 18% 18%, rgba(37, 99, 235, 0.35), transparent 70%),
+      radial-gradient(30% 28% at 85% 12%, rgba(14, 165, 233, 0.22), transparent 70%),
+      radial-gradient(42% 38% at 65% 92%, rgba(79, 70, 229, 0.2), transparent 70%);
+    filter: blur(8px);
+  }
+  a { color: var(--azul-claro); }
+  a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible {
+    outline: 2px solid var(--azul-claro);
+    outline-offset: 2px;
+  }
+  .conteudo { max-width: 1120px; margin: 0 auto; padding: 24px 16px 64px; }
+
+  header.topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  .marca { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.35rem; letter-spacing: -0.02em; }
+  .marca .icone { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(135deg, var(--azul), #0ea5e9); color: #fff; font-size: 1rem; }
+  .selo { font-size: 0.8rem; color: var(--suave); border: 1px solid var(--borda); border-radius: 999px; padding: 4px 12px; background: var(--cartao); }
+
+  .cartao { background: var(--cartao); border: 1px solid var(--borda); border-radius: var(--raio); padding: 20px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .cartao + .cartao, section + section { margin-top: 20px; }
+  h1 { font-size: clamp(1.4rem, 3.2vw, 2rem); line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.02em; }
+  h2 { font-size: 1.2rem; margin: 0 0 4px; }
+  h3 { font-size: 1rem; margin: 0; }
+  .sub { color: var(--suave); margin: 0; }
+
+  .status { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+  .status-item { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: rgba(5, 10, 22, 0.45); border: 1px solid var(--borda); }
+  .status-item .bola { width: 10px; height: 10px; border-radius: 50%; margin-top: 7px; flex: none; background: var(--suave); }
+  .status-item.ok .bola { background: var(--verde); box-shadow: 0 0 10px var(--verde); }
+  .status-item.pendente .bola { background: var(--amarelo); }
+  .status-item.falha .bola { background: var(--vermelho); }
+  .status-item strong { display: block; font-size: 0.92rem; }
+  .status-item span { color: var(--suave); font-size: 0.82rem; }
+
+  form.filtros { display: grid; grid-template-columns: 1fr 1.3fr 2fr auto; gap: 10px; margin-top: 16px; align-items: end; }
+  label { display: grid; gap: 4px; font-size: 0.8rem; color: var(--suave); }
+  select, input[type="search"] {
+    width: 100%; min-width: 0; padding: 10px 12px; border-radius: 10px; font: inherit;
+    color: var(--texto); background: rgba(5, 10, 22, 0.7); border: 1px solid var(--borda);
+  }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; border: 0; border-radius: 10px;
+    padding: 10px 16px; color: #fff; background: linear-gradient(135deg, var(--azul), #0284c7);
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secundario { background: rgba(96, 165, 250, 0.12); color: var(--azul-claro); border: 1px solid var(--borda); }
+
+  .resumo-busca { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; margin: 18px 0 12px; color: var(--suave); font-size: 0.9rem; }
+  .resumo-busca strong { color: var(--texto); }
+  .aviso-filtro { font-size: 0.8rem; color: var(--suave); margin: 6px 0 0; }
+
+  .lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .licitacao { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: var(--cartao-forte); border: 1px solid var(--borda); min-width: 0; }
+  .licitacao .linha-topo { display: flex; justify-content: space-between; gap: 8px; font-size: 0.78rem; color: var(--suave); }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; background: rgba(37, 99, 235, 0.18); color: var(--azul-claro); font-weight: 600; font-size: 0.74rem; }
+  .licitacao h3 { font-size: 0.95rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .orgao { color: var(--suave); font-size: 0.85rem; margin: 0; overflow-wrap: anywhere; }
+  .numeros { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 10px; border-top: 1px solid var(--borda); }
+  .numeros span { display: block; font-size: 0.72rem; color: var(--suave); text-transform: uppercase; letter-spacing: 0.04em; }
+  .numeros strong { font-size: 0.92rem; }
+  .prazo.urgente { color: var(--vermelho); }
+  .prazo.atencao { color: var(--amarelo); }
+  .prazo.tranquilo { color: var(--verde); }
+  .links { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.82rem; margin-top: auto; }
+  .portal { font-size: 0.78rem; color: var(--suave); overflow-wrap: anywhere; }
+
+  .paginacao { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 18px; color: var(--suave); }
+  .mensagem { padding: 28px 16px; text-align: center; color: var(--suave); }
+  .mensagem.erro { color: var(--vermelho); }
+  .girando { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--borda); border-top-color: var(--azul-claro); border-radius: 50%; animation: girar 0.8s linear infinite; vertical-align: -3px; margin-right: 8px; }
+  @keyframes girar { to { transform: rotate(360deg); } }
+
+  .grade-analise { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 16px; }
+  .bloco { padding: 16px; border-radius: 14px; background: var(--cartao-forte); border: 1px solid var(--borda); min-width: 0; }
+  .bloco h3 { margin-bottom: 10px; font-size: 0.95rem; }
+  .bloco ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .bloco li { font-size: 0.88rem; overflow-wrap: anywhere; }
+  .ref { color: var(--suave); font-size: 0.78rem; }
+  dl.ident { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: 0.88rem; }
+  dl.ident dt { color: var(--suave); }
+  dl.ident dd { margin: 0; overflow-wrap: anywhere; }
+  .check { display: flex; gap: 8px; align-items: flex-start; }
+  .check input { margin-top: 4px; accent-color: var(--azul); }
+  .risco { padding: 10px 12px; border-radius: 10px; background: rgba(5, 10, 22, 0.45); border-left: 3px solid var(--suave); }
+  .risco.alta { border-left-color: var(--vermelho); }
+  .risco.media { border-left-color: var(--amarelo); }
+  .risco.baixa { border-left-color: var(--verde); }
+  .sev { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .risco.alta .sev { color: var(--vermelho); }
+  .risco.media .sev { color: var(--amarelo); }
+  .risco.baixa .sev { color: var(--verde); }
+  .aviso-legal { margin-top: 14px; padding: 12px 14px; border-radius: 12px; font-size: 0.82rem; color: var(--suave); border: 1px dashed var(--borda); }
+
+  .proximos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
+  .proximos div { padding: 14px; border-radius: 12px; background: rgba(5, 10, 22, 0.45); border: 1px solid var(--borda); font-size: 0.88rem; }
+  .proximos strong { display: block; margin-bottom: 4px; }
+  code { background: rgba(96, 165, 250, 0.12); padding: 1px 6px; border-radius: 6px; font-size: 0.85em; }
+  footer { margin-top: 28px; text-align: center; color: var(--suave); font-size: 0.8rem; }
+
+  @media (max-width: 760px) {
+    form.filtros { grid-template-columns: 1fr 1fr; }
+    form.filtros .campo-palavra, form.filtros button { grid-column: 1 / -1; }
+  }
+  @media (max-width: 420px) {
+    .lista { grid-template-columns: 1fr; }
+    .numeros { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="conteudo">
+  <header class="topo">
+    <div class="marca"><span class="icone" aria-hidden="true">L</span> LicitaHub</div>
+    <span class="selo">Demonstração da Etapa 1 · o site final vem na Etapa 2</span>
+  </header>
+
+  <section class="cartao" aria-labelledby="t-intro">
+    <h1 id="t-intro">O motor do LicitaHub funcionando</h1>
+    <p class="sub">Esta página usa o código da Etapa 1 para buscar licitações reais no PNCP e mostra o formato da leitura de edital pela IA. Nada é gravado.</p>
+    <div class="status" aria-live="polite">
+      <div class="status-item" id="st-pncp"><i class="bola"></i><div><strong>PNCP (dados do governo)</strong><span>verificando…</span></div></div>
+      <div class="status-item" id="st-supabase"><i class="bola"></i><div><strong>Banco de dados (Supabase)</strong><span>verificando…</span></div></div>
+      <div class="status-item" id="st-ia"><i class="bola"></i><div><strong>Leitura de edital (IA)</strong><span>verificando…</span></div></div>
+    </div>
+  </section>
+
+  <section class="cartao" aria-labelledby="t-busca">
+    <h2 id="t-busca">Oportunidades abertas agora</h2>
+    <p class="sub">Dados reais do Portal Nacional de Contratações Públicas, que reúne as licitações de milhares de portais.</p>
+    <form class="filtros" id="form-busca">
+      <label>Estado
+        <select id="uf"></select>
+      </label>
+      <label>Modalidade
+        <select id="modalidade">
+          <option value="6">Pregão Eletrônico</option>
+          <option value="8">Dispensa de Licitação</option>
+          <option value="4">Concorrência Eletrônica</option>
+          <option value="5">Concorrência Presencial</option>
+          <option value="7">Pregão Presencial</option>
+          <option value="12">Credenciamento</option>
+        </select>
+      </label>
+      <label class="campo-palavra">Filtrar por palavra (nesta página)
+        <input type="search" id="palavra" placeholder="ex.: limpeza, notebook, manutenção">
+      </label>
+      <button type="submit" id="btn-buscar">Buscar no PNCP</button>
+    </form>
+    <p class="aviso-filtro">A API do governo não busca por palavra. Aqui o filtro vale só para os 50 resultados da página; no sistema final a busca por palavra é feita no banco, em todas as licitações.</p>
+
+    <div class="resumo-busca" id="resumo-busca" hidden></div>
+    <div id="resultado"><div class="mensagem">Escolha o estado e a modalidade e clique em <strong>Buscar no PNCP</strong>.</div></div>
+    <nav class="paginacao" id="paginacao" hidden aria-label="Páginas">
+      <button type="button" class="secundario" id="btn-anterior">← Anterior</button>
+      <span id="pagina-info"></span>
+      <button type="button" class="secundario" id="btn-proxima">Próxima →</button>
+    </nav>
+  </section>
+
+  <section class="cartao" aria-labelledby="t-ia">
+    <h2 id="t-ia">Como a IA entrega a leitura de um edital</h2>
+    <p class="sub">Exemplo ilustrativo (edital fictício), no mesmo formato que a IA devolve. Para analisar um edital de verdade é preciso a chave da IA (a do Gemini é grátis).</p>
+    <div id="analise"><div class="mensagem"><span class="girando"></span>Carregando exemplo…</div></div>
+  </section>
+
+  <section class="cartao" aria-labelledby="t-falta">
+    <h2 id="t-falta">O que falta para virar o sistema completo</h2>
+    <div class="proximos">
+      <div><strong>1. Criar o banco</strong>Conta no Supabase (região São Paulo) e colar o arquivo <code>supabase/schema.sql</code>.</div>
+      <div><strong>2. Chave da IA</strong>Criar a chave grátis do Gemini em aistudio.google.com e colocar no arquivo <code>.env</code>.</div>
+      <div><strong>3. Primeira carga</strong>Rodar <code>npm run sync</code> para trazer as licitações abertas de todo o Brasil.</div>
+      <div><strong>4. Etapa 2</strong>O site com login, busca, CRM e painel, no visual escuro com vidro fosco.</div>
+    </div>
+  </section>
+
+  <footer>Demonstração local do LicitaHub · fonte dos dados: PNCP (pncp.gov.br) · nenhuma informação é gravada</footer>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'];
+  const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  const numero = new Intl.NumberFormat('pt-BR');
+  const dataHora = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' });
+
+  const $ = (seletor) => document.querySelector(seletor);
+  function el(tag, props = {}, ...filhos) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === 'class') e.className = v;
+      else if (k === 'text') e.textContent = v;
+      else e.setAttribute(k, v);
+    }
+    for (const f of filhos) if (f !== null && f !== undefined && f !== false) e.append(f);
+    return e;
+  }
+  const linkSeguro = (url) => (/^https?:\/\//i.test(url || '') ? url : null);
+  const semAcento = (s) => String(s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
+  function marcarStatus(id, estado, texto) {
+    const item = document.getElementById(id);
+    item.className = `status-item ${estado}`;
+    item.querySelector('span').textContent = texto;
+  }
+
+  // ---------- estado e status ----------
+  const estado = { uf: 'SP', modalidade: '6', pagina: 1, totalPaginas: 1, total: 0, itens: [] };
+
+  fetch('/api/status').then((r) => r.json()).then((s) => {
+    marcarStatus('st-supabase', s.supabase ? 'ok' : 'pendente', s.supabase ? 'Configurado no arquivo .env' : 'Ainda não configurado (passo 1 abaixo)');
+    const ia = s.ia || {};
+    marcarStatus('st-ia', ia.chaveConfigurada ? 'ok' : 'pendente',
+      ia.chaveConfigurada ? `${ia.nome} · modelo ${ia.modelo}` : `Falta a chave do ${ia.nome || 'provedor de IA'} (passo 2 abaixo)`);
+  }).catch(() => {
+    marcarStatus('st-supabase', 'falha', 'Não foi possível verificar');
+    marcarStatus('st-ia', 'falha', 'Não foi possível verificar');
+  });
+
+  // ---------- busca ----------
+  const selUf = $('#uf');
+  for (const uf of UFS) selUf.append(el('option', { value: uf, text: uf, selected: uf === 'SP' ? 'selected' : null }));
+
+  function diasAte(iso) {
+    if (!iso) return null;
+    return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
+  }
+
+  function cartaoLicitacao(l) {
+    const dias = diasAte(l.encerramento);
+    const classePrazo = dias === null ? '' : dias <= 3 ? 'urgente' : dias <= 7 ? 'atencao' : 'tranquilo';
+    const textoPrazo = l.encerramento
+      ? `${dataHora.format(new Date(l.encerramento))}${dias !== null ? ` · ${dias <= 0 ? 'hoje' : dias === 1 ? 'amanhã' : `em ${dias} dias`}` : ''}`
+      : 'não informado';
+    const valor = l.orcamento_sigiloso ? 'Sigiloso'
+      : l.valor_estimado ? moeda.format(l.valor_estimado) : 'Não informado';
+
+    return el('article', { class: 'licitacao' },
+      el('div', { class: 'linha-topo' },
+        el('span', { class: 'tag', text: l.modalidade || 'Licitação' }),
+        el('span', { text: [l.uf, l.municipio].filter(Boolean).join(' · ') })),
+      el('h3', { text: l.objeto, title: l.objeto }),
+      el('p', { class: 'orgao', text: l.orgao || '' }),
+      el('div', { class: 'numeros' },
+        el('div', {}, el('span', { text: 'Valor estimado' }), el('strong', { text: valor })),
+        el('div', {}, el('span', { text: 'Propostas até' }), el('strong', { class: `prazo ${classePrazo}`, text: textoPrazo }))),
+      l.sistema_origem ? el('div', { class: 'portal', text: `Portal da disputa: ${l.sistema_origem}` }) : null,
+      el('div', { class: 'links' },
+        linkSeguro(l.link_pncp) ? el('a', { href: l.link_pncp, target: '_blank', rel: 'noopener noreferrer', text: 'Ver no PNCP ↗' }) : null,
+        linkSeguro(l.link_sistema_origem) ? el('a', { href: l.link_sistema_origem, target: '_blank', rel: 'noopener noreferrer', text: 'Abrir no portal ↗' }) : null));
+  }
+
+  function desenharResultados() {
+    const resultado = $('#resultado');
+    const termos = semAcento($('#palavra').value).split(/\s+/).filter(Boolean);
+    const itens = termos.length
+      ? estado.itens.filter((l) => { const t = semAcento(`${l.objeto} ${l.orgao} ${l.municipio}`); return termos.every((p) => t.includes(p)); })
+      : estado.itens;
+
+    const resumo = $('#resumo-busca');
+    resumo.hidden = false;
+    resumo.replaceChildren(
+      el('span', {}, el('strong', { text: numero.format(estado.total) }), ` licitações abertas em ${estado.uf}`),
+      el('span', { text: termos.length ? `${itens.length} de ${estado.itens.length} nesta página têm “${$('#palavra').value.trim()}”` : `mostrando ${estado.itens.length} desta página` }));
+
+    resultado.replaceChildren(itens.length
+      ? el('div', { class: 'lista' }, ...itens.map(cartaoLicitacao))
+      : el('div', { class: 'mensagem', text: termos.length ? 'Nenhuma licitação desta página tem essa palavra. Tente a próxima página ou outra palavra.' : 'Nenhuma licitação aberta encontrada com esses filtros.' }));
+
+    const pag = $('#paginacao');
+    pag.hidden = estado.totalPaginas <= 1;
+    $('#pagina-info').textContent = `Página ${estado.pagina} de ${numero.format(estado.totalPaginas)}`;
+    $('#btn-anterior').disabled = estado.pagina <= 1;
+    $('#btn-proxima').disabled = estado.pagina >= estado.totalPaginas;
+  }
+
+  async function buscar() {
+    const botao = $('#btn-buscar');
+    botao.disabled = true;
+    $('#paginacao').hidden = true;
+    $('#resultado').replaceChildren(el('div', { class: 'mensagem' }, el('span', { class: 'girando' }),
+      'Consultando o PNCP… a API do governo pode levar até 1 minuto.'));
+    try {
+      const params = new URLSearchParams({ uf: estado.uf, modalidade: estado.modalidade, pagina: String(estado.pagina) });
+      const resposta = await fetch(`/api/licitacoes?${params}`);
+      const dados = await resposta.json();
+      if (!resposta.ok) throw new Error(dados.erro || 'Falha na consulta.');
+      Object.assign(estado, { total: dados.total, totalPaginas: Math.max(1, dados.totalPaginas), itens: dados.itens });
+      marcarStatus('st-pncp', 'ok', `Conectado · ${numero.format(dados.total)} licitações nesta consulta`);
+      desenharResultados();
+    } catch (e) {
+      marcarStatus('st-pncp', 'falha', 'O PNCP não respondeu agora');
+      $('#resumo-busca').hidden = true;
+      $('#resultado').replaceChildren(el('div', { class: 'mensagem erro', text: e.message }));
+    } finally {
+      botao.disabled = false;
+    }
+  }
+
+  $('#form-busca').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const mudouConsulta = estado.uf !== selUf.value || estado.modalidade !== $('#modalidade').value || !estado.itens.length;
+    if (!mudouConsulta) return desenharResultados();
+    Object.assign(estado, { uf: selUf.value, modalidade: $('#modalidade').value, pagina: 1 });
+    buscar();
+  });
+  $('#palavra').addEventListener('input', () => { if (estado.itens.length) desenharResultados(); });
+  $('#btn-anterior').addEventListener('click', () => { if (estado.pagina > 1) { estado.pagina--; buscar(); } });
+  $('#btn-proxima').addEventListener('click', () => { if (estado.pagina < estado.totalPaginas) { estado.pagina++; buscar(); } });
+
+  // ---------- exemplo da análise ----------
+  function bloco(titulo, ...conteudo) { return el('div', { class: 'bloco' }, el('h3', { text: titulo }), ...conteudo); }
+  const ref = (r) => (r ? el('div', { class: 'ref', text: `Onde está: ${r}` }) : null);
+  const nomeFase = { proposta: 'proposta', habilitacao: 'habilitação', contratacao: 'contratação', outra: 'outra' };
+  const simNao = (v) => (v === true ? 'Sim' : v === false ? 'Não' : 'Não informado');
+
+  function desenharAnalise(a) {
+    const id = a.identificacao;
+    const pares = [
+      ['Objeto', id.objeto], ['Órgão', id.orgao], ['Edital', id.numero_edital], ['Julgamento', id.criterio_julgamento],
+      ['Disputa', [id.modo_disputa, id.plataforma_disputa].filter(Boolean).join(' · ')], ['Valor', id.valor_estimado],
+      ['Registro de preços', simNao(id.registro_de_precos)], ['Exclusivo ME/EPP', simNao(id.exclusivo_me_epp)],
+    ].filter(([, v]) => v);
+    const ident = el('dl', { class: 'ident' });
+    for (const [k, v] of pares) ident.append(el('dt', { text: k }), el('dd', { text: v }));
+
+    const habilitacao = el('ul');
+    const grupos = [['Jurídica', a.habilitacao.juridica], ['Fiscal e trabalhista', a.habilitacao.fiscal_social_trabalhista],
+      ['Econômico-financeira', a.habilitacao.economico_financeira], ['Técnica', a.habilitacao.tecnica], ['Outras', a.habilitacao.outras]];
+    for (const [nome, lista] of grupos) {
+      for (const ex of lista) {
+        habilitacao.append(el('li', {}, el('strong', { text: `${nome}: ` }), ex.descricao,
+          ex.observacao ? el('div', { class: 'ref', text: ex.observacao }) : null, ref(ex.referencia)));
+      }
+    }
+
+    const ordem = { alta: 0, media: 1, baixa: 2 };
+    const nomeSev = { alta: 'Risco alto', media: 'Risco médio', baixa: 'Risco baixo' };
+
+    $('#analise').replaceChildren(
+      el('div', { class: 'grade-analise' },
+        bloco('Identificação', ident),
+        bloco('Resumo', el('p', { style: 'margin:0;font-size:.9rem', text: a.resumo }),
+          el('div', { class: 'ref', style: 'margin-top:8px', text: `Confiança da análise: ${a.confianca}` })),
+        bloco('Prazos', el('ul', {}, ...a.prazos.map((p) => el('li', {}, el('strong', { text: `${p.evento}: ` }), p.data_hora_texto, ref(p.referencia))))),
+        bloco('Checklist de documentos', el('ul', {}, ...a.documentos_obrigatorios.map((d) =>
+          el('li', {}, el('label', { class: 'check' }, el('input', { type: 'checkbox' }),
+            el('span', {}, d.documento, el('div', { class: 'ref', text: `fase: ${nomeFase[d.fase] ?? d.fase}${d.referencia ? ` · ${d.referencia}` : ''}` }))))))),
+        bloco('Exigências de habilitação', habilitacao),
+        bloco('Riscos', el('ul', {}, ...[...a.riscos].sort((x, y) => ordem[x.severidade] - ordem[y.severidade]).map((r) =>
+          el('li', { class: `risco ${r.severidade}` }, el('div', { class: 'sev', text: nomeSev[r.severidade] }),
+            el('strong', { text: r.titulo }), el('div', { text: r.descricao }),
+            el('div', { class: 'ref', text: `O que fazer: ${r.recomendacao}` }), ref(r.referencia))))),
+        bloco('Pontos para pedir esclarecimento', el('ul', {}, ...a.pontos_para_esclarecimento.map((p) =>
+          el('li', {}, el('strong', { text: p.ponto }), el('div', { text: p.motivo }), ref(p.referencia))))),
+        bloco('Não encontrado no edital', el('ul', {}, ...a.informacoes_nao_encontradas.map((t) => el('li', { text: t }))))),
+      el('div', { class: 'aviso-legal', text: a.aviso_legal }));
+  }
+
+  fetch('/api/analise-exemplo').then((r) => r.json()).then(desenharAnalise).catch(() => {
+    $('#analise').replaceChildren(el('div', { class: 'mensagem erro', text: 'Não foi possível carregar o exemplo.' }));
+  });
+
+  // primeira busca automática (SP, pregão eletrônico)
+  buscar();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+node_modules/
+.env
+analise-*.json
+editais-teste/*.pdf
+*.log

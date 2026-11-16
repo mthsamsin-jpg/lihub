@@ -1,0 +1,53 @@
+{
+  "orgaoEntidade": {
+    "cnpj": "19738706000183",
+    "razaoSocial": "CONSORCIO INTERMUNICIPAL MULTISSETORIAL DO VALE DO PIRANGA",
+    "poderId": "E",
+    "esferaId": "N"
+  },
+  "valorTotalHomologado": null,
+  "dataInclusao": "2023-12-08T16:50:25",
+  "dataAtualizacao": "2026-05-19T16:09:15",
+  "numeroControlePNCP": "19738706000183-1-000026/2023",
+  "anoCompra": 2023,
+  "srp": false,
+  "sequencialCompra": 26,
+  "emendaParlamentar": null,
+  "numeroCompra": "02",
+  "processo": "070028/2023",
+  "objetoCompra": "Contratação de veículos de comunicação de circulação Regional que sejam veiculados nos Municípios consorciados ao CIMVALPI, nas versões WEB, impressa e rádio tradicional ou versão web para realização de comunicação pública do CIMVALPI.",
+  "informacaoComplementar": "",
+  "dataAberturaProposta": "2023-12-08T00:00:00",
+  "dataEncerramentoProposta": "2026-12-08T23:59:59",
+  "dataPublicacaoPncp": "2023-12-08T16:50:25",
+  "dataAtualizacaoGlobal": "2026-11-14T06:50:52",
+  "unidadeOrgao": {
+    "ufNome": "Minas Gerais",
+    "ufSigla": "MG",
+    "municipioNome": "Ponte Nova",
+    "codigoIbge": "3152105",
+    "codigoUnidade": "535",
+    "nomeUnidade": "Unidade Única"
+  },
+  "orgaoSubRogado": null,
+  "unidadeSubRogada": null,
+  "amparoLegal": {
+    "nome": "Lei 14.133/2021, Art. 79, I",
+    "descricao": "Credenciamento: na hipótese de contratação paralela e não excludente: caso em que é viável e vantajosa para a Administração a realização de contratações simultâneas em condições padronizadas.",
+    "codigo": 140
+  },
+  "linkSistemaOrigem": "https://app2.licitardigital.com.br/pesquisa/19329",
+  "linkProcessoEletronico": null,
+  "justificativaPresencial": null,
+  "valorTotalEstimado": 10361.99,
+  "modalidadeId": 12,
+  "modalidadeNome": "Credenciamento",
+  "modoDisputaId": 5,
+  "modoDisputaNome": "Não se aplica",
+  "tipoInstrumentoConvocatorioCodigo": 4,
+  "tipoInstrumentoConvocatorioNome": "Edital de Chamamento Público",
+  "fontesOrcamentarias": [],
+  "situacaoCompraId": 1,
+  "situacaoCompraNome": "Divulgada no PNCP",
+  "usuarioNome": "Licitar Digital - Plataforma de Licitações Online"
+}

@@ -1,0 +1,33 @@
+{
+  "name": "licitahub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LicitaHub: gestão e inteligência em licitações públicas (PNCP + Supabase + Claude).",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "demo": "node --env-file-if-exists=.env scripts/demo.js",
+    "servidor": "node --env-file=.env src/servidor.js",
+    "sync": "node --env-file=.env scripts/sync-pncp.js",
+    "sync:simular": "node --env-file-if-exists=.env scripts/sync-pncp.js --simular --ufs=SP --modalidades=6 --max-paginas=2",
+    "analisar": "node --env-file=.env scripts/analisar-edital.js",
+    "verificar": "node --env-file=.env scripts/verificar-supabase.js",
+    "stripe:configurar": "node --env-file=.env scripts/stripe-configurar.js",
+    "stripe:verificar": "node --env-file=.env scripts/stripe-verificar.js",
+    "test": "node --test \"testes/*.test.js\""
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@google/genai": "^3.3.0",
+    "@hono/node-server": "^2.1.8",
+    "@supabase/supabase-js": "^2.119.0",
+    "hono": "^4.13.18",
+    "stripe": "^23.1.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16"
+  }
+}

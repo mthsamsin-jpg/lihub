@@ -1,0 +1,10 @@
+Coloque nesta pasta o PDF de um edital para testar a leitura pela IA.
+
+Depois de colocar a chave do Gemini no arquivo .env, rode no terminal do VS Code:
+
+  npm run analisar -- --pdf "editais-teste/NOME-DO-ARQUIVO.pdf"
+
+O resultado aparece na tela e também é salvo num arquivo analise-NOME.json.
+
+Os PDFs desta pasta não vão para o GitHub (estão no .gitignore).
+Não use documentos com dados pessoais enquanto estiver no plano gratuito do Gemini.

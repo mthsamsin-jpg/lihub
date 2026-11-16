@@ -1,0 +1,324 @@
+/* =============================================================================
+   LicitaHub · modulos.css
+   Estilos específicos de cada módulo do menu.
+   ============================================================================= */
+
+/* --- Home: banner de destaque (card minimalista + vidro sobreposto) ----------- */
+.destaque {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: center;
+  margin-bottom: 22px;
+}
+.destaque__card {
+  grid-column: 1 / 3;
+  grid-row: 1;
+  min-height: 260px;
+  padding: 30px 420px 46px 32px; /* espaço à direita para o vidro que fica por cima */
+  border-radius: 24px;
+  background:
+    radial-gradient(600px 300px at 0% 0%, rgba(56, 189, 248, 0.16), transparent 60%),
+    linear-gradient(135deg, rgba(12, 30, 56, 0.9), rgba(6, 16, 32, 0.92));
+  border: 1px solid var(--card-borda);
+  box-shadow: var(--sombra);
+}
+.destaque__rotulo { display: inline-flex; align-items: center; gap: 8px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ciano); }
+.destaque__rotulo svg { width: 16px; height: 16px; }
+.destaque__card h1 { margin-top: 12px; font-size: clamp(1.4rem, 2.6vw, 2.1rem); font-weight: 800; letter-spacing: -0.02em; max-width: 620px; }
+.destaque__card > p { margin-top: 10px; color: var(--texto-2); max-width: 560px; }
+.destaque__beneficios { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 10px 18px; margin-top: 18px; max-width: 640px; }
+.destaque__beneficios li { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; color: var(--texto-2); }
+.destaque__beneficios svg { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--sucesso); }
+
+/* O vidro do preço fica na mesma célula da grade, por cima do card (z-index) */
+.destaque__preco {
+  grid-column: 2;
+  grid-row: 1;
+  z-index: 2;
+  margin: -26px 28px -26px 0; /* "vaza" para cima e para baixo do card */
+  padding: 26px 24px;
+  border-radius: 22px;
+  text-align: center;
+}
+.destaque__preco .selo { margin-bottom: 10px; }
+.preco { display: flex; align-items: baseline; justify-content: center; gap: 4px; margin: 4px 0 2px; }
+.preco__moeda { font-size: 1.1rem; font-weight: 700; color: var(--texto-2); }
+.preco__valor { font-size: 3.4rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+.preco__periodo { font-size: 1rem; color: var(--texto-2); }
+.destaque__preco p { font-size: 0.86rem; color: var(--texto-2); }
+.destaque__preco .btn { margin-top: 16px; }
+.destaque__garantia { margin-top: 10px; font-size: 0.76rem !important; color: var(--texto-3) !important; }
+
+/* Selo flutuante em camada extra sobre a borda do card */
+.flutuante {
+  position: absolute;
+  z-index: 3;
+  left: 32px;
+  bottom: -18px;
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 0.82rem;
+  color: var(--texto);
+  animation: boiar 6s ease-in-out infinite;
+}
+.flutuante svg { width: 18px; height: 18px; color: var(--ciano); }
+@keyframes boiar { 50% { transform: translateY(-6px); } }
+
+/* Os 4 indicadores logo abaixo sobem um pouco sobre o banner */
+.home-kpis { position: relative; z-index: 1; margin-top: 34px; }
+
+@media (max-width: 1100px) {
+  .destaque { grid-template-columns: minmax(0, 1fr); }
+  .destaque__card { grid-column: 1; padding: 26px 22px 70px; }
+  .destaque__preco { grid-column: 1; grid-row: 2; margin: -54px auto 0; width: min(380px, calc(100% - 32px)); }
+  .flutuante { display: none; }
+}
+
+/* --- Calendário --------------------------------------------------------------- */
+.cal__cabecalho { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.cal__cabecalho select { width: auto !important; min-height: 36px !important; padding: 6px 10px !important; }
+.cal__mes { flex: 1; display: flex; gap: 8px; }
+.cal__semana, .cal__grade { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal__semana span { padding: 4px 0; text-align: center; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--texto-3); }
+.cal__dia {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1.15;
+  min-height: 36px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: rgba(4, 11, 22, 0.35);
+  color: var(--texto);
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: background var(--transicao), border-color var(--transicao);
+}
+.cal__dia:hover { border-color: rgba(56, 189, 248, 0.45); }
+.cal__dia--fora { color: var(--texto-3); background: transparent; font-weight: 500; }
+.cal__dia--hoje { border-color: rgba(56, 189, 248, 0.65); color: var(--ciano); }
+.cal__dia--selecionado { background: var(--gradiente); color: #04121f; border-color: transparent; box-shadow: var(--sombra-azul); }
+.cal__pontos { position: absolute; bottom: 5px; left: 50%; display: flex; gap: 3px; transform: translateX(-50%); }
+.cal__pontos i { width: 5px; height: 5px; border-radius: 50%; background: var(--ciano); }
+.cal__pontos i.sessao { background: var(--alerta); }
+.cal__pontos i.prazo { background: var(--perigo); }
+.cal__dia--selecionado .cal__pontos i { background: #04121f; }
+.cal--grande .cal__dia { aspect-ratio: 1.6; align-content: start; justify-items: start; padding: 8px; }
+.cal--grande .cal__pontos { left: 8px; transform: none; }
+
+.cal__eventos { margin-top: 16px; display: grid; gap: 8px; }
+.cal__eventos h4 { font-size: 0.86rem; color: var(--texto-2); font-weight: 600; }
+.evento { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: rgba(4, 11, 22, 0.45); border: 1px solid var(--linha); }
+.evento__hora { font-size: 0.8rem; font-weight: 700; color: var(--ciano); min-width: 46px; font-variant-numeric: tabular-nums; }
+.evento__texto { flex: 1; min-width: 0; font-size: 0.86rem; }
+.evento__texto span { display: block; font-size: 0.76rem; color: var(--texto-3); }
+.evento--sessao { border-left: 3px solid var(--alerta); }
+.evento--prazo { border-left: 3px solid var(--perigo); }
+.evento--abertura { border-left: 3px solid var(--ciano); }
+
+/* --- Vencimento de documentos ------------------------------------------------------ */
+.contadores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.contador { padding: 14px 16px; border-radius: 14px; border: 1px solid; }
+.contador strong { display: block; font-size: 2rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.contador span { font-size: 0.82rem; }
+.contador--perigo { background: rgba(248, 113, 113, 0.08); border-color: rgba(248, 113, 113, 0.3); color: var(--perigo); }
+.contador--alerta { background: rgba(251, 146, 60, 0.08); border-color: rgba(251, 146, 60, 0.3); color: var(--alerta); }
+.contador--sucesso { background: rgba(52, 211, 153, 0.07); border-color: rgba(52, 211, 153, 0.28); color: var(--sucesso); }
+.contadores--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 560px) { .contadores--3 { grid-template-columns: minmax(0, 1fr); } }
+
+/* --- Licitação (resultado de busca, favoritas, radar) ---------------------------- */
+.licitacao { display: grid; gap: 10px; }
+.licitacao__topo { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
+.licitacao__objeto { font-size: 0.98rem; font-weight: 700; line-height: 1.4; }
+.licitacao__orgao { font-size: 0.84rem; color: var(--texto-2); margin-top: 3px; }
+.licitacao__info { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.82rem; color: var(--texto-2); }
+.licitacao__info span { display: inline-flex; align-items: center; gap: 6px; }
+.licitacao__info svg { width: 15px; height: 15px; color: var(--texto-3); }
+.licitacao__valor { font-weight: 800; color: var(--texto); }
+.licitacao__acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.resultados { display: grid; gap: 14px; }
+.resultados__barra { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 14px; color: var(--texto-2); font-size: 0.88rem; }
+.resultados__barra select { width: auto !important; }
+.filtros { position: sticky; top: calc(var(--topo) + 16px); }
+@media (max-width: 1100px) { .filtros { position: static; } }
+
+/* --- CRM: quadro Kanban ---------------------------------------------------------- */
+.kanban {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(272px, 1fr);
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  align-items: start;
+}
+.kanban__coluna { display: grid; gap: 10px; padding: 12px; border-radius: var(--raio); background: rgba(4, 11, 22, 0.45); border: 1px solid var(--linha); min-height: 220px; align-content: start; }
+.kanban__coluna.alvo { border-color: var(--ciano); background: rgba(56, 189, 248, 0.07); }
+.kanban__cabecalho { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9rem; }
+.kanban__cor { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.kanban__total { margin-left: auto; font-size: 0.76rem; color: var(--texto-3); font-weight: 600; }
+.kanban__cartao { padding: 12px; border-radius: 12px; cursor: grab; display: grid; gap: 8px; }
+.kanban__cartao.arrastando { opacity: 0.45; }
+.kanban__cartao h4 { font-size: 0.88rem; font-weight: 600; line-height: 1.35; }
+.kanban__meta { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 0.76rem; color: var(--texto-3); }
+.kanban__acoes { display: flex; gap: 6px; align-items: center; }
+.kanban__acoes select { min-height: 32px !important; padding: 4px 8px !important; font-size: 0.78rem; }
+
+/* --- Monitoramento de chat ------------------------------------------------------- */
+.chat { display: grid; gap: 10px; max-height: 520px; overflow-y: auto; padding-right: 4px; }
+.chat__msg { padding: 12px 14px; border-radius: 14px; background: rgba(4, 11, 22, 0.5); border: 1px solid var(--linha); }
+.chat__msg header { display: flex; justify-content: space-between; gap: 10px; font-size: 0.78rem; color: var(--texto-3); margin-bottom: 4px; }
+.chat__msg header strong { color: var(--ciano); }
+.chat__msg p { font-size: 0.9rem; }
+.chat__msg--alerta { border-color: rgba(251, 146, 60, 0.5); background: rgba(251, 146, 60, 0.08); }
+.chat__msg--alerta header strong { color: var(--alerta); }
+.chat__msg--nova { animation: entrar 0.4s ease, pulsar 1.6s ease 2; }
+mark { background: rgba(251, 146, 60, 0.3); color: inherit; padding: 0 2px; border-radius: 4px; }
+.sessao { cursor: pointer; }
+.sessao.ativa { border-color: rgba(56, 189, 248, 0.55); background: rgba(56, 189, 248, 0.08); }
+.ao-vivo { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 700; color: var(--sucesso); }
+.ao-vivo::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--sucesso); animation: pulsar 1.6s infinite; box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
+
+/* --- Funções com IA ------------------------------------------------------------------ */
+.etapas-ia { list-style: none; display: grid; gap: 10px; margin: 6px 0; }
+.etapas-ia li { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--texto-3); }
+.etapas-ia li svg { width: 18px; height: 18px; }
+.etapas-ia li.feito { color: var(--texto); }
+.etapas-ia li.feito svg { color: var(--sucesso); }
+.etapas-ia li.agora { color: var(--ciano); }
+.resultado-ia { display: grid; gap: 16px; }
+.resultado-ia h3 { font-size: 0.98rem; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.resultado-ia h3 svg { width: 18px; height: 18px; color: var(--ciano); }
+.ficha { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 10px; }
+.ficha div { padding: 10px 12px; border-radius: 12px; background: rgba(4, 11, 22, 0.45); border: 1px solid var(--linha); }
+.ficha dt { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--texto-3); }
+.ficha dd { margin: 3px 0 0; font-size: 0.9rem; }
+.risco { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--linha); background: rgba(4, 11, 22, 0.45); display: grid; gap: 6px; }
+.risco--alta { border-left: 3px solid var(--perigo); }
+.risco--media { border-left: 3px solid var(--alerta); }
+.risco--baixa { border-left: 3px solid var(--ciano); }
+.risco p { font-size: 0.86rem; color: var(--texto-2); }
+.ref { font-size: 0.76rem; color: var(--texto-3); }
+.documento-ia { white-space: pre-wrap; font-size: 0.92rem; line-height: 1.7; color: var(--texto); }
+.documento-ia h4 { margin: 14px 0 6px; font-size: 0.92rem; color: var(--ciano); }
+
+/* --- Gerador de proposta: folha da proposta ------------------------------------- */
+.folha {
+  padding: 40px 44px;
+  border-radius: 12px;
+  background: #fdfdfd;
+  color: #1b2533;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  box-shadow: var(--sombra);
+}
+.folha h2 { font-size: 1.15rem; text-align: center; margin-bottom: 4px; color: #0b1b2e; }
+.folha h3 { font-size: 0.95rem; margin: 18px 0 6px; color: #0b1b2e; }
+.folha p + p { margin-top: 6px; }
+.folha .fraco { color: #5a6b80; }
+.folha table { margin-top: 8px; font-size: 0.85rem; }
+.folha th, .folha td { border: 1px solid #d6dde6; padding: 6px 8px; text-align: left; }
+.folha th { background: #eef3f8; }
+.folha .numero { text-align: right; white-space: nowrap; }
+.folha__assinatura { margin-top: 42px; text-align: center; }
+.folha__assinatura span { display: block; width: 280px; max-width: 100%; margin: 0 auto 6px; border-top: 1px solid #1b2533; }
+.itens td input { min-height: 36px !important; padding: 6px 8px !important; }
+.itens .col-qtd { width: 90px; }
+.itens .col-un { width: 90px; }
+.itens .col-valor { width: 140px; }
+.total-geral { display: flex; justify-content: flex-end; gap: 12px; align-items: baseline; padding: 12px 4px 0; font-size: 1.05rem; }
+.total-geral strong { font-size: 1.4rem; }
+
+/* --- Pesquisa de preço ---------------------------------------------------------- */
+.grafico { width: 100%; height: 230px; }
+.grafico .barra-g { fill: url(#grad-barra); }
+.grafico .barra-g:hover { fill: var(--ciano); }
+.grafico text { fill: var(--texto-3); font-size: 11px; font-family: var(--fonte); }
+.grafico .linha-mediana { stroke: var(--alerta); stroke-width: 2; stroke-dasharray: 6 5; }
+.estat strong { display: block; font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.estat span { font-size: 0.8rem; color: var(--texto-3); }
+.estat--destaque strong { color: var(--ciano); }
+
+/* --- Meu perfil / assinatura ---------------------------------------------------- */
+.plano-atual { display: grid; gap: 14px; }
+.plano-atual__preco { display: flex; align-items: baseline; gap: 6px; }
+.plano-atual__preco strong { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em; }
+.uso { display: grid; gap: 6px; }
+.uso__linha { display: flex; justify-content: space-between; font-size: 0.86rem; color: var(--texto-2); }
+.zona-perigo { border-color: rgba(248, 113, 113, 0.3) !important; }
+.destacar { animation: pulsar 1.6s ease 4; }
+
+/* --- Ajuda --------------------------------------------------------------------- */
+.tutorial { display: grid; gap: 10px; }
+.tutorial__capa {
+  display: grid; place-items: center;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  background: radial-gradient(circle at 30% 30%, rgba(56, 189, 248, 0.35), transparent 60%), linear-gradient(135deg, #0c2340, #061224);
+  border: 1px solid var(--linha);
+}
+.tutorial__capa svg { width: 42px; height: 42px; color: #fff; opacity: 0.9; }
+
+/* --- Entrar / Criar conta -------------------------------------------------------- */
+body.sem-login .app { display: none; }
+.acesso {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+}
+.acesso__cartao { width: min(480px, 100%); padding: 30px 28px; border-radius: 24px; display: grid; gap: 14px; }
+.acesso__topo { display: flex; justify-content: center; }
+.acesso__titulo { font-size: 1.5rem; font-weight: 800; text-align: center; }
+.acesso__sub { text-align: center; color: var(--texto-2); margin-top: -8px; }
+.acesso__abas { justify-self: center; }
+.acesso .form :is(input:not([type="checkbox"])) {
+  width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 11px;
+  border: 1px solid var(--card-borda); background: rgba(4, 11, 22, 0.55); color: var(--texto); outline: none;
+}
+.acesso .form input:focus { border-color: rgba(56, 189, 248, 0.65); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15); }
+.acesso .marcar { align-items: flex-start; }
+.acesso .marcar input { margin-top: 3px; flex: none; }
+
+/* --- Menu do usuário (topo) ------------------------------------------------------- */
+.menu-usuario {
+  position: fixed;
+  z-index: 50;
+  min-width: 230px;
+  padding: 8px;
+  border-radius: 14px;
+  display: grid;
+  gap: 2px;
+}
+.menu-usuario__cabecalho { padding: 8px 10px 10px; border-bottom: 1px solid var(--linha); margin-bottom: 4px; }
+.menu-usuario__cabecalho strong { display: block; }
+.menu-usuario__cabecalho span { font-size: 0.8rem; color: var(--texto-3); }
+.menu-usuario a, .menu-usuario button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 10px; border: 0; border-radius: 10px; background: none;
+  color: var(--texto); font-size: 0.9rem; text-align: left;
+}
+.menu-usuario a:hover, .menu-usuario button:hover { background: rgba(56, 189, 248, 0.1); text-decoration: none; }
+.menu-usuario svg { width: 17px; height: 17px; color: var(--texto-2); }
+
+/* --- Carregando -------------------------------------------------------------- */
+.carregando { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 34px 16px; color: var(--texto-2); }
+.carregando svg { width: 20px; height: 20px; color: var(--ciano); }
+.mais-resultados { display: flex; justify-content: center; margin-top: 6px; }
+
+/* --- Impressão: só a folha da proposta/declaração ----------------------------------- */
+@media print {
+  body { background: #fff !important; }
+  .fundo-liquido, .sidebar, .sidebar-fundo, .topo, .rodape, .avisos, .nao-imprimir { display: none !important; }
+  .principal { margin: 0 !important; }
+  .conteudo { padding: 0 !important; max-width: none; }
+  .folha { box-shadow: none; padding: 0; }
+  .vista > :not(.area-impressao) { display: none !important; }
+  .area-impressao, .area-impressao * { visibility: visible; }
+}

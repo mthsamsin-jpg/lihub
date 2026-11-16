@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#040b16">
+  <meta name="description" content="LicitaHub: gestão, monitoramento e análise inteligente de licitações públicas.">
+  <title>Painel · LicitaHub</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2338bdf8'/%3E%3Cstop offset='1' stop-color='%230284c7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cpath d='M9 22V10h3v9h6v3z' fill='%23040b16'/%3E%3Ccircle cx='22' cy='11' r='3' fill='%23040b16'/%3E%3C/svg%3E">
+
+  <!-- Fonte Inter (se estiver sem internet, o navegador usa a fonte do sistema) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/componentes.css">
+  <link rel="stylesheet" href="css/modulos.css">
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <!-- Fundo líquido: formas orgânicas animadas e desfocadas atrás de tudo -->
+  <div class="fundo-liquido" aria-hidden="true">
+    <span class="blob blob--1"></span>
+    <span class="blob blob--2"></span>
+    <span class="blob blob--3"></span>
+    <span class="blob blob--4"></span>
+  </div>
+
+  <div class="app">
+    <!-- Menu lateral fixo (vira gaveta no celular) -->
+    <aside class="sidebar" id="sidebar" aria-label="Menu principal">
+      <div class="sidebar__topo">
+        <a class="logo" href="#/home" aria-label="LicitaHub, ir para a Home">
+          <span class="logo__marca" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><defs><linearGradient id="logo-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0284c7"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#logo-g)"/><path d="M9 22V10h3v9h6v3z" fill="#040b16"/><circle cx="22" cy="11" r="3" fill="#040b16"/></svg>
+          </span>
+          <span class="logo__nome">Licita<b>Hub</b></span>
+        </a>
+        <button class="btn-icone sidebar__fechar" type="button" data-acao="fechar-menu" aria-label="Fechar menu"></button>
+      </div>
+
+      <nav class="menu" id="menu"><!-- montado pelo js/app.js a partir de LH.menu --></nav>
+
+      <div class="sidebar__plano card--vidro">
+        <span class="selo selo--info">Teste grátis</span>
+        <p>Plano <strong>Completo</strong> · R$ 97/mês</p>
+        <a class="btn btn--primario btn--bloco btn--pequeno" href="#/perfil">Ver assinatura</a>
+      </div>
+    </aside>
+    <div class="sidebar-fundo" data-acao="fechar-menu" aria-hidden="true"></div>
+
+    <!-- Área principal -->
+    <div class="principal">
+      <header class="topo">
+        <button class="btn-icone topo__menu" type="button" data-acao="abrir-menu" aria-label="Abrir menu" aria-controls="sidebar" aria-expanded="false"></button>
+        <div class="topo__titulo">
+          <span class="topo__trilha" id="trilha">LicitaHub</span>
+          <strong id="titulo-pagina">Home</strong>
+        </div>
+        <label class="topo__busca">
+          <span class="sr">Buscar licitações</span>
+          <input type="search" id="busca-rapida" placeholder="Buscar licitações (ex.: papel A4, limpeza...)">
+        </label>
+        <button class="btn-icone topo__sino" type="button" data-acao="notificacoes" aria-label="Notificações"><span class="ponto-aviso"></span></button>
+        <a class="topo__usuario" href="#/perfil" aria-label="Meu perfil">
+          <span class="avatar" id="avatar">ME</span>
+          <span class="topo__usuario-nome" id="usuario-nome">Minha empresa</span>
+        </a>
+      </header>
+
+      <main class="conteudo" id="conteudo" tabindex="-1">
+        <!-- Cada módulo do menu é desenhado aqui pelo roteador (js/app.js) -->
+      </main>
+
+      <footer class="rodape">
+        <p class="rodape__aviso">O LicitaHub organiza informações e usa IA para ajudar na leitura de editais, mas <strong>não garante vitória em licitações</strong>. Confira sempre o edital original: a responsabilidade final pela proposta é do usuário.</p>
+        <nav class="rodape__links" aria-label="Informações legais">
+          <span>© 2026 LicitaHub</span>
+          <span>CNPJ 00.000.000/0001-00</span>
+          <a href="#/ajuda" data-legal="termos">Termos de uso</a>
+          <a href="#/ajuda" data-legal="privacidade">Política de privacidade</a>
+          <a href="#/ajuda" data-legal="lgpd">LGPD</a>
+          <a href="#/ajuda">Suporte</a>
+        </nav>
+      </footer>
+    </div>
+  </div>
+
+  <div class="avisos" id="avisos" aria-live="polite"></div>
+
+  <!-- Scripts comuns (sem módulos ES, para abrir direto do arquivo no navegador) -->
+  <script src="js/icones.js" defer></script>
+  <script src="js/dados.js" defer></script>
+  <script src="js/nucleo.js" defer></script>
+  <script src="js/legal.js" defer></script>
+  <script src="js/componentes.js" defer></script>
+  <!-- Ligação com o back-end (login e dados reais) quando aberto pelo servidor -->
+  <script src="js/nuvem.js" defer></script>
+  <script src="js/repo.js" defer></script>
+  <script src="js/acesso.js" defer></script>
+  <!-- Módulos do menu -->
+  <script src="js/modulos/home.js" defer></script>
+  <script src="js/modulos/licitacoes.js" defer></script>
+  <script src="js/modulos/agenda.js" defer></script>
+  <script src="js/modulos/propostas.js" defer></script>
+  <script src="js/modulos/ia.js" defer></script>
+  <script src="js/modulos/crm.js" defer></script>
+  <script src="js/modulos/mercado.js" defer></script>
+  <script src="js/modulos/monitoramento.js" defer></script>
+  <script src="js/modulos/conta.js" defer></script>
+  <!-- Menu, rotas e inicialização -->
+  <script src="js/app.js" defer></script>
+</body>
+</html>

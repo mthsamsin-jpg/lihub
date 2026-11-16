@@ -1,0 +1,191 @@
+/* =============================================================================
+   LicitaHub · base.css
+   Cores (variáveis), reset, tipografia, fundo líquido e animações de entrada.
+   ============================================================================= */
+
+:root {
+  /* Fundo: azul-noite profundo */
+  --bg-0: #040b16;
+  --bg-1: #0a192f;
+  --bg-2: #0f2442;
+
+  /* Destaques: azul claro luminoso / ciano */
+  --azul: #0ea5e9;
+  --ciano: #38bdf8;
+  --azul-forte: #0284c7;
+  --gradiente: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 45%, #0284c7 100%);
+
+  /* Texto */
+  --texto: #e6f1ff;
+  --texto-2: #a9bbd6;
+  --texto-3: #6f86a6;
+
+  /* Superfícies */
+  --card: rgba(12, 28, 52, 0.62);
+  --card-forte: rgba(10, 24, 46, 0.85);
+  --card-borda: rgba(148, 197, 255, 0.12);
+  --vidro: rgba(255, 255, 255, 0.08);
+  --vidro-borda: rgba(255, 255, 255, 0.22);
+  --linha: rgba(148, 197, 255, 0.1);
+
+  /* Estados */
+  --perigo: #f87171;
+  --alerta: #fb923c;
+  --sucesso: #34d399;
+  --info: #38bdf8;
+
+  /* Medidas */
+  --raio: 18px;
+  --raio-md: 14px;
+  --raio-sm: 10px;
+  --sombra: 0 18px 50px rgba(0, 0, 0, 0.35);
+  --sombra-azul: 0 10px 30px rgba(14, 165, 233, 0.35);
+  --sidebar: 286px;
+  --topo: 68px;
+  --transicao: 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  --fonte: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* --- Reset enxuto ------------------------------------------------------------ */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--fonte);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--texto);
+  /* Degradê profundo do azul-noite ao azul do topo */
+  background:
+    radial-gradient(1200px 700px at 85% -10%, rgba(14, 165, 233, 0.18), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(56, 189, 248, 0.12), transparent 60%),
+    linear-gradient(160deg, var(--bg-0) 0%, var(--bg-1) 55%, #071426 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+img, svg { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--ciano); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1, h2, h3, h4 { margin: 0; line-height: 1.25; letter-spacing: -0.01em; }
+p { margin: 0; }
+ul, ol { margin: 0; padding: 0; }
+table { border-collapse: collapse; width: 100%; }
+[hidden] { display: none !important; }
+
+::selection { background: rgba(56, 189, 248, 0.35); }
+
+:focus-visible {
+  outline: 2px solid var(--ciano);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Barras de rolagem discretas */
+* { scrollbar-width: thin; scrollbar-color: rgba(148, 197, 255, 0.25) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(148, 197, 255, 0.2); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+
+/* Só para leitores de tela */
+.sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.pular {
+  position: fixed; left: 16px; top: -60px; z-index: 100;
+  padding: 10px 16px; border-radius: var(--raio-sm);
+  background: var(--azul); color: var(--bg-0); font-weight: 700;
+}
+.pular:focus { top: 16px; }
+
+/* =============================================================================
+   Fundo líquido (liquid morphing)
+   Blobs com border-radius fluido que mudam de forma, giram e flutuam,
+   desfocados com blur(85px) atrás de toda a interface.
+   ============================================================================= */
+.fundo-liquido {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  display: block;
+  width: 42vmax;
+  height: 42vmax;
+  filter: blur(85px);
+  opacity: 0.55;
+  border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
+  will-change: transform, border-radius;
+  animation:
+    liquido 22s ease-in-out infinite alternate,
+    flutuar 28s ease-in-out infinite alternate;
+}
+.blob--1 { top: -14vmax; right: -8vmax; background: radial-gradient(circle at 30% 30%, #38bdf8, #0284c7 70%); }
+.blob--2 { bottom: -18vmax; left: -12vmax; background: radial-gradient(circle at 60% 40%, #0ea5e9, #0a3a6b 70%); animation-duration: 26s, 34s; }
+.blob--3 { top: 30%; left: 35%; width: 30vmax; height: 30vmax; opacity: 0.32; background: radial-gradient(circle, #22d3ee, #075985 70%); animation-duration: 30s, 24s; animation-delay: -8s, -4s; }
+.blob--4 { top: 55%; right: 8%; width: 24vmax; height: 24vmax; opacity: 0.28; background: radial-gradient(circle, #7dd3fc, #0c4a6e 70%); animation-duration: 20s, 30s; animation-delay: -12s, -10s; }
+
+@keyframes liquido {
+  0%   { border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%; }
+  25%  { border-radius: 63% 37% 41% 59% / 56% 62% 38% 44%; }
+  50%  { border-radius: 37% 63% 56% 44% / 63% 35% 65% 37%; }
+  75%  { border-radius: 55% 45% 33% 67% / 38% 57% 43% 62%; }
+  100% { border-radius: 46% 54% 60% 40% / 52% 40% 60% 48%; }
+}
+
+@keyframes flutuar {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  50%  { transform: translate3d(6vmax, 4vmax, 0) rotate(90deg) scale(1.12); }
+  100% { transform: translate3d(-4vmax, 7vmax, 0) rotate(180deg) scale(0.94); }
+}
+
+/* =============================================================================
+   Animação ao rolar (scroll reveal) — o JS adiciona .revelado quando o
+   elemento entra na tela (IntersectionObserver).
+   ============================================================================= */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--atraso, 0ms);
+}
+[data-reveal="escala"] { transform: scale(0.94); }
+[data-reveal="esquerda"] { transform: translateX(-22px); }
+[data-reveal].revelado { opacity: 1; transform: none; }
+
+/* Entrada de cada tela ao trocar de módulo */
+.vista { animation: entrar 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); }
+@keyframes entrar {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes girar { to { transform: rotate(360deg); } }
+@keyframes pulsar {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.45); }
+  50%      { box-shadow: 0 0 0 8px rgba(56, 189, 248, 0); }
+}
+
+/* Quem prefere menos movimento (configuração do sistema) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  .blob { animation: none; }
+  [data-reveal] { opacity: 1; transform: none; }
+  html { scroll-behavior: auto; }
+}

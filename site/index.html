@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#040b16">
+  <title>LicitaHub · Licitações públicas com inteligência</title>
+  <meta name="description" content="Encontre licitações abertas no PNCP, leia editais com inteligência artificial e organize prazos, documentos, propostas e o seu CRM. 7 dias grátis no plano Completo de R$ 97/mês.">
+  <meta property="og:title" content="LicitaHub · Licitações públicas com inteligência">
+  <meta property="og:description" content="Do edital à proposta, num só lugar. 7 dias grátis no plano Completo.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2338bdf8'/%3E%3Cstop offset='1' stop-color='%230284c7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cpath d='M9 22V10h3v9h6v3z' fill='%23040b16'/%3E%3Ccircle cx='22' cy='11' r='3' fill='%23040b16'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/componentes.css">
+  <link rel="stylesheet" href="css/landing.css">
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <!-- Fundo líquido -->
+  <div class="fundo-liquido" aria-hidden="true">
+    <span class="blob blob--1"></span>
+    <span class="blob blob--2"></span>
+    <span class="blob blob--3"></span>
+    <span class="blob blob--4"></span>
+  </div>
+
+  <!-- Barra de navegação (vidro) -->
+  <header class="nav-pub" id="nav">
+    <a class="logo" href="#topo" aria-label="LicitaHub, voltar ao início">
+      <span class="logo__marca" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><defs><linearGradient id="logo-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0284c7"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#logo-g)"/><path d="M9 22V10h3v9h6v3z" fill="#040b16"/><circle cx="22" cy="11" r="3" fill="#040b16"/></svg>
+      </span>
+      <span class="logo__nome">Licita<b>Hub</b></span>
+    </a>
+    <button class="btn-icone nav-pub__menu" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="nav-links"><span class="ic" data-icone="menu"></span></button>
+    <nav class="nav-pub__links" id="nav-links" aria-label="Seções da página">
+      <a href="#recursos">Recursos</a>
+      <a href="#ia">IA para editais</a>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#preco">Preço</a>
+      <a href="#perguntas">Perguntas</a>
+    </nav>
+    <div class="nav-pub__acoes">
+      <a class="btn btn--fantasma so-visitante" href="app.html?acesso=entrar">Entrar</a>
+      <a class="btn btn--primario so-visitante" href="app.html?acesso=cadastrar">Começar agora</a>
+      <a class="btn btn--primario nav-pub__painel" href="app.html">Ir para o painel</a>
+    </div>
+  </header>
+
+  <main id="conteudo">
+    <!-- Abertura -->
+    <section class="hero" id="topo">
+      <div data-reveal>
+        <span class="etiqueta"><span class="ic" data-icone="brilho"></span> Para quem vende para o governo</span>
+        <h1>Licitações públicas, do edital à proposta, <span class="destaque-texto">num só lugar</span>.</h1>
+        <p class="hero__sub">O LicitaHub busca as licitações abertas no PNCP, lê o edital com inteligência artificial e organiza prazos, documentos, propostas e o seu CRM. Você decide com mais tempo e menos risco.</p>
+        <div class="hero__ctas">
+          <a class="btn btn--primario btn--grande" href="app.html?acesso=cadastrar&amp;destino=perfil%3Fassinar%3D1">Garantir meus 7 dias grátis</a>
+          <a class="btn btn--grande" href="#como-funciona">Ver como funciona</a>
+        </div>
+        <div class="hero__selos">
+          <span><span class="ic" data-icone="checkCirculo"></span> Dados oficiais do PNCP</span>
+          <span><span class="ic" data-icone="escudo"></span> Proteção de dados (LGPD)</span>
+          <span><span class="ic" data-icone="cadeado"></span> Pagamento seguro pela Stripe</span>
+          <span><span class="ic" data-icone="check"></span> Cancele quando quiser</span>
+        </div>
+      </div>
+
+      <div class="hero__visual" data-reveal="escala" style="--atraso:150ms" aria-hidden="true">
+        <div class="mock spot">
+          <div class="mock__barra"><i></i><i></i><i></i></div>
+          <div class="mock__kpis">
+            <div class="mock__kpi"><span>Abertas agora</span><strong>26.452</strong></div>
+            <div class="mock__kpi"><span>Novas em 24 h</span><strong>75</strong></div>
+            <div class="mock__kpi"><span>No seu CRM</span><strong>12</strong></div>
+          </div>
+          <div class="mock__lista">
+            <div class="mock__linha"><b>Limpeza e conservação predial</b><span class="selo selo--alerta">encerra em 3 dias</span></div>
+            <div class="mock__linha"><b>Notebooks para laboratórios de ensino</b><span class="selo selo--info">Pregão</span></div>
+            <div class="mock__linha"><b>Manutenção de ar-condicionado</b><span class="selo selo--info">Dispensa</span></div>
+            <div class="mock__linha"><b>Medicamentos da farmácia básica</b><span class="selo">PR</span></div>
+          </div>
+        </div>
+        <div class="mock-flutuante mock-flutuante--ia card--vidro">
+          <strong><span class="ic" data-icone="brilho"></span> A IA leu o edital</strong>
+          <p>63 páginas em cerca de 2 minutos: prazos, documentos e riscos apontados.</p>
+        </div>
+        <div class="mock-flutuante mock-flutuante--crm card--vidro">
+          <strong><span class="ic" data-icone="kanban"></span> Movida para "Em disputa"</strong>
+          <p>Pregão 90012/2026 · R$ 184.500,00</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Números -->
+    <section class="numeros" aria-label="O LicitaHub em números">
+      <div class="numero-pub card spot" data-reveal><strong data-contar="17">17</strong><span>módulos num só lugar</span></div>
+      <div class="numero-pub card spot" data-reveal><strong><span data-contar="63">63</span> pág.</strong><span>de edital lidas em ~2 min pela IA</span></div>
+      <div class="numero-pub card spot" data-reveal><strong><span data-contar="7">7</span> dias</strong><span>grátis para testar o plano Completo</span></div>
+      <div class="numero-pub card spot" data-reveal><strong>R$ <span data-contar="97">97</span></strong><span>por mês, sem fidelidade</span></div>
+    </section>
+
+    <!-- Recursos: todas as categorias do sistema -->
+    <section class="secao-pub" id="recursos">
+      <div class="titulo-secao" data-reveal>
+        <span class="etiqueta"><span class="ic" data-icone="grafico"></span> Tudo o que você precisa</span>
+        <h2>17 módulos para cada etapa da licitação</h2>
+        <p>Do primeiro alerta ao resultado: encontre as oportunidades, organize a equipe, produza os documentos e acompanhe a disputa.</p>
+      </div>
+      <div class="grupos">
+        <article class="card spot grupo" data-reveal>
+          <h3><span class="kpi__icone"><span class="ic" data-icone="busca"></span></span> Encontrar</h3>
+          <p>As licitações certas, sem garimpar portal por portal.</p>
+          <ul class="modulos-pub">
+            <li><span class="ic" data-icone="busca"></span><strong>Buscar Licitações</strong><span>Palavra-chave, órgão, modalidade, UF e valor, direto do PNCP.</span></li>
+            <li><span class="ic" data-icone="radar"></span><strong>Radar de Licitações</strong><span>Aviso automático quando entra uma licitação do seu interesse.</span></li>
+            <li><span class="ic" data-icone="gota"></span><strong>Petronect <span class="selo selo--beta">Beta</span></strong><span>Oportunidades de compra da Petrobras no mesmo painel.</span></li>
+            <li><span class="ic" data-icone="estrela"></span><strong>Licitações Favoritas</strong><span>Os editais que você quer acompanhar de perto.</span></li>
+          </ul>
+        </article>
+        <article class="card spot grupo" data-reveal>
+          <h3><span class="kpi__icone"><span class="ic" data-icone="kanban"></span></span> Organizar</h3>
+          <p>Prazos, documentos e equipe sob controle.</p>
+          <ul class="modulos-pub">
+            <li><span class="ic" data-icone="home"></span><strong>Home / Visão Geral</strong><span>Indicadores, agenda e vencimentos na primeira tela.</span></li>
+            <li><span class="ic" data-icone="kanban"></span><strong>CRM - Licitante</strong><span>Kanban multiempresa, da triagem ao resultado.</span></li>
+            <li><span class="ic" data-icone="calendario"></span><strong>Calendário</strong><span>Sessões, prazos e vencimentos, dia a dia.</span></li>
+            <li><span class="ic" data-icone="pasta"></span><strong>Gestor de Documentos</strong><span>Certidões guardadas, com alerta antes de vencer.</span></li>
+          </ul>
+        </article>
+        <article class="card spot grupo" data-reveal>
+          <h3><span class="kpi__icone"><span class="ic" data-icone="arquivo"></span></span> Produzir</h3>
+          <p>Documentos prontos para revisar e enviar.</p>
+          <ul class="modulos-pub">
+            <li><span class="ic" data-icone="arquivo"></span><strong>Gerador de Propostas</strong><span>Itens, total e valor por extenso, pronto para imprimir em PDF.</span></li>
+            <li><span class="ic" data-icone="arquivoCheck"></span><strong>Gerador de Declarações</strong><span>Modelos conforme a Lei nº 14.133/2021.</span></li>
+            <li><span class="ic" data-icone="predio"></span><strong>Sua Empresa</strong><span>Dados que preenchem propostas e declarações sozinhos.</span></li>
+          </ul>
+        </article>
+        <article class="card spot grupo" data-reveal>
+          <h3><span class="kpi__icone"><span class="ic" data-icone="brilho"></span></span> Funções com IA</h3>
+          <p>Leitura e rascunhos em minutos, com referência ao edital.</p>
+          <ul class="modulos-pub">
+            <li><span class="ic" data-icone="brilho"></span><strong>Leitor de Edital IA</strong><span>Prazos, habilitação, riscos e divergências do edital.</span></li>
+            <li><span class="ic" data-icone="balanca"></span><strong>Dossiê Jurídico IA</strong><span>Rascunhos de esclarecimento, impugnação, recurso e contrarrazões.</span></li>
+            <li><span class="ic" data-icone="moeda"></span><strong>Cotação Online IA <span class="selo selo--beta">Beta</span></strong><span>Cotações de fornecedores para formar o seu preço.</span></li>
+          </ul>
+        </article>
+        <article class="card spot grupo" data-reveal>
+          <h3><span class="kpi__icone"><span class="ic" data-icone="chat"></span></span> Mercado e disputa</h3>
+          <p>Preço certo e atenção total durante a sessão.</p>
+          <ul class="modulos-pub">
+            <li><span class="ic" data-icone="etiqueta"></span><strong>Pesquisa de Preço</strong><span>Referência de mercado com a regra da IN SEGES/ME nº 65/2021.</span></li>
+            <li><span class="ic" data-icone="chat"></span><strong>Monitoramento de Chat</strong><span>Alerta quando o pregoeiro citar a sua empresa ou pedir anexo.</span></li>
+            <li><span class="ic" data-icone="plugue"></span><strong>Cadastro Comprasnet</strong><span>Pregões a acompanhar, só com dados públicos, sem senha do gov.br.</span></li>
+          </ul>
+        </article>
+        <article class="card spot grupo" data-reveal>
+          <h3><span class="kpi__icone"><span class="ic" data-icone="usuario"></span></span> Sua conta</h3>
+          <p>Assinatura simples e ajuda quando precisar.</p>
+          <ul class="modulos-pub">
+            <li><span class="ic" data-icone="usuario"></span><strong>Meu Perfil e Assinatura</strong><span>Plano de R$ 97, faturas, cancelamento e seus dados (LGPD).</span></li>
+            <li><span class="ic" data-icone="ajuda"></span><strong>Ajuda e Suporte</strong><span>Perguntas frequentes, tutoriais e atendimento.</span></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- Destaque da IA: card minimalista com alerta sobreposto -->
+    <section class="secao-pub" id="ia">
+      <div class="destaque-ia">
+        <div data-reveal="esquerda">
+          <span class="etiqueta"><span class="ic" data-icone="brilho"></span> Leitor de Edital IA</span>
+          <h2>Um edital de 63 páginas lido em pouco mais de 2 minutos</h2>
+          <p>Envie o PDF ou escolha a licitação. A IA devolve um resumo organizado, com a referência de onde cada informação está no edital.</p>
+          <ul class="lista-check">
+            <li><span class="ic" data-icone="check"></span> Prazos e data da sessão pública</li>
+            <li><span class="ic" data-icone="check"></span> Documentos de habilitação, um por um</li>
+            <li><span class="ic" data-icone="check"></span> Riscos e divergências entre o edital e o termo de referência</li>
+            <li><span class="ic" data-icone="check"></span> Pontos para pedir esclarecimento a tempo</li>
+          </ul>
+          <p class="fraco" style="margin-top:16px">A IA ajuda na leitura, mas pode errar: confira sempre o edital original.</p>
+          <div class="hero__ctas"><a class="btn btn--primario" href="app.html?acesso=cadastrar&amp;destino=ia%2Fleitor">Testar o Leitor de Edital</a></div>
+        </div>
+        <div class="ia-pilha" data-reveal="escala" style="--atraso:120ms">
+          <div class="ia-card spot">
+            <div class="ia-card__topo"><strong><span class="ic" data-icone="brilho"></span> Resultado da leitura</strong><span class="selo selo--sucesso">Confiança alta</span></div>
+            <div class="ia-linhas">
+              <div><span>Modalidade</span><b>Dispensa Eletrônica</b></div>
+              <div><span>Critério</span><b>Menor preço global</b></div>
+              <div><span>Exclusivo ME/EPP</span><b>Sim</b></div>
+              <div><span>Prazos encontrados</span><b>12</b></div>
+              <div><span>Documentos exigidos</span><b>15</b></div>
+            </div>
+          </div>
+          <div class="ia-alerta card--vidro">
+            <strong><span class="ic" data-icone="alerta"></span> Divergência encontrada</strong>
+            <p>Prazo de execução: 30 dias no aviso × 7 dias no termo de referência. Peça esclarecimento antes de enviar a proposta.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Como funciona -->
+    <section class="secao-pub" id="como-funciona">
+      <div class="titulo-secao" data-reveal>
+        <span class="etiqueta"><span class="ic" data-icone="raio"></span> Como funciona</span>
+        <h2>Em quatro passos você está acompanhando licitações</h2>
+      </div>
+      <div class="passos">
+        <article class="card spot passo" data-reveal><h3>Crie a sua conta</h3><p>Grátis e em menos de um minuto. Sem cartão para o plano gratuito.</p></article>
+        <article class="card spot passo" data-reveal><h3>Cadastre a empresa e o radar</h3><p>Diga o que você vende, onde atua e quais modalidades interessam.</p></article>
+        <article class="card spot passo" data-reveal><h3>Receba alertas e leia editais</h3><p>A IA aponta prazos, exigências e riscos de cada edital.</p></article>
+        <article class="card spot passo" data-reveal><h3>Monte a proposta e acompanhe</h3><p>Proposta, declarações, CRM e calendário trabalhando juntos.</p></article>
+      </div>
+    </section>
+
+    <!-- Preço: o plano de R$ 97 em vidro fosco, com resumo do pedido -->
+    <section class="secao-pub" id="preco">
+      <div class="titulo-secao" data-reveal>
+        <span class="etiqueta"><span class="ic" data-icone="moeda"></span> Preço simples</span>
+        <h2>Um plano completo. Sem surpresas.</h2>
+        <p>Comece grátis e assine quando fizer sentido. Sem fidelidade e sem multa para cancelar.</p>
+      </div>
+      <div class="precos">
+        <article class="card spot plano" data-reveal>
+          <h3>Gratuito</h3>
+          <div class="plano__preco"><strong>R$ 0</strong><span>/mês</span></div>
+          <ul>
+            <li><span class="ic" data-icone="check"></span> Até 3 empresas</li>
+            <li><span class="ic" data-icone="check"></span> 10 leituras de edital por IA por mês</li>
+            <li><span class="ic" data-icone="check"></span> Busca, favoritas, CRM e calendário</li>
+          </ul>
+          <a class="btn btn--bloco" href="app.html?acesso=cadastrar">Criar conta grátis</a>
+        </article>
+
+        <article class="plano plano--vidro spot" data-reveal="escala" style="--atraso:120ms" aria-labelledby="plano-completo">
+          <span class="brilho" aria-hidden="true"></span>
+          <span class="selo selo--beta plano__recomendado">Recomendado</span>
+          <h3 id="plano-completo">Plano Completo</h3>
+          <div class="plano__preco" aria-label="97 reais por mês"><span class="plano__moeda">R$</span><strong>97</strong><span>/mês</span></div>
+          <p class="suave">Todos os módulos, para quem participa de licitações toda semana.</p>
+          <ul>
+            <li><span class="ic" data-icone="check"></span> Até 10 empresas</li>
+            <li><span class="ic" data-icone="check"></span> 30 leituras de edital por IA por mês</li>
+            <li><span class="ic" data-icone="check"></span> Todos os 17 módulos, com propostas, declarações e radar</li>
+            <li><span class="ic" data-icone="check"></span> Suporte por e-mail e WhatsApp</li>
+          </ul>
+          <div class="resumo-pedido" aria-label="Resumo do pedido">
+            <div><span>Teste grátis</span><span>7 dias</span></div>
+            <div><span>Hoje você paga</span><span>R$ 0,00</span></div>
+            <div><span>Depois do teste</span><span>R$ 97,00/mês</span></div>
+            <div class="total"><span>Cancelamento</span><span>quando quiser</span></div>
+          </div>
+          <a class="btn btn--primario btn--grande btn--bloco" href="app.html?acesso=cadastrar&amp;destino=perfil%3Fassinar%3D1">Garantir meus 7 dias grátis</a>
+          <p class="plano__seguro"><span class="ic" data-icone="cadeado"></span> Pagamento seguro pela Stripe, no cartão de crédito</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Segurança e LGPD -->
+    <section class="secao-pub" id="seguranca">
+      <div class="titulo-secao" data-reveal>
+        <span class="etiqueta"><span class="ic" data-icone="escudo"></span> Segurança</span>
+        <h2>Seus dados protegidos, de verdade</h2>
+      </div>
+      <div class="confianca">
+        <article class="card spot" data-reveal><h3><span class="ic" data-icone="cadeado"></span> Cada empresa no seu espaço</h3><p>Regras de segurança no próprio banco de dados: cada organização só enxerga os próprios dados.</p></article>
+        <article class="card spot" data-reveal><h3><span class="ic" data-icone="escudo"></span> Sem senha do gov.br</h3><p>O monitoramento usa só informações públicas da sessão. Nunca pedimos a sua senha.</p></article>
+        <article class="card spot" data-reveal><h3><span class="ic" data-icone="baixar"></span> LGPD na prática</h3><p>Baixe uma cópia dos seus dados ou exclua a conta quando quiser, direto no painel.</p></article>
+      </div>
+    </section>
+
+    <!-- Perguntas frequentes -->
+    <section class="secao-pub" id="perguntas">
+      <div class="titulo-secao" data-reveal>
+        <span class="etiqueta"><span class="ic" data-icone="ajuda"></span> Perguntas frequentes</span>
+        <h2>Ficou alguma dúvida?</h2>
+      </div>
+      <div class="faq" data-reveal>
+        <details class="sanfona"><summary>Preciso de cartão para testar?<span class="ic" data-icone="setaBaixo"></span></summary><div class="sanfona__corpo">Para o plano gratuito, não. Para os 7 dias grátis do plano Completo, sim: o cartão é cadastrado na página segura da Stripe e a primeira cobrança só acontece depois do teste.</div></details>
+        <details class="sanfona"><summary>Posso cancelar quando quiser?<span class="ic" data-icone="setaBaixo"></span></summary><div class="sanfona__corpo">Pode. Em Meu Perfil, você cancela sem multa e continua usando até o fim do período já pago.</div></details>
+        <details class="sanfona"><summary>A IA substitui a leitura do edital?<span class="ic" data-icone="setaBaixo"></span></summary><div class="sanfona__corpo">Não. Ela adianta o trabalho e aponta riscos e divergências, mas pode errar. Confira sempre o edital original antes de enviar a proposta.</div></details>
+        <details class="sanfona"><summary>De onde vêm as licitações?<span class="ic" data-icone="setaBaixo"></span></summary><div class="sanfona__corpo">Do PNCP, o Portal Nacional de Contratações Públicas, atualizadas automaticamente várias vezes ao dia.</div></details>
+        <details class="sanfona"><summary>Quantas empresas posso cadastrar?<span class="ic" data-icone="setaBaixo"></span></summary><div class="sanfona__corpo">No plano Completo, até 10 empresas, cada uma com o seu quadro no CRM e os seus documentos. No gratuito, até 3.</div></details>
+        <details class="sanfona"><summary>O LicitaHub garante que eu vou ganhar a licitação?<span class="ic" data-icone="setaBaixo"></span></summary><div class="sanfona__corpo">Não. O LicitaHub organiza as informações e ajuda na preparação, mas o resultado depende da disputa e da sua proposta. A responsabilidade final pela proposta é sempre de quem a envia.</div></details>
+      </div>
+    </section>
+
+    <!-- Chamada final -->
+    <section class="cta-final" data-reveal="escala">
+      <h2>Comece hoje. Os primeiros 7 dias são por nossa conta.</h2>
+      <p>Crie a conta, cadastre a sua empresa e veja as licitações abertas para o que você vende.</p>
+      <div class="hero__ctas">
+        <a class="btn btn--primario btn--grande" href="app.html?acesso=cadastrar&amp;destino=perfil%3Fassinar%3D1">Garantir meus 7 dias grátis</a>
+        <a class="btn btn--grande" href="app.html?acesso=cadastrar">Criar conta grátis</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- Rodapé legal -->
+  <footer class="rodape-pub">
+    <div class="rodape-pub__topo">
+      <div>
+        <span class="logo__nome">Licita<b>Hub</b></span>
+        <p style="margin-top:6px">Gestão e inteligência em licitações públicas.</p>
+      </div>
+      <nav class="rodape-pub__links" aria-label="Informações legais">
+        <a href="#recursos">Recursos</a>
+        <a href="#preco">Preço</a>
+        <a href="#" data-legal="termos">Termos de uso</a>
+        <a href="#" data-legal="privacidade">Política de privacidade</a>
+        <a href="#" data-legal="lgpd">LGPD</a>
+        <a href="#" id="link-suporte">Suporte</a>
+      </nav>
+    </div>
+    <p class="rodape-pub__aviso">© <span id="ano">2026</span> LicitaHub · CNPJ <span id="cnpj">00.000.000/0001-00</span>. O LicitaHub organiza informações e usa IA para ajudar na leitura de editais, mas <strong>não garante vitória em licitações</strong>. Confira sempre o edital original: a responsabilidade final pela proposta é do usuário.</p>
+  </footer>
+
+  <div class="avisos" id="avisos" aria-live="polite"></div>
+
+  <script src="js/icones.js" defer></script>
+  <script src="js/nucleo.js" defer></script>
+  <script src="js/legal.js" defer></script>
+  <script src="js/landing.js" defer></script>
+</body>
+</html>
