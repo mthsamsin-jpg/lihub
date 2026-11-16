@@ -39,6 +39,38 @@ window.LH = window.LH || {};
   const valorTexto = (l) => (l.valor == null ? 'Valor sigiloso' : fmt.moeda(l.valor));
   const prazoTexto = (l) => (l.abertura ? `Propostas até ${fmt.data(l.abertura)}${l.hora ? ` às ${esc(l.hora)}` : ''}` : 'Prazo não informado');
 
+  // --- Perfil do órgão -----------------------------------------------------------
+  // Esfera: vem do PNCP (orgao_esfera). Na demonstração, deduzida do nome do órgão.
+  const ESFERAS = { M: 'Municipal', E: 'Estadual', F: 'Federal', D: 'Distrital' };
+  const esferaPeloNome = (orgao = '') => {
+    if (/prefeitura|munic[ií]p|c[aâ]mara municipal/i.test(orgao)) return 'M';
+    if (/federal|minist[eé]rio|tribunal regional|ex[eé]rcito|marinha|aeron[aá]utica/i.test(orgao)) return 'F';
+    if (/estado|estadual|governo do/i.test(orgao)) return 'E';
+    return null;
+  };
+  // Exigência de documentação estimada pela modalidade (Lei 14.133/2021):
+  // na dispensa, o art. 70 permite dispensar parte da habilitação; na
+  // concorrência, costuma-se pedir a habilitação completa.
+  LH.NIVEIS_DOCUMENTACAO = [
+    ['simplificada', 'Simplificada', 'selo--sucesso', /dispensa/i],
+    ['padrao', 'Padrão', 'selo--info', /preg[aã]o/i],
+    ['completa', 'Completa', 'selo--alerta', /concorr[eê]ncia/i],
+  ];
+  LH.perfilOrgao = (l) => {
+    const esfera = l.esfera || (LH.repo.modo === 'demo' ? esferaPeloNome(l.orgao) : null);
+    const nivel = LH.NIVEIS_DOCUMENTACAO.find(([, , , re]) => re.test(l.modalidade || ''));
+    return { esfera: ESFERAS[esfera] || null, documentacao: nivel ? { chave: nivel[0], rotulo: nivel[1], classe: nivel[2] } : null };
+  };
+  const selosPerfil = (l) => {
+    const p = LH.perfilOrgao(l);
+    return [
+      p.esfera && `<span class="selo selo--esfera" title="Esfera do órgão comprador">${icone('predio')} ${esc(p.esfera)}</span>`,
+      p.documentacao && `<span class="selo ${p.documentacao.classe}" title="Estimativa pela modalidade (Lei 14.133/2021). Confira sempre a habilitação no edital.">${icone('arquivoCheck')} Documentação ${esc(p.documentacao.rotulo.toLowerCase())}</span>`,
+    ].filter(Boolean).join('');
+  };
+  /** Site de origem: a plataforma onde a licitação é disputada; senão, a página no PNCP. */
+  const siteOficial = (l) => l.linkDisputa || l.linkPncp || null;
+
   /** favs: Set com os ids favoritados (vem do LH.repo). */
   LH.cartaoLicitacao = (l, favs = new Set()) => {
     const fav = favs.has(l.id);
@@ -53,6 +85,7 @@ window.LH = window.LH || {};
             ${l.me_epp ? '<span class="selo selo--sucesso">Exclusiva ME/EPP</span>' : ''}
             ${dias >= 0 && dias <= 3 ? `<span class="selo selo--alerta">${icone('relogio')} Encerra ${fmt.relativo(l.abertura)}</span>` : ''}
           </div>
+          <div class="chips licitacao__perfil">${selosPerfil(l)}</div>
           <h3 class="licitacao__objeto" style="margin-top:10px">${esc(l.objeto)}</h3>
           <p class="licitacao__orgao">${esc(l.orgao)}</p>
         </div>
@@ -66,9 +99,18 @@ window.LH = window.LH || {};
         <span>${icone('computador')} ${esc(l.plataforma)}</span>
       </div>
       <div class="licitacao__acoes">
-        <button type="button" class="btn btn--pequeno" data-acao="detalhes" data-id="${l.id}">${icone('olho')} Detalhes</button>
-        <button type="button" class="btn btn--pequeno" data-acao="ler-ia" data-id="${l.id}">${icone('brilho')} Ler edital com IA</button>
-        <button type="button" class="btn btn--pequeno" data-acao="crm" data-id="${l.id}">${icone('kanban')} Acompanhar no CRM</button>
+        <div class="licitacao__rapidas" role="group" aria-label="Ações rápidas">
+          <button type="button" class="btn btn--pequeno btn--rapida" data-acao="baixar" data-id="${l.id}">${icone('baixar')} Baixar edital</button>
+          <button type="button" class="btn btn--pequeno btn--rapida" data-acao="itens" data-id="${l.id}">${icone('caixa')} Ver itens</button>
+          ${siteOficial(l)
+            ? `<a class="btn btn--pequeno btn--rapida" href="${esc(siteOficial(l))}" target="_blank" rel="noopener noreferrer">${icone('externo')} Site oficial</a>`
+            : `<button type="button" class="btn btn--pequeno btn--rapida" disabled title="O órgão não informou o site">${icone('externo')} Site oficial</button>`}
+        </div>
+        <div class="licitacao__mais">
+          <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="detalhes" data-id="${l.id}">${icone('olho')} Detalhes</button>
+          <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="ler-ia" data-id="${l.id}">${icone('brilho')} Ler com IA</button>
+          <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="crm" data-id="${l.id}">${icone('kanban')} CRM</button>
+        </div>
       </div>
     </article>`;
   };
@@ -125,6 +167,60 @@ window.LH = window.LH || {};
     });
   };
 
+  // --- Documentos e itens (lidos na hora do PNCP pelo servidor) ---------------------
+  const linkPncp = (l) => (l?.linkPncp
+    ? `<a class="btn btn--pequeno" href="${esc(l.linkPncp)}" target="_blank" rel="noopener noreferrer">${icone('externo')} Abrir no PNCP</a>` : '');
+
+  /** Abre um modal que carrega o conteúdo em seguida. */
+  function modalCarregando(titulo, l, carregar) {
+    LH.modal({ titulo, html: `<div data-corpo>${LH.carregando('Consultando o PNCP...')}</div>` });
+    const corpo = document.querySelector('.modal-fundo:last-of-type [data-corpo]');
+    carregar()
+      .then((html) => { if (corpo?.isConnected) corpo.innerHTML = html; })
+      .catch((e) => { if (corpo?.isConnected) corpo.innerHTML = `${LH.erroHtml(e)}<div class="chips" style="margin-top:12px">${linkPncp(l)}</div>`; });
+  }
+  const soNoReal = (l) => `<p class="nota">${icone('info')} Na demonstração não há arquivos do governo. Entre com a sua conta para ${l}.</p>`;
+
+  LH.documentosLicitacao = (id) => {
+    const l = LH.licitacaoEmCache(id);
+    modalCarregando(`Editais · ${l?.numero ?? ''}`, l, async () => {
+      if (LH.repo.modo === 'demo') return soNoReal('baixar o edital e os anexos publicados no PNCP');
+      const { arquivos } = await LH.nuvem.api(`/api/licitacoes/${Number(id)}/arquivos`);
+      if (!arquivos.length) return `<p class="fraco">O órgão ainda não publicou documentos desta licitação no PNCP.</p><div class="chips">${linkPncp(l)}</div>`;
+      return `<ul class="lista">${arquivos.map((a, i) => `
+        <li class="lista__item">
+          <span class="lista__icone">${icone('arquivo')}</span>
+          <div class="lista__texto"><strong>${esc(a.titulo)}</strong><span>${esc(a.tipo || 'Documento')}${a.data ? ` · ${fmt.data(String(a.data).slice(0, 10))}` : ''}</span></div>
+          <a class="btn btn--pequeno ${i === 0 ? 'btn--primario' : ''}" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" download>${icone('baixar')} Baixar</a>
+        </li>`).join('')}</ul>`;
+    });
+  };
+
+  LH.itensLicitacao = (id) => {
+    const l = LH.licitacaoEmCache(id);
+    modalCarregando(`Itens · ${l?.numero ?? ''}`, l, async () => {
+      if (LH.repo.modo === 'demo') return soNoReal('ver os itens, quantidades e valores publicados no PNCP');
+      const { itens } = await LH.nuvem.api(`/api/licitacoes/${Number(id)}/itens`);
+      if (!itens.length) return `<p class="fraco">O PNCP não tem itens publicados para esta licitação.</p><div class="chips">${linkPncp(l)}</div>`;
+      const total = itens.reduce((s, i) => s + (i.valorTotal ?? 0), 0);
+      return `
+        <p class="fraco">${fmt.numero(itens.length)} item(ns)${total ? ` · ${fmt.moeda(total)} estimados` : ''}</p>
+        <div class="tabela-rolagem itens-tabela">
+          <table class="tabela">
+            <thead><tr><th>Nº</th><th>Descrição</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead>
+            <tbody>${itens.map((i) => `
+              <tr>
+                <td>${i.numero ?? '—'}</td>
+                <td>${esc(i.descricao)}${i.beneficio && !/sem benef/i.test(i.beneficio) ? `<br><span class="selo selo--sucesso">${esc(i.beneficio)}</span>` : ''}</td>
+                <td>${i.quantidade == null ? '—' : fmt.numero(i.quantidade)} ${esc(i.unidade)}</td>
+                <td>${i.valorUnitario == null ? 'Sigiloso' : fmt.moeda(i.valorUnitario)}</td>
+                <td>${i.valorTotal == null ? 'Sigiloso' : fmt.moeda(i.valorTotal)}</td>
+              </tr>`).join('')}</tbody>
+          </table>
+        </div>`;
+    });
+  };
+
   /** Liga os botões dos cards de licitação dentro da raiz. aoMudar() redesenha a lista. */
   LH.ligarAcoesLicitacao = (raiz, aoMudar) => {
     LH.ao(raiz, 'click', '[data-acao]', async (e, botao) => {
@@ -137,7 +233,12 @@ window.LH = window.LH || {};
             botao.classList.toggle('ligado', ficou);
             botao.setAttribute('aria-pressed', String(ficou));
             botao.setAttribute('aria-label', ficou ? 'Tirar dos favoritos' : 'Favoritar');
-            LH.aviso(ficou ? 'Licitação salva nas favoritas.' : 'Licitação removida das favoritas.', ficou ? 'sucesso' : 'info');
+            const l = LH.licitacaoEmCache(id);
+            LH.aviso(ficou
+              ? (l?.abertura ? `Salva nas favoritas e marcada no calendário em ${fmt.data(l.abertura)}.` : 'Salva nas favoritas. O órgão não informou o prazo, então ela não aparece no calendário.')
+              : 'Removida das favoritas e do calendário.', ficou ? 'sucesso' : 'info');
+            // Calendários abertos (Home, Calendário) se atualizam na hora.
+            document.dispatchEvent(new CustomEvent('lh:favoritos', { detail: { id, favorita: ficou } }));
             aoMudar?.();
           } catch (erro) {
             LH.aviso(erro.message, 'perigo');
@@ -147,6 +248,8 @@ window.LH = window.LH || {};
           break;
         }
         case 'detalhes': LH.detalhesLicitacao(id); break;
+        case 'baixar': LH.documentosLicitacao(id); break;
+        case 'itens': LH.itensLicitacao(id); break;
         case 'ler-ia': LH.ir(`ia/leitor?id=${id}`); break;
         case 'crm': LH.enviarParaCrm(id); break;
         default: break;
@@ -169,7 +272,7 @@ window.LH = window.LH || {};
   // --- Calendário interativo --------------------------------------------------------
   const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   const SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-  const TIPOS = { sessao: 'Sessão', prazo: 'Prazo', abertura: 'Abertura' };
+  const TIPOS = { sessao: 'Sessão', prazo: 'Prazo', abertura: 'Abertura', favorita: 'Favorita' };
 
   /**
    * Desenha um calendário mensal dentro de `el`.
@@ -196,6 +299,7 @@ window.LH = window.LH || {};
         if (d.getMonth() !== mes) classes.push('cal__dia--fora');
         if (iso === LH.datas.hoje()) classes.push('cal__dia--hoje');
         if (iso === selecionado) classes.push('cal__dia--selecionado');
+        if (doDia.some((ev) => ev.tipo === 'favorita')) classes.push('cal__dia--favorita');
         const pontos = doDia.slice(0, 3).map((ev) => `<i class="${ev.tipo}"></i>`).join('');
         celulas.push(`<button type="button" class="${classes.join(' ')}" data-dia="${iso}"
           aria-label="${d.getDate()} de ${MESES[d.getMonth()]}${doDia.length ? `, ${doDia.length} evento(s)` : ''}"

@@ -153,6 +153,14 @@ test('catálogo PNCP: leitura para todos, gravação só pelo sincronizador', as
     `select uf from public.buscar_licitacoes(p_ufs => array['RJ'], p_modalidades => array[8])`);
   assert.deepEqual(filtro.rows, [{ uf: 'RJ' }]);
 
+  // Busca regional: município sem acento e em minúsculas encontra o cadastrado.
+  const municipio = await como(ids.b,
+    `select municipio from public.buscar_licitacoes(p_municipios => array['sao paulo'])`);
+  assert.deepEqual(municipio.rows.map((r) => r.municipio), ['São Paulo']);
+  const nenhum = await como(ids.b,
+    `select municipio from public.buscar_licitacoes(p_municipios => array['Ananindeua'])`);
+  assert.equal(nenhum.rows.length, 0);
+
   await assert.rejects(
     como(ids.a, `insert into public.licitacoes (fonte, numero_controle_pncp, objeto)
                  values ('pncp', 'falsa-1', 'Tentativa de gravar no catálogo')`),
@@ -310,7 +318,7 @@ test('funciona mesmo sem as permissões automáticas do Supabase', async () => {
         has_table_privilege('anon', 'public.licitacoes', 'select') as visitante_le,
         has_function_privilege('authenticated', 'public.eh_membro(uuid)', 'execute') as regras_rls,
         has_function_privilege('authenticated',
-          'public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int)',
+          'public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[])',
           'execute') as busca,
         has_table_privilege('authenticated', 'public.vw_crm_cards', 'select') as visao_crm,
         has_table_privilege('authenticated', 'public.assinaturas', 'select') as assinatura_le,

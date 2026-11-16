@@ -274,3 +274,35 @@
 @media (prefers-reduced-motion: reduce) {
   .plano--vidro .brilho, .mock-flutuante { animation: none; }
 }
+
+/* --- Etapas numeradas (mesma sequência do menu do painel) ------------------------- */
+.etapa-num {
+  display: inline-grid; place-items: center;
+  flex: none;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--gradiente);
+  color: #04121f;
+  font-weight: 800;
+  font-size: 1rem;
+  box-shadow: var(--sombra-azul);
+}
+.grupo h3 { display: flex; align-items: center; gap: 12px; }
+
+/* --- Card de licitação em destaque no mockup: perfil do órgão e ações rápidas ------ */
+.mock__linha--destaque { display: grid; gap: 8px; border-color: rgba(56, 189, 248, 0.35); background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(4, 11, 22, 0.55)); }
+.mock__linha-topo { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mock__estrela { color: var(--favorita); text-shadow: 0 0 8px rgba(250, 204, 21, 0.6); }
+.mock__tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.mock__tags .selo--esfera { background: rgba(148, 197, 255, 0.1); color: var(--texto-2); }
+.mock__acoes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.mock__acoes > span {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 6px 4px;
+  border-radius: 9px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.1);
+  font-size: 0.68rem; font-weight: 600; color: var(--texto);
+  white-space: nowrap;
+}
+.mock__acoes .ic svg { width: 12px; height: 12px; }

@@ -11,7 +11,7 @@ window.LH = window.LH || {};
   const dois = (n) => String(n).padStart(2, '0');
   const sem = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const COLUNAS = 'id, fonte, numero_controle_pncp, objeto, orgao_razao_social, uf, municipio, modalidade_nome, '
-    + 'valor_estimado, data_publicacao, data_encerramento_proposta, sistema_origem, link_sistema_origem, link_pncp';
+    + 'valor_estimado, data_publicacao, data_encerramento_proposta, sistema_origem, link_sistema_origem, link_pncp, orgao_esfera';
   const EXTRAS = ['ie', 'im', 'regime', 'endereco', 'cep', 'representante', 'cpfRepresentante', 'cargo', 'banco', 'agencia', 'conta'];
   const POR_PAGINA = 20;
 
@@ -38,6 +38,7 @@ window.LH = window.LH || {};
       fonte: r.fonte === 'manual' ? 'Manual' : 'PNCP',
       linkPncp: r.link_pncp || null,
       linkDisputa: r.link_sistema_origem || null,
+      esfera: r.orgao_esfera && r.orgao_esfera !== 'N' ? r.orgao_esfera : null,
       me_epp: false,
     };
     cache.set(l.id, l);
@@ -73,6 +74,12 @@ window.LH = window.LH || {};
   });
   const EMPRESA_VAZIA = { razao: '', fantasia: '', cnpj: '', porte: 'ME', uf: 'SP', cidade: '', email: '', telefone: '', ...Object.fromEntries(EXTRAS.map((k) => [k, ''])) };
 
+  /** Favorita com prazo -> evento do calendário (marcado com estrela). */
+  const eventoFavorita = (l) => ({
+    id: `fav${l.id}`, data: l.abertura, hora: l.hora || '23:59', titulo: `★ Favorita encerra: ${l.objeto.slice(0, 70)}`,
+    detalhe: l.orgao, tipo: 'favorita', licitacaoId: l.id,
+  });
+
   // =========================================================================
   // Modo REAL
   // =========================================================================
@@ -84,8 +91,10 @@ window.LH = window.LH || {};
     modalidades: [['6', 'Pregão Eletrônico'], ['8', 'Dispensa'], ['4', 'Concorrência Eletrônica']],
 
     async buscar(f, offset = 0) {
-      const termo = [f.termo, f.orgao, f.municipio].map((s) => String(s || '').trim()).filter(Boolean).join(' ');
-      const { data, error } = await db().rpc('buscar_licitacoes', {
+      const municipios = (f.municipios?.length ? f.municipios : [f.municipio]).map((m) => String(m || '').trim()).filter(Boolean);
+      const termoBase = [f.termo, f.orgao].map((s) => String(s || '').trim()).filter(Boolean).join(' ');
+      const termo = termoBase;
+      const parametros = {
         p_termo: termo || null,
         p_ufs: f.ufs?.length ? f.ufs : (f.uf ? [f.uf] : null),
         p_modalidades: f.modalidades?.length ? f.modalidades.map(Number) : (f.modalidade ? [Number(f.modalidade)] : null),
@@ -96,9 +105,23 @@ window.LH = window.LH || {};
         p_ordem: f.ordem === 'relevancia' && !termo ? 'prazo' : (f.ordem || 'prazo'),
         p_limite: POR_PAGINA,
         p_offset: offset,
-      });
+      };
+      let { data, error } = await db().rpc('buscar_licitacoes', { ...parametros, ...(municipios.length ? { p_municipios: municipios } : {}) });
+      // Banco ainda sem o filtro de municípios (schema.sql antigo): o município vira palavra da busca.
+      if (error?.code === 'PGRST202' && municipios.length) {
+        ({ data, error } = await db().rpc('buscar_licitacoes', {
+          ...parametros, p_termo: [termoBase, municipios.length === 1 ? municipios[0] : ''].filter(Boolean).join(' ') || null,
+        }));
+      }
       if (error) throw erroBanco(error, 'A busca falhou');
-      return { lista: (data || []).map(normalizar), total: data?.length ? Number(data[0].total) : null, porPagina: POR_PAGINA };
+      // A função de busca não devolve a esfera do órgão: lê só essa coluna, de uma vez.
+      const esferas = new Map();
+      if (data?.length) {
+        const { data: extra } = await db().from('licitacoes').select('id, orgao_esfera').in('id', data.map((r) => r.id));
+        for (const e of extra || []) esferas.set(Number(e.id), e.orgao_esfera);
+      }
+      const lista = (data || []).map((r) => normalizar({ ...r, orgao_esfera: esferas.get(Number(r.id)) }));
+      return { lista, total: data?.length ? Number(data[0].total) : null, porPagina: POR_PAGINA };
     },
 
     async licitacoes(ids) {
@@ -227,13 +250,11 @@ window.LH = window.LH || {};
     // --- Agenda --------------------------------------------------------------
     async eventos() {
       const [quadro, favs, proprios, docs] = await Promise.all([real.quadro(), real.favoritos(), real.eventosProprios(), real.documentos()]);
-      const noCrm = new Set(quadro.cartoes.map((c) => c.licitacao.id));
-      const favoritas = await real.licitacoes([...favs].filter((id) => !noCrm.has(id)));
+      const favoritas = await real.licitacoes([...favs]);
       const doBanco = [
-        ...quadro.cartoes.map((c) => c.licitacao).filter((l) => l.abertura)
+        ...quadro.cartoes.map((c) => c.licitacao).filter((l) => l.abertura && !favs.has(l.id))
           .map((l) => ({ id: `crm${l.id}`, data: l.abertura, hora: l.hora, titulo: `Prazo final: ${l.objeto.slice(0, 70)}`, detalhe: l.orgao, tipo: 'sessao' })),
-        ...favoritas.filter((l) => l.abertura)
-          .map((l) => ({ id: `fav${l.id}`, data: l.abertura, hora: l.hora, titulo: `Favorita encerra: ${l.objeto.slice(0, 70)}`, detalhe: l.orgao, tipo: 'abertura' })),
+        ...favoritas.filter((l) => l.abertura).map(eventoFavorita),
       ];
       return [...doBanco, ...proprios, ...vencimentosDe(docs.lista)].sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
     },
@@ -390,16 +411,27 @@ window.LH = window.LH || {};
 
     // --- Radares ---------------------------------------------------------------
     async radares() {
-      const { data, error } = await db().from('radares').select('id, nome, palavras, ufs, modalidades, canais, ativo')
+      const ler = (colunas) => db().from('radares').select(colunas)
         .eq('organizacao_id', ctx().organizacao.id).order('criado_em', { ascending: false });
+      let { data, error } = await ler('id, nome, palavras, ufs, municipios, modalidades, canais, ativo');
+      // Coluna "municipios" ainda não criada (schema.sql antigo): lê sem ela.
+      if (error?.code === '42703') ({ data, error } = await ler('id, nome, palavras, ufs, modalidades, canais, ativo'));
       if (error) throw erroBanco(error, 'Não consegui carregar os radares');
-      return data;
+      return data.map((r) => ({ ...r, municipios: r.municipios || [] }));
     },
     async salvarRadar(r) {
-      const linha = { nome: r.nome, palavras: r.palavras, ufs: r.ufs, modalidades: r.modalidades, canais: r.canais, ativo: r.ativo !== false };
-      const res = r.id
-        ? await db().from('radares').update(linha).eq('id', r.id)
-        : await db().from('radares').insert({ ...linha, organizacao_id: ctx().organizacao.id });
+      const linha = {
+        nome: r.nome, palavras: r.palavras.slice(0, 20), ufs: r.ufs, municipios: r.municipios || [],
+        modalidades: r.modalidades, canais: r.canais, ativo: r.ativo !== false,
+      };
+      const gravar = (l) => (r.id
+        ? db().from('radares').update(l).eq('id', r.id)
+        : db().from('radares').insert({ ...l, organizacao_id: ctx().organizacao.id }));
+      let res = await gravar(linha);
+      if (res.error?.code === 'PGRST204' && linha.municipios.length) {
+        throw new Error('Para salvar municípios no radar, rode de novo o supabase/schema.sql no Supabase (ele cria a coluna "municipios").');
+      }
+      if (res.error?.code === 'PGRST204') { const { municipios, ...semMunicipios } = linha; res = await gravar(semMunicipios); }
       if (res.error) throw erroBanco(res.error, 'Não consegui salvar o radar');
     },
     async removerRadar(id) {
@@ -471,14 +503,18 @@ window.LH = window.LH || {};
     modalidades: LH.dados.MODALIDADES.map((m) => [m, m]),
 
     async buscar(f, offset = 0) {
-      const termos = sem(f.termo).split(/\s+/).filter(Boolean);
+      // "a or b" (Radar): basta um dos termos; senão, todas as palavras.
+      const alternativas = sem(f.termo).split(/\s+or\s+/).map((t) => t.replace(/"/g, '').split(/\s+/).filter(Boolean)).filter((t) => t.length);
+      const municipios = (f.municipios?.length ? f.municipios : [f.municipio]).filter(Boolean).map(sem);
+      const ufs = f.ufs?.length ? f.ufs : (f.uf ? [f.uf] : []);
+      const modalidades = f.modalidades?.length ? f.modalidades : (f.modalidade ? [f.modalidade] : []);
       const lista = LH.dados.licitacoes.filter((l) => {
         const texto = sem(`${l.objeto} ${l.orgao} ${l.numero} ${l.municipio}`);
-        return (!termos.length || termos.every((t) => texto.includes(t)))
+        return (!alternativas.length || alternativas.some((ps) => ps.every((t) => texto.includes(t))))
           && (!f.orgao || sem(l.orgao).includes(sem(f.orgao)))
-          && (!f.municipio || sem(l.municipio).includes(sem(f.municipio)))
-          && (!f.modalidade || l.modalidade === f.modalidade)
-          && (!f.uf || l.uf === f.uf)
+          && (!municipios.length || municipios.includes(sem(l.municipio)) || (!f.municipios?.length && sem(l.municipio).includes(municipios[0])))
+          && (!modalidades.length || modalidades.includes(l.modalidade))
+          && (!ufs.length || ufs.includes(l.uf))
           && (!f.min || l.valor >= f.min)
           && (!f.max || l.valor <= f.max)
           && (!f.ate || l.abertura <= f.ate);
@@ -533,7 +569,10 @@ window.LH = window.LH || {};
     },
     async removerEmpresa(id) { LH.estado.salvar('empresas', LH.estado.obter('empresas').filter((m) => m.id !== id)); },
 
-    eventos: async () => [...LH.dados.eventosPadrao, ...(await demo.eventosProprios()), ...vencimentosDe(LH.estado.obter('documentos'))]
+    eventos: async () => [
+      ...LH.dados.eventosPadrao, ...(await demo.eventosProprios()), ...vencimentosDe(LH.estado.obter('documentos')),
+      ...LH.estado.obter('favoritos').map(LH.dados.licitacao).filter((l) => l?.abertura).map(eventoFavorita),
+    ]
       .sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora)),
     licitacoesDoUsuario: async () => LH.dados.licitacoes,
 

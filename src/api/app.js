@@ -6,6 +6,8 @@
 //   POST /api/assinaturas/portal        portal da Stripe (cartão, faturas, trocar plano, cancelar)
 //   POST /stripe/webhook                avisos da Stripe (sem login; protegido pela assinatura digital)
 //   DELETE /api/conta                   exclui a conta de quem está logado (LGPD)
+//   GET  /api/licitacoes/:id/arquivos   documentos publicados no PNCP (edital e anexos)
+//   GET  /api/licitacoes/:id/itens      itens da licitação no PNCP (produtos, quantidades)
 //
 // Todas as rotas /api exigem o token de login do Supabase:
 //   Authorization: Bearer <access_token da sessão>
@@ -20,6 +22,7 @@ import * as z from 'zod/v4';
 import { sha256, verificarPdf } from '../ia/documento.js';
 import { ErroAnalise } from '../ia/erros.js';
 import { ErroPagamento } from '../pagamentos/stripe.js';
+import { ErroDetalhes } from '../pncp/detalhes.js';
 import { criarLimitador, criarLog } from '../util.js';
 
 const OrganizacaoId = z.uuid({ error: 'organizacao_id inválido.' });
@@ -50,9 +53,10 @@ const PedidoAnalise = z
  * @param {(entrada: object) => Promise<object>} deps.analisar   ver ia/analisar-edital.js
  * @param {(licitacao: object, opcoes: object) => Promise<{pdf: Buffer, nomeArquivo: string}>} deps.obterEdital
  * @param {ReturnType<import('../pagamentos/stripe.js').criarPagamentos>|null} [deps.pagamentos]  null = assinaturas desligadas
+ * @param {ReturnType<import('../pncp/detalhes.js').criarDetalhes>|null} [deps.detalhes]  documentos e itens do PNCP
  * @param {object} [deps.opcoes]
  */
-export function criarApp({ repositorio, analisar, obterEdital, pagamentos = null, opcoes = {}, log = criarLog('api') }) {
+export function criarApp({ repositorio, analisar, obterEdital, pagamentos = null, detalhes = null, opcoes = {}, log = criarLog('api') }) {
   const {
     origens = ['*'],
     analisesSimultaneas = 2,
@@ -72,7 +76,7 @@ export function criarApp({ repositorio, analisar, obterEdital, pagamentos = null
   }));
 
   app.onError((erro, c) => {
-    if (erro instanceof ErroAnalise || erro instanceof ErroPagamento) {
+    if (erro instanceof ErroAnalise || erro instanceof ErroPagamento || erro instanceof ErroDetalhes) {
       return c.json({ erro: erro.message, codigo: erro.codigo }, erro.status);
     }
     log.erro(erro?.stack ?? String(erro));
@@ -183,6 +187,21 @@ export function criarApp({ repositorio, analisar, obterEdital, pagamentos = null
     if (!analise) return c.json({ erro: 'Análise não encontrada.' }, 404);
     return c.json(analise);
   });
+
+  // --- Detalhes da licitação no PNCP (botões "Baixar editais" e "Ver itens") ---
+  const rotaDetalhe = (tipo) => async (c) => {
+    if (!detalhes) return c.json({ erro: 'Consulta ao PNCP desligada neste servidor.' }, 503);
+    const id = Number(c.req.param('id'));
+    if (!Number.isInteger(id) || id <= 0) return c.json({ erro: 'id inválido.' }, 400);
+    const licitacao = await c.get('db').licitacao(id);
+    if (!licitacao) return c.json({ erro: 'Licitação não encontrada.' }, 404);
+    if (licitacao.fonte !== 'pncp') return c.json({ erro: 'Licitação cadastrada à mão: não há dados no PNCP.', codigo: 'manual' }, 404);
+    const lista = await detalhes[tipo](licitacao);
+    c.header('Cache-Control', 'private, max-age=300');
+    return c.json({ [tipo]: lista });
+  };
+  app.get('/api/licitacoes/:id/arquivos', rotaDetalhe('arquivos'));
+  app.get('/api/licitacoes/:id/itens', rotaDetalhe('itens'));
 
   // --- Assinaturas -----------------------------------------------------------
 

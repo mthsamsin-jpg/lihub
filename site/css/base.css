@@ -33,6 +33,7 @@
   --alerta: #fb923c;
   --sucesso: #34d399;
   --info: #38bdf8;
+  --favorita: #facc15;
 
   /* Medidas */
   --raio: 18px;
@@ -188,4 +189,10 @@ table { border-collapse: collapse; width: 100%; }
   .blob { animation: none; }
   [data-reveal] { opacity: 1; transform: none; }
   html { scroll-behavior: auto; }
+}
+
+/* Texto só para leitores de tela */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }

@@ -14,7 +14,7 @@ const TEXTO_EDITAL = 'EDITAL DE PREGÃO ELETRÔNICO Nº 45/2026. '.repeat(10);
 const PDF = Buffer.from('%PDF-1.7\n% edital enviado pelo usuário\n');
 const silencioso = { info() {}, aviso() {}, erro() {} };
 
-function montar({ cota = { limite: 10, usadas: 0 }, analisar } = {}) {
+function montar({ cota = { limite: 10, usadas: 0 }, analisar, detalhes = null } = {}) {
   const analises = new Map();
   const chamadasIa = [];
 
@@ -54,6 +54,7 @@ function montar({ cota = { limite: 10, usadas: 0 }, analisar } = {}) {
       };
     }),
     obterEdital: async () => ({ pdf: Buffer.from('%PDF-1.7 baixado do PNCP'), nomeArquivo: 'edital-pncp.pdf' }),
+    detalhes,
     opcoes: { origens: ['http://localhost:5500'] },
     log: silencioso,
   });
@@ -182,4 +183,56 @@ test('CORS libera só as origens configuradas', async () => {
     headers: { origin: 'https://site-estranho.com', 'access-control-request-method': 'POST' },
   });
   assert.notEqual(bloqueado.headers.get('access-control-allow-origin'), 'https://site-estranho.com');
+});
+
+test('documentos e itens da licitação: exige login, recusa manual e devolve o que o PNCP entregou', async () => {
+  const { criarDetalhes } = await import('../src/pncp/detalhes.js');
+  const pedidos = [];
+  const detalhes = criarDetalhes({
+    baseIntegracao: 'https://pncp.gov.br/api/pncp/',
+    arquivos: async (compra) => {
+      pedidos.push(compra);
+      return [
+        { titulo: 'Termo de referência', tipoDocumentoNome: 'Termo de Referência', sequencialDocumento: 2 },
+        { titulo: 'Edital do pregão', tipoDocumentoNome: 'Edital', sequencialDocumento: 1 },
+        { titulo: 'Versão antiga', statusAtivo: false, sequencialDocumento: 3 },
+        { titulo: 'Link de fora', url: 'https://site-estranho.com/x.pdf' },
+      ];
+    },
+    itens: async () => [
+      { numeroItem: 2, descricao: 'Filtro', quantidade: 10, unidadeMedida: 'UN', valorUnitarioEstimado: 5, valorTotal: 50 },
+      { numeroItem: 1, descricao: 'Manutenção preventiva', materialOuServico: 'S', quantidade: 12, unidadeMedida: 'MÊS', valorUnitarioEstimado: null, valorTotal: null, tipoBeneficioNome: 'Participação exclusiva para ME/EPP' },
+    ],
+  });
+  const { app } = montar({ detalhes });
+
+  assert.equal((await pedir(app, '/api/licitacoes/1/arquivos', { token: null })).status, 401);
+  assert.equal((await pedir(app, '/api/licitacoes/abc/itens')).status, 400);
+  assert.equal((await pedir(app, '/api/licitacoes/999/itens')).status, 404);
+  assert.equal((await pedir(app, '/api/licitacoes/2/itens')).status, 404, 'licitação manual não tem PNCP');
+
+  const { arquivos } = await (await pedir(app, '/api/licitacoes/1/arquivos')).json();
+  assert.deepEqual(pedidos[0], { cnpj: '46395000000139', ano: 2026, sequencial: 10 });
+  assert.equal(arquivos.length, 2, 'ignora inativos e links fora do PNCP');
+  assert.equal(arquivos[0].titulo, 'Edital do pregão', 'o edital vem primeiro');
+  assert.equal(arquivos[0].url, 'https://pncp.gov.br/api/pncp/v1/orgaos/46395000000139/compras/2026/10/arquivos/1');
+
+  const { itens } = await (await pedir(app, '/api/licitacoes/1/itens')).json();
+  assert.deepEqual(itens.map((i) => i.numero), [1, 2]);
+  assert.equal(itens[0].tipo, 'Serviço');
+  assert.equal(itens[0].valorUnitario, null, 'valor sigiloso continua nulo');
+  assert.equal(itens[1].valorTotal, 50);
+});
+
+test('documentos da licitação: PNCP fora do ar vira mensagem clara (502)', async () => {
+  const { criarDetalhes } = await import('../src/pncp/detalhes.js');
+  const detalhes = criarDetalhes({
+    baseIntegracao: 'https://pncp.gov.br/api/pncp',
+    arquivos: async () => { throw Object.assign(new Error('503'), { status: 503 }); },
+  });
+  const { app } = montar({ detalhes });
+  const r = await pedir(app, '/api/licitacoes/1/arquivos');
+  assert.equal(r.status, 502);
+  assert.match((await r.json()).erro, /fora do ar/);
+  assert.equal((await pedir(montar().app, '/api/licitacoes/1/itens')).status, 503, 'sem consulta configurada');
 });

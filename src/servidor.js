@@ -8,6 +8,7 @@ import { config } from './config.js';
 import { analisarEdital, provedorDaIa } from './ia/analisar-edital.js';
 import { maxBytesPdf, obterEditalDoPncp } from './ia/documento.js';
 import { clienteStripe, criarPagamentos, modoDaChave } from './pagamentos/stripe.js';
+import { criarDetalhes } from './pncp/detalhes.js';
 import { sincronizarPncp } from './pncp/sincronizar.js';
 import { criarClienteAdmin, criarClienteDoUsuario } from './supabase.js';
 import { criarLog } from './util.js';
@@ -51,6 +52,7 @@ const app = criarApp({
   analisar: (entrada) => analisarEdital(entrada),
   obterEdital: obterEditalDoPncp,
   pagamentos,
+  detalhes: criarDetalhes({ baseIntegracao: config.pncp.urlIntegracao }),
   opcoes: {
     origens: config.servidor.origens,
     analisesSimultaneas: config.servidor.analisesSimultaneas,

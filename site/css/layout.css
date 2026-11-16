@@ -231,3 +231,48 @@
 
 /* Com o menu aberto no celular, a página de trás não rola */
 body.menu-aberto { overflow: hidden; }
+
+/* Etapas numeradas do menu (1 a 6): bolinha com o número e um fio ligando as etapas */
+.menu__item--etapa { position: relative; }
+.menu__item--etapa + .menu__item--etapa::before {
+  content: "";
+  position: absolute;
+  left: 23px; top: -10px;
+  width: 2px; height: 12px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.05), rgba(56, 189, 248, 0.45));
+}
+.menu__num {
+  display: grid; place-items: center;
+  flex: none;
+  width: 22px; height: 22px;
+  margin-left: -1px;
+  border-radius: 50%;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: rgba(14, 165, 233, 0.12);
+  color: var(--ciano);
+  font-size: 0.74rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transition: background var(--transicao), color var(--transicao), box-shadow var(--transicao);
+}
+.menu__link:hover .menu__num { background: rgba(14, 165, 233, 0.22); }
+.menu__link.ativo .menu__num,
+.menu__link[aria-expanded="true"] .menu__num {
+  background: var(--gradiente);
+  border-color: transparent;
+  color: #04121f;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.55);
+}
+.menu__subnum {
+  flex: none;
+  min-width: 24px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--texto-3);
+  font-variant-numeric: tabular-nums;
+}
+.menu__link.ativo .menu__subnum { color: var(--ciano); }
+/* Nos subitens numerados, o número substitui a bolinha */
+.menu__item--etapa .menu__sub .menu__link { padding-left: 40px; gap: 8px; }
+.menu__item--etapa .menu__sub .menu__link::after { display: none; }

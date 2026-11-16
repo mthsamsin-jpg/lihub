@@ -31,7 +31,7 @@ LH.vistas = LH.vistas || {};
     render: () => `
       ${LH.cabecalho({
         titulo: 'Calendário',
-        texto: 'Sessões públicas, prazos das licitações que você acompanha, vencimento de documentos e os seus lembretes, dia a dia.',
+        texto: 'Sessões públicas, prazos das licitações que você acompanha, suas favoritas (com estrela), vencimento de documentos e os seus lembretes, dia a dia.',
       })}
       <div class="grade grade--lateral">
         <section class="card spot" data-reveal>
@@ -41,6 +41,7 @@ LH.vistas = LH.vistas || {};
               <span class="selo"><i style="width:8px;height:8px;border-radius:50%;background:var(--ciano)"></i>Abertura</span>
               <span class="selo"><i style="width:8px;height:8px;border-radius:50%;background:var(--alerta)"></i>Sessão</span>
               <span class="selo"><i style="width:8px;height:8px;border-radius:50%;background:var(--perigo)"></i>Prazo</span>
+              <span class="selo"><i style="width:8px;height:8px;border-radius:50%;background:var(--favorita)"></i>Favorita</span>
             </div>
           </div>
           <div id="cal-grande"></div>
@@ -113,7 +114,10 @@ LH.vistas = LH.vistas || {};
           await recarregar();
         } catch (erro) { LH.aviso(erro.message, 'perigo'); }
       });
+      // Favoritou ou tirou uma licitação (em qualquer tela): o calendário se atualiza na hora.
+      document.addEventListener('lh:favoritos', recarregar);
       recarregar();
+      return () => document.removeEventListener('lh:favoritos', recarregar);
     },
   };
 

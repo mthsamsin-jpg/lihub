@@ -127,9 +127,17 @@ LH.vistas = LH.vistas || {};
       } catch (e) {
         LH.aviso(`Não consegui carregar os indicadores: ${e.message}`, 'alerta');
       }
+      let eventos = [];
+      let calendario = null;
+      // montar é assíncrono (o app não recebe a função de limpeza): o ouvinte se remove sozinho ao sair da Home.
+      const recarregarAgenda = async () => {
+        if (!raiz.isConnected) return document.removeEventListener('lh:favoritos', recarregarAgenda);
+        try { eventos = await LH.repo.eventos(); calendario?.atualizar(); } catch { /* mantém o que já está na tela */ }
+      };
+      document.addEventListener('lh:favoritos', recarregarAgenda);
       try {
-        const eventos = await LH.repo.eventos();
-        LH.calendario(raiz.querySelector('#home-calendario'), { eventos: () => eventos });
+        eventos = await LH.repo.eventos();
+        calendario = LH.calendario(raiz.querySelector('#home-calendario'), { eventos: () => eventos });
         const deHoje = eventos.filter((e) => e.data === LH.datas.hoje());
         const sessoes = deHoje.filter((e) => e.tipo !== 'prazo').length;
         const prazos = deHoje.filter((e) => e.tipo === 'prazo').length;

@@ -9,34 +9,41 @@ window.LH = window.LH || {};
 (function () {
   const { esc, icone, fmt } = LH;
 
-  // --- Menu: todas as categorias e subcategorias ----------------------------------
-  // "id" é a rota (#/id) e o nome do módulo em LH.vistas.
+  // --- Menu: as etapas do trabalho, numeradas na ordem em que acontecem ---------
+  // "id" é a rota (#/id) e o nome do módulo em LH.vistas. "etapa" numera o grupo
+  // (1 a 6) e os filhos viram 1.1, 1.2... Home, Perfil e Ajuda ficam fora da sequência.
   LH.menu = [
     { id: 'home', rotulo: 'Home', icone: 'home' },
-    { id: 'buscar', rotulo: 'Buscar Licitações', icone: 'busca' },
-    { id: 'radar', rotulo: 'Radar de Licitações', icone: 'radar' },
-    { id: 'petronect', rotulo: 'Petronect', icone: 'gota', tag: 'Beta' },
-    { id: 'favoritas', rotulo: 'Licitações favoritas', icone: 'estrela' },
-    { id: 'calendario', rotulo: 'Calendário', icone: 'calendario' },
-    { id: 'documentos', rotulo: 'Gestor de documentos', icone: 'pasta' },
-    { rotulo: 'Gerador de proposta', icone: 'arquivo', filhos: [
+    { etapa: 1, rotulo: 'Prospecção', icone: 'busca', filhos: [
+      { id: 'buscar', rotulo: 'Buscar Licitações' },
+      { id: 'radar', rotulo: 'Radar de Licitações' },
+      { id: 'petronect', rotulo: 'Petronect', tag: 'Beta' },
+      { id: 'favoritas', rotulo: 'Licitações favoritas' },
+    ] },
+    { etapa: 2, rotulo: 'Análise do edital', icone: 'brilho', filhos: [
+      { id: 'ia/leitor', rotulo: 'Leitor de Edital IA' },
+      { id: 'ia/dossie', rotulo: 'Dossiê Jurídico IA' },
+    ] },
+    { etapa: 3, rotulo: 'Acompanhamento', icone: 'kanban', filhos: [
+      { id: 'crm', rotulo: 'CRM do Licitante' },
+      { id: 'calendario', rotulo: 'Calendário' },
+    ] },
+    { etapa: 4, rotulo: 'Documentos e habilitação', icone: 'pasta', filhos: [
+      { id: 'empresa', rotulo: 'Sua empresa' },
+      { id: 'crm/empresa', rotulo: 'Cadastrar Empresa' },
+      { id: 'documentos', rotulo: 'Gestor de documentos' },
+      { id: 'declaracoes', rotulo: 'Gerador de declarações' },
+    ] },
+    { etapa: 5, rotulo: 'Preço e proposta', icone: 'arquivo', filhos: [
+      { id: 'pesquisa-precos', rotulo: 'Pesquisa de Preço' },
+      { id: 'ia/cotacao', rotulo: 'Cotação Online IA', tag: 'Beta' },
       { id: 'proposta/criar', rotulo: 'Criar proposta' },
       { id: 'proposta/minhas', rotulo: 'Minhas propostas' },
     ] },
-    { id: 'declaracoes', rotulo: 'Gerador de declarações', icone: 'arquivoCheck' },
-    { rotulo: 'Funções com IA', icone: 'brilho', filhos: [
-      { id: 'ia/leitor', rotulo: 'Leitor de Edital IA' },
-      { id: 'ia/dossie', rotulo: 'Dossiê Jurídico IA' },
-      { id: 'ia/cotacao', rotulo: 'Cotação Online IA', tag: 'Beta' },
+    { etapa: 6, rotulo: 'Disputa', icone: 'chat', filhos: [
+      { id: 'comprasnet', rotulo: 'Cadastro Comprasnet' },
+      { id: 'chat', rotulo: 'Monitoramento de Chat' },
     ] },
-    { rotulo: 'CRM - Licitante', icone: 'kanban', filhos: [
-      { id: 'crm', rotulo: 'CRM do Licitante' },
-      { id: 'crm/empresa', rotulo: 'Cadastrar Empresa' },
-    ] },
-    { id: 'pesquisa-precos', rotulo: 'Pesquisa de Preço', icone: 'etiqueta' },
-    { id: 'chat', rotulo: 'Monitoramento de Chat', icone: 'chat' },
-    { id: 'comprasnet', rotulo: 'Cadastro Comprasnet', icone: 'plugue' },
-    { id: 'empresa', rotulo: 'Sua empresa', icone: 'predio' },
     { rotulo: 'Meu Perfil', icone: 'usuario', filhos: [
       { id: 'perfil', rotulo: 'Dados da conta e assinatura' },
     ] },
@@ -56,12 +63,14 @@ window.LH = window.LH || {};
         return `<li class="menu__item"><a class="menu__link" href="#/${item.id}" data-rota="${item.id}">
           ${icone(item.icone)}<span class="menu__texto">${esc(item.rotulo)}</span>${tag(item.tag)}</a></li>`;
       }
-      return `<li class="menu__item">
+      const marca = item.etapa ? `<span class="menu__num" aria-hidden="true">${item.etapa}</span>` : icone(item.icone);
+      const rotulo = item.etapa ? `<span class="sr-only">Etapa ${item.etapa}: </span>${esc(item.rotulo)}` : esc(item.rotulo);
+      return `<li class="menu__item${item.etapa ? ' menu__item--etapa' : ''}">
         <button type="button" class="menu__link" aria-expanded="false" aria-controls="sub-${i}" data-grupo="${i}">
-          ${icone(item.icone)}<span class="menu__texto">${esc(item.rotulo)}</span>${icone('setaBaixo', 'menu__seta')}
+          ${marca}<span class="menu__texto">${rotulo}</span>${icone('setaBaixo', 'menu__seta')}
         </button>
-        <div class="menu__sub" id="sub-${i}"><ul>${item.filhos.map((f) => `
-          <li><a class="menu__link" href="#/${f.id}" data-rota="${f.id}"><span class="menu__texto">${esc(f.rotulo)}</span>${tag(f.tag)}</a></li>`).join('')}
+        <div class="menu__sub" id="sub-${i}"><ul>${item.filhos.map((f, j) => `
+          <li><a class="menu__link" href="#/${f.id}" data-rota="${f.id}">${item.etapa ? `<span class="menu__subnum">${item.etapa}.${j + 1}</span>` : ''}<span class="menu__texto">${esc(f.rotulo)}</span>${tag(f.tag)}</a></li>`).join('')}
         </ul></div>
       </li>`;
     }).join('')}</ul>`;

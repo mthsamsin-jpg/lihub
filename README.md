@@ -50,6 +50,8 @@ Ainda com dados de exemplo, porque dependem de uma fonte externa (próxima etapa
 **Dois ajustes no Supabase (painel do projeto LicitaHub):**
 1. Rode o `supabase/schema.sql` de novo. Ele cria a coluna `dados` da tabela `empresas`, e
    `npm run verificar` avisa se ela faltar.
+   Desde a busca regional do Radar (nov/2026), ele também cria a coluna `municipios` dos radares
+   e o filtro de municípios da função `buscar_licitacoes`.
 2. Em **Authentication > URL Configuration**:
    - ponha `http://localhost:8787` em **Site URL**;
    - adicione `http://localhost:8787/**` em **Redirect URLs**.

@@ -506,6 +506,11 @@ create table if not exists public.radares (
   criado_em       timestamptz not null default now()
 );
 create index if not exists radares_org_idx on public.radares (organizacao_id);
+-- Busca regional (nov/2026): municípios escolhidos no mapa e até 20 termos por radar.
+alter table public.radares add column if not exists municipios text[] not null default '{}';
+alter table public.radares drop constraint if exists radares_limites;
+alter table public.radares add constraint radares_limites
+  check (cardinality(palavras) <= 20 and cardinality(ufs) <= 27 and cardinality(municipios) <= 50);
 
 -- 3.17 Eventos do calendário criados pelo usuário (sessões, prazos, lembretes).
 create table if not exists public.eventos (
@@ -1022,7 +1027,10 @@ $$;
 
 -- 6.2 Busca de licitações com relevância, filtros e total para paginação.
 --   supabase.rpc('buscar_licitacoes', { p_termo: 'manutenção ar condicionado',
---     p_ufs: ['SP','RJ'], p_modalidades: [6], p_limite: 20, p_offset: 0 })
+--     p_ufs: ['SP','RJ'], p_modalidades: [6], p_limite: 20, p_offset: 0,
+--     p_municipios: ['Ananindeua'] })   -- municípios: sem diferença de acento ou maiúscula
+-- A versão antiga (sem p_municipios) é apagada para não ficarem duas funções com o mesmo nome.
+drop function if exists public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int);
 create or replace function public.buscar_licitacoes(
   p_termo             text        default null,
   p_ufs               text[]      default null,
@@ -1033,7 +1041,8 @@ create or replace function public.buscar_licitacoes(
   p_somente_abertas   boolean     default true,
   p_ordem             text        default 'relevancia',  -- relevancia | prazo | valor | recentes
   p_limite            int         default 20,
-  p_offset            int         default 0
+  p_offset            int         default 0,
+  p_municipios        text[]      default null
 )
 returns table (
   id                          bigint,
@@ -1078,6 +1087,9 @@ as $$
   cross join consulta c
   where (c.q is null or l.busca @@ c.q)
     and (p_ufs is null or cardinality(p_ufs) = 0 or l.uf = any (p_ufs))
+    and (p_municipios is null or cardinality(p_municipios) = 0
+         or lower(extensions.unaccent(coalesce(l.municipio, ''))) = any (
+              select lower(extensions.unaccent(btrim(m))) from unnest(p_municipios) as m))
     and (p_modalidades is null or cardinality(p_modalidades) = 0 or l.modalidade_id = any (p_modalidades))
     and (p_valor_min is null or l.valor_estimado >= p_valor_min)
     and (p_valor_max is null or l.valor_estimado <= p_valor_max)
@@ -1149,11 +1161,11 @@ revoke execute on function public.limpar_licitacoes_antigas(int) from public, an
 revoke execute on function public.ao_criar_usuario() from public, anon, authenticated;
 revoke execute on function public.ao_excluir_usuario() from public, anon, authenticated;
 revoke execute on function public.criar_organizacao(text, text) from public, anon;
-revoke execute on function public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int) from public, anon;
+revoke execute on function public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[]) from public, anon;
 revoke execute on function public.exportar_meus_dados() from public, anon;
 grant execute on function public.limpar_licitacoes_antigas(int) to service_role;
 grant execute on function public.criar_organizacao(text, text) to authenticated;
-grant execute on function public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int) to authenticated, service_role;
+grant execute on function public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[]) to authenticated, service_role;
 grant execute on function public.exportar_meus_dados() to authenticated;
 
 -- 6.5 Visões prontas para o front-end (respeitam o RLS de quem consulta).

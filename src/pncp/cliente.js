@@ -204,6 +204,24 @@ export async function listarArquivos(compra, opcoes) {
   return Array.isArray(lista) ? lista : [];
 }
 
+/**
+ * Itens da contratação (produtos/serviços, quantidades e valores estimados).
+ * O PNCP pagina a lista; lê até `maxPaginas` páginas.
+ */
+export async function listarItens(compra, { tamanhoPagina = 200, maxPaginas = 5, ...opcoes } = {}) {
+  const itens = [];
+  for (let pagina = 1; pagina <= maxPaginas; pagina += 1) {
+    const url = new URL(`${baseCompra(compra)}/itens`);
+    url.searchParams.set('pagina', String(pagina));
+    url.searchParams.set('tamanhoPagina', String(tamanhoPagina));
+    const lote = await obterJson(url.toString(), opcoes);
+    const lista = Array.isArray(lote) ? lote : [];
+    itens.push(...lista);
+    if (lista.length < tamanhoPagina) break;
+  }
+  return itens;
+}
+
 /** Escolhe o documento mais provável de ser o edital. */
 export function escolherEdital(arquivos, compra) {
   const ativos = arquivos.filter((a) => a && a.statusAtivo !== false);
