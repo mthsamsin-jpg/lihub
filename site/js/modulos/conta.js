@@ -11,7 +11,7 @@ LH.vistas = LH.vistas || {};
   const { esc, icone, fmt } = LH;
 
   const SUPORTE = LH.SUPORTE; // contatos e textos legais ficam em js/legal.js
-  const PLANO = { nome: 'Completo', preco: 97, diasTeste: 7 };
+  const PLANO = { nome: 'Completo', preco: 97, diasTeste: 30 };
 
   const campo = (nome, rotulo, valor, extra = '') =>
     `<label class="campo"><span class="campo__rotulo">${rotulo}</span><input name="${nome}" value="${esc(valor || '')}" ${extra}></label>`;
@@ -200,7 +200,7 @@ LH.vistas = LH.vistas || {};
         return;
       }
 
-      // Veio da apresentação por "Garantir meus 7 dias grátis": destaca o botão de assinar.
+      // Veio da apresentação por "Garantir meus 30 dias grátis": destaca o botão de assinar.
       if (params.assinar) {
         history.replaceState(null, '', '#/perfil');
         const botao = raiz.querySelector('[data-acao="assinar"]');
@@ -208,7 +208,7 @@ LH.vistas = LH.vistas || {};
           botao.classList.add('destacar');
           botao.focus({ preventScroll: true });
           botao.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          LH.aviso('Último passo: clique em "Assinar o Completo" para começar os seus 7 dias grátis.', 'info', 8000);
+          LH.aviso('Último passo: clique em "Assinar o Completo" para começar os seus 30 dias grátis.', 'info', 8000);
         } else {
           LH.aviso('Você já tem o plano Completo.', 'sucesso');
         }
@@ -274,7 +274,7 @@ LH.vistas = LH.vistas || {};
 
   // --- Ajuda -------------------------------------------------------------------------
   const FAQ = [
-    ['Como funciona o teste grátis?', 'Ao assinar o plano Completo você usa 7 dias sem pagar nada. Se cancelar antes do fim do teste, não há cobrança.'],
+    ['Como funciona o teste grátis?', 'Ao assinar o plano Completo você usa 30 dias sem pagar nada. Se cancelar antes do fim do teste, não há cobrança.'],
     ['Como cancelo a assinatura?', 'Em Meu Perfil > Gerenciar assinatura. O cancelamento vale no fim do período já pago e não tem multa.'],
     ['A IA substitui a leitura do edital?', 'Não. Ela adianta o trabalho e aponta riscos e divergências, mas pode errar. Confira sempre o edital original antes de enviar a proposta.'],
     ['De onde vêm as licitações?', 'Do PNCP (Portal Nacional de Contratações Públicas), atualizadas automaticamente várias vezes ao dia.'],

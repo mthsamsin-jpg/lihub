@@ -96,7 +96,7 @@ function montar({ assinaturas = {}, precos = PRECOS, opcoes = {} } = {}) {
   const pagamentos = criarPagamentos({
     stripe,
     repositorio: banco,
-    opcoes: { urlSite: 'https://licitahub.test/', diasTeste: 7, formasPagamento: [], segredoWebhook: SEGREDO, ...opcoes },
+    opcoes: { urlSite: 'https://licitahub.test/', diasTeste: 30, formasPagamento: [], segredoWebhook: SEGREDO, ...opcoes },
     log: silencioso,
   });
   return { stripe, banco, pagamentos };
@@ -132,7 +132,7 @@ test('página de pagamento: cliente criado uma vez, preço vindo da Stripe e tes
 
   const r = await pagamentos.criarCheckout({ organizacao, usuario: USUARIO, plano: 'starter', ciclo: 'mensal' });
   assert.equal(r.url, 'https://checkout.stripe.com/c/pay/cs_1');
-  assert.equal(r.dias_teste, 7);
+  assert.equal(r.dias_teste, 30);
   assert.equal(stripe.chamadas.clientes.length, 1);
   assert.equal(stripe.chamadas.clientes[0].dados.metadata.organizacao_id, ORG);
   assert.equal(stripe.chamadas.clientes[0].opcoes.idempotencyKey, `licitahub-cliente-${ORG}`);

@@ -30,7 +30,7 @@ window.LH = window.LH || {};
         <label class="marcar"><input type="checkbox" name="termos" required> <span>Li e aceito os <a href="#" data-legal="termos">Termos de uso</a> e a <a href="#" data-legal="privacidade">Política de privacidade</a>.</span></label>
         <label class="marcar"><input type="checkbox" name="marketing"> <span>Quero receber novidades e dicas por e-mail (opcional).</span></label>
         <button class="btn btn--primario btn--grande" type="submit">Criar conta grátis</button>
-        <p class="fraco" style="text-align:center">Você começa no plano gratuito e assina o Completo (R$ 97/mês, 7 dias grátis) quando quiser.</p>
+        <p class="fraco" style="text-align:center">Você começa no plano gratuito e assina o Completo (R$ 97/mês, 30 dias grátis) quando quiser.</p>
       </form>`,
     recuperar: () => `
       <form class="form" data-form="recuperar">

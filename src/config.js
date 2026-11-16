@@ -77,7 +77,7 @@ export const config = {
     // entrega o site no mesmo endereço da API (src/api/site.js).
     urlSite: URL_SITE,
     // Dias de teste grátis nos planos pagos (0 = sem teste). Uma vez por organização.
-    diasTeste: inteiro('STRIPE_DIAS_TESTE', 7),
+    diasTeste: inteiro('STRIPE_DIAS_TESTE', 30),
     // Formas de pagamento no checkout (ex.: card,boleto). Vazio = as ativadas no painel.
     formasPagamento: lista('STRIPE_FORMAS_PAGAMENTO', []),
   },

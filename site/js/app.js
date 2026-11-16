@@ -171,7 +171,7 @@ window.LH = window.LH || {};
       const status = a?.status === 'trialing' && a.teste_fim ? `Teste grátis até ${fmt.data(LH.datas.paraIso(new Date(a.teste_fim)))}` : pago ? 'Assinatura ativa' : 'Plano gratuito';
       plano.innerHTML = `<span class="selo ${pago ? 'selo--sucesso' : 'selo--info'}">${esc(status)}</span>
         <p>Plano <strong>${pago ? 'Completo' : 'Gratuito'}</strong>${pago ? ' · R$ 97/mês' : ''}</p>
-        <a class="btn btn--primario btn--bloco btn--pequeno" href="#/perfil">${pago ? 'Ver assinatura' : 'Assinar · 7 dias grátis'}</a>`;
+        <a class="btn btn--primario btn--bloco btn--pequeno" href="#/perfil">${pago ? 'Ver assinatura' : 'Assinar · 30 dias grátis'}</a>`;
     } else {
       plano.innerHTML = `<span class="selo">Modo demonstração</span>
         <p>Dados de exemplo. Plano <strong>Completo</strong> · R$ 97/mês</p>

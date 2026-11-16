@@ -544,7 +544,7 @@ window.LH = window.LH || {};
 
     conta() {
       const p = LH.estado.obter('perfil');
-      return { nome: p.nome, telefone: p.telefone, email: p.email, organizacao: { nome: 'Minha organização', plano: 'starter', limite_empresas: 10, limite_analises_ia_mes: 30 }, papel: 'dono', assinatura: { status: 'trialing', teste_fim: new Date(Date.now() + 7 * 86400000).toISOString() } };
+      return { nome: p.nome, telefone: p.telefone, email: p.email, organizacao: { nome: 'Minha organização', plano: 'starter', limite_empresas: 10, limite_analises_ia_mes: 30 }, papel: 'dono', assinatura: { status: 'trialing', teste_fim: new Date(Date.now() + 30 * 86400000).toISOString() } };
     },
     async salvarConta(d) { LH.estado.salvar('perfil', { ...LH.estado.obter('perfil'), ...d }); },
     marketing: async () => Boolean(LH.estado.obter('perfil').marketing),

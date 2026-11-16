@@ -19,7 +19,7 @@ window.LH = window.LH || {};
     termos: ['Termos de uso', `
       <p>O LicitaHub é uma ferramenta de gestão e análise de licitações públicas. Ele organiza informações públicas, usa inteligência artificial para ajudar na leitura de editais e ajuda a montar documentos.</p>
       <p><strong>O LicitaHub não garante vitória em licitações.</strong> A IA pode errar: confira sempre o edital original. A responsabilidade final pelas propostas, declarações e documentos enviados é do usuário.</p>
-      <p>Assinatura: plano Completo de R$ 97 por mês, com 7 dias grátis na primeira assinatura. Você pode cancelar quando quiser e continua com acesso até o fim do período já pago.</p>`],
+      <p>Assinatura: plano Completo de R$ 97 por mês, com 30 dias grátis na primeira assinatura. Você pode cancelar quando quiser e continua com acesso até o fim do período já pago.</p>`],
     privacidade: ['Política de privacidade', `
       <p>Coletamos os dados do cadastro (nome, e-mail, telefone), os dados da empresa e o uso da plataforma, para prestar o serviço, cobrar a assinatura e dar suporte.</p>
       <p>Compartilhamos só o necessário com quem nos ajuda a prestar o serviço: hospedagem do banco de dados, processamento de pagamentos (Stripe) e o provedor de IA que lê os editais.</p>
