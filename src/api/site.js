@@ -36,7 +36,7 @@ export function ehChaveSecreta(chave = '') {
  * @param {import('hono').Hono} app
  * @param {object} opcoes
  * @param {string} [opcoes.pasta]  pasta do site
- * @param {{ supabaseUrl: string, supabaseChave: string }} opcoes.publico  só valores que podem ir ao navegador
+ * @param {{ supabaseUrl: string, supabaseChave: string, siteUrl?: string }} opcoes.publico  só valores que podem ir ao navegador
  * @param {string} [opcoes.bibliotecaSupabase]  caminho do supabase.js (UMD)
  */
 export function ligarSite(app, { pasta = PASTA_SITE, publico, bibliotecaSupabase = caminhoSupabaseNavegador() }) {
@@ -47,6 +47,8 @@ export function ligarSite(app, { pasta = PASTA_SITE, publico, bibliotecaSupabase
   const configJs = `window.LH_CONFIG = ${JSON.stringify({
     supabaseUrl: publico.supabaseUrl,
     supabaseChave: publico.supabaseChave,
+    // Base dos links dos e-mails (cadastro e senha). Vem do SITE_URL.
+    siteUrl: (publico.siteUrl ?? '').replace(/\/+$/, ''),
   })};\n`;
 
   app.get('/config.js', (c) => {

@@ -15,7 +15,16 @@ function lista(nome, padrao = []) {
   return v ? v.split(',').map((s) => s.trim()).filter(Boolean) : padrao;
 }
 
+// Endereço público do site (ex.: https://usolicitahub.com.br), sem barra no fim.
+// É a base de TODOS os links que saem do sistema: confirmação de cadastro,
+// redefinição de senha e volta da Stripe. No computador, cai em localhost.
+const URL_SITE = texto('SITE_URL', `http://localhost:${inteiro('PORTA', 8787)}`).replace(/\/+$/, '');
+
 export const config = {
+  site: {
+    url: URL_SITE,
+  },
+
   supabase: {
     url: texto('SUPABASE_URL'),
     // Chave pública (publishable/anon): a mesma usada no front-end.
@@ -66,7 +75,7 @@ export const config = {
     segredoWebhook: texto('STRIPE_WEBHOOK_SECRET'),
     // Endereço do site: para onde o cliente volta depois de pagar. O servidor
     // entrega o site no mesmo endereço da API (src/api/site.js).
-    urlSite: texto('SITE_URL', `http://localhost:${inteiro('PORTA', 8787)}`),
+    urlSite: URL_SITE,
     // Dias de teste grátis nos planos pagos (0 = sem teste). Uma vez por organização.
     diasTeste: inteiro('STRIPE_DIAS_TESTE', 7),
     // Formas de pagamento no checkout (ex.: card,boleto). Vazio = as ativadas no painel.

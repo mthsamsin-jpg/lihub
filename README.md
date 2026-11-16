@@ -55,7 +55,9 @@ Ainda com dados de exemplo, porque dependem de uma fonte externa (próxima etapa
    - adicione `http://localhost:8787/**` em **Redirect URLs**.
 
    Sem isso, o link de confirmação do cadastro e o de recuperar a senha levam para um endereço
-   errado. No ar, troque pelo endereço público. O e-mail embutido do Supabase envia poucas
+   errado. No ar (Render), use `https://usolicitahub.com.br` em **Site URL**, adicione
+   `https://usolicitahub.com.br/**` em **Redirect URLs** e defina `SITE_URL=https://usolicitahub.com.br`
+   nas variáveis do Render: o site monta os links de cadastro, senha e Stripe a partir dela. O e-mail embutido do Supabase envia poucas
    mensagens por hora; para clientes, configure um SMTP próprio em Authentication > Emails.
 
 O site tem as 17 categorias do menu e as subcategorias:

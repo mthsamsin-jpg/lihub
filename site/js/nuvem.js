@@ -37,6 +37,11 @@ window.LH = window.LH || {};
     return new Error(achado ? achado[1] : (msg || 'Não foi possível concluir. Tente de novo.'));
   }
 
+  /** Endereço público do site (SITE_URL do servidor). Só cai no endereço atual se o servidor não informar. */
+  const enderecoSite = () => (window.LH_CONFIG?.siteUrl || location.origin).replace(/\/+$/, '');
+  /** Para onde os links dos e-mails do Supabase (confirmação e nova senha) levam. */
+  const linkRetorno = () => `${enderecoSite()}/app.html`;
+
   const N = {
     ativa: false,
     cliente: null,
@@ -137,7 +142,7 @@ window.LH = window.LH || {};
         email,
         password: senha,
         options: {
-          emailRedirectTo: `${location.origin}/app.html`,
+          emailRedirectTo: linkRetorno(),
           data: { nome, empresa, versao_termos: VERSAO_TERMOS, versao_privacidade: VERSAO_TERMOS, aceita_marketing: Boolean(marketing) },
         },
       });
@@ -153,7 +158,7 @@ window.LH = window.LH || {};
     },
 
     async recuperarSenha(email) {
-      const { error } = await N.cliente.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/app.html` });
+      const { error } = await N.cliente.auth.resetPasswordForEmail(email, { redirectTo: linkRetorno() });
       if (error) throw traduzir(error);
     },
 

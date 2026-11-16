@@ -30,7 +30,7 @@ async function montar() {
     excluirUsuario: async (id) => { excluidos.push(id); },
   };
   const app = criarApp({ repositorio, analisar: async () => ({}), obterEdital: async () => ({}), log: silencioso });
-  ligarSite(app, { pasta, publico: { supabaseUrl: 'https://abc.supabase.co', supabaseChave: PUBLICA }, bibliotecaSupabase: biblioteca });
+  ligarSite(app, { pasta, publico: { supabaseUrl: 'https://abc.supabase.co', supabaseChave: PUBLICA, siteUrl: 'https://usolicitahub.com.br/' }, bibliotecaSupabase: biblioteca });
   return { app, excluidos, limpar: () => rm(pasta, { recursive: true, force: true }) };
 }
 
@@ -49,6 +49,8 @@ test('o servidor entrega o site, a configuração pública e a biblioteca do Sup
   const texto = await config.text();
   assert.match(texto, /window\.LH_CONFIG/);
   assert.match(texto, /https:\/\/abc\.supabase\.co/);
+  // Os links dos e-mails usam o SITE_URL (sem barra no fim), nunca localhost.
+  assert.match(texto, /"siteUrl":"https:\/\/usolicitahub\.com\.br"/);
 
   assert.match(await (await app.request('/vendor/supabase.js')).text(), /window\.supabase/);
   assert.equal((await app.request('/nao-existe.html')).status, 404);

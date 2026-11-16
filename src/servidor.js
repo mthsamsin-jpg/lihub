@@ -61,10 +61,17 @@ const app = criarApp({
 });
 
 // O site (pasta site/) sai pelo mesmo endereço da API.
-ligarSite(app, { publico: { supabaseUrl: config.supabase.url, supabaseChave: config.supabase.chavePublica } });
+ligarSite(app, { publico: { supabaseUrl: config.supabase.url, supabaseChave: config.supabase.chavePublica, siteUrl: config.site.url } });
+
+// No Render (variável RENDER=true), localhost nos links é sempre engano.
+if (process.env.RENDER && /localhost|127\.0\.0\.1/.test(config.site.url)) {
+  log.erro(`SITE_URL está como ${config.site.url}. Os links de e-mail e da Stripe vão apontar para localhost. `
+    + 'Defina SITE_URL=https://usolicitahub.com.br nas variáveis do Render.');
+}
 
 const servidor = serve({ fetch: app.fetch, port: config.servidor.porta }, (info) => {
   log.info(`Site do LicitaHub em http://localhost:${info.port}  (API em /api, teste: /saude)`);
+  log.info(`Endereço público (SITE_URL), usado nos e-mails e na Stripe: ${config.site.url}`);
   log.info(`Origens liberadas (CORS): ${config.servidor.origens.join(', ')}`);
 });
 servidor.on('error', (erro) => {
