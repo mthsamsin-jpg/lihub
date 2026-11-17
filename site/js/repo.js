@@ -88,7 +88,7 @@ window.LH = window.LH || {};
 
   const real = {
     modo: 'real',
-    modalidades: [['6', 'Pregão Eletrônico'], ['8', 'Dispensa'], ['4', 'Concorrência Eletrônica']],
+    modalidades: LH.MODALIDADES.map(([id, nome]) => [String(id), nome]),
 
     async buscar(f, offset = 0) {
       const municipios = (f.municipios?.length ? f.municipios : [f.municipio]).map((m) => String(m || '').trim()).filter(Boolean);
@@ -122,6 +122,39 @@ window.LH = window.LH || {};
       }
       const lista = (data || []).map((r) => normalizar({ ...r, orgao_esfera: esferas.get(Number(r.id)) }));
       return { lista, total: data?.length ? Number(data[0].total) : null, porPagina: POR_PAGINA };
+    },
+
+    /**
+     * Radar: licitações abertas por município (para o mapa).
+     * f: { termo, ufs, municipios, modalidades (ids), de, ate }  ->  [{ uf, municipio, total }]
+     */
+    async radarContagem(f) {
+      const { data, error } = await db().rpc('radar_contagem', {
+        p_termo: f.termo || null,
+        p_ufs: f.ufs?.length ? f.ufs : null,
+        p_municipios: f.municipios?.length ? f.municipios : null,
+        p_modalidades: f.modalidades?.length ? f.modalidades.map(Number) : null,
+        p_abertura_de: f.de || null,
+        p_abertura_ate: f.ate || null,
+      });
+      if (error?.code === 'PGRST202') {
+        throw new Error('O mapa do Radar precisa da função radar_contagem: rode de novo o supabase/schema.sql no Supabase.');
+      }
+      if (error) throw erroBanco(error, 'A busca do Radar falhou');
+      return (data || []).map((r) => ({ uf: r.uf, municipio: r.municipio, total: Number(r.total) }));
+    },
+    /** Radar: as licitações de um município (ao clicar no mapa), com os mesmos filtros. */
+    async licitacoesDoMunicipio(f, uf, municipio) {
+      let q = db().from('licitacoes').select(COLUNAS)
+        .eq('uf', uf).eq('municipio', municipio)
+        .gte('data_encerramento_proposta', new Date().toISOString());
+      if (f.termo) q = q.textSearch('busca', f.termo, { type: 'websearch', config: 'portugues_sem_acento' });
+      if (f.modalidades?.length) q = q.in('modalidade_id', f.modalidades.map(Number));
+      if (f.de) q = q.gte('data_abertura_proposta', `${f.de}T00:00:00-03:00`);
+      if (f.ate) q = q.lte('data_abertura_proposta', `${f.ate}T23:59:59-03:00`);
+      const { data, error } = await q.order('data_encerramento_proposta', { ascending: true }).limit(100);
+      if (error) throw erroBanco(error, 'Não consegui carregar as licitações do município');
+      return data.map(normalizar);
     },
 
     async licitacoes(ids) {
@@ -428,6 +461,9 @@ window.LH = window.LH || {};
         ? db().from('radares').update(l).eq('id', r.id)
         : db().from('radares').insert({ ...l, organizacao_id: ctx().organizacao.id }));
       let res = await gravar(linha);
+      if (res.error?.code === '23514') {
+        throw new Error('O raio tem municípios demais para salvar. Rode de novo o supabase/schema.sql (ele aumenta o limite) ou diminua o raio.');
+      }
       if (res.error?.code === 'PGRST204' && linha.municipios.length) {
         throw new Error('Para salvar municípios no radar, rode de novo o supabase/schema.sql no Supabase (ele cria a coluna "municipios").');
       }
@@ -498,9 +534,24 @@ window.LH = window.LH || {};
   };
   const etapasDemo = () => LH.dados.etapas.map((e) => ({ id: e.id, nome: e.nome, cor: e.cor, tipo: e.id === 6 ? 'ganha' : e.id === 7 ? 'perdida' : 'aberta' }));
 
+  /** Demonstração: aplica os filtros do Radar aos dados de exemplo. */
+  function filtrarRadarDemo(f) {
+    const alternativas = sem(f.termo).split(/\s+or\s+/).map((t) => t.replace(/"/g, '').split(/\s+/).filter(Boolean)).filter((t) => t.length);
+    const municipios = new Set((f.municipios || []).map(sem));
+    return LH.dados.licitacoes.filter((l) => {
+      const texto = sem(`${l.objeto} ${l.orgao}`);
+      return (!alternativas.length || alternativas.some((ps) => ps.every((t) => texto.includes(t))))
+        && (!f.ufs?.length || f.ufs.includes(l.uf))
+        && (!municipios.size || municipios.has(sem(l.municipio)))
+        && (!f.modalidades?.length || f.modalidades.map(LH.nomeModalidade).includes(l.modalidade))
+        && (!f.de || l.abertura >= f.de)
+        && (!f.ate || l.abertura <= f.ate);
+    }).sort(ordens.prazo);
+  }
+
   const demo = {
     modo: 'demo',
-    modalidades: LH.dados.MODALIDADES.map((m) => [m, m]),
+    modalidades: LH.MODALIDADES.map(([, nome]) => [nome, nome]),
 
     async buscar(f, offset = 0) {
       // "a or b" (Radar): basta um dos termos; senão, todas as palavras.
@@ -521,6 +572,15 @@ window.LH = window.LH || {};
       }).sort(ordens[f.ordem] || ordens.prazo);
       return { lista: lista.slice(offset, offset + POR_PAGINA), total: lista.length, porPagina: POR_PAGINA };
     },
+    async radarContagem(f) {
+      const contagem = new Map();
+      for (const l of filtrarRadarDemo(f)) {
+        const chave = `${l.uf}|${l.municipio}`;
+        contagem.set(chave, { uf: l.uf, municipio: l.municipio, total: (contagem.get(chave)?.total || 0) + 1 });
+      }
+      return [...contagem.values()];
+    },
+    licitacoesDoMunicipio: async (f, uf, municipio) => filtrarRadarDemo(f).filter((l) => l.uf === uf && l.municipio === municipio),
     licitacoes: async (ids) => ids.map(LH.dados.licitacao).filter(Boolean),
     favoritos: async () => new Set(LH.estado.obter('favoritos')),
     alternarFavorito: async (id) => LH.estado.alternarFavorito(Number(id)),

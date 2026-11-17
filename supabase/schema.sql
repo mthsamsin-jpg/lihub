@@ -510,7 +510,7 @@ create index if not exists radares_org_idx on public.radares (organizacao_id);
 alter table public.radares add column if not exists municipios text[] not null default '{}';
 alter table public.radares drop constraint if exists radares_limites;
 alter table public.radares add constraint radares_limites
-  check (cardinality(palavras) <= 20 and cardinality(ufs) <= 27 and cardinality(municipios) <= 50);
+  check (cardinality(palavras) <= 20 and cardinality(ufs) <= 27 and cardinality(municipios) <= 2000);
 
 -- 3.17 Eventos do calendário criados pelo usuário (sessões, prazos, lembretes).
 create table if not exists public.eventos (
@@ -1106,6 +1106,48 @@ as $$
   offset greatest(coalesce(p_offset, 0), 0);
 $$;
 
+-- 6.2b Radar: quantas licitações abertas há em cada município (para o mapa).
+--   Mesmos filtros da busca, mais a data de abertura das propostas.
+--   supabase.rpc('radar_contagem', { p_termo: 'cadeira or computador', p_ufs: ['SC'],
+--     p_municipios: ['Braço do Trombudo', 'Rio do Sul'], p_abertura_de: '2026-11-01' })
+create or replace function public.radar_contagem(
+  p_termo        text   default null,
+  p_ufs          text[] default null,
+  p_municipios   text[] default null,
+  p_modalidades  int[]  default null,
+  p_abertura_de  date   default null,
+  p_abertura_ate date   default null
+)
+returns table (uf text, municipio text, total bigint)
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  with consulta as (
+    select case
+             when nullif(btrim(coalesce(p_termo, '')), '') is null then null::tsquery
+             else websearch_to_tsquery('public.portugues_sem_acento', p_termo)
+           end as q
+  )
+  select l.uf, l.municipio, count(*) as total
+  from public.licitacoes l
+  cross join consulta c
+  where (c.q is null or l.busca @@ c.q)
+    and l.municipio is not null
+    and l.data_encerramento_proposta >= now()
+    and (p_ufs is null or cardinality(p_ufs) = 0 or l.uf = any (p_ufs))
+    and (p_municipios is null or cardinality(p_municipios) = 0
+         or lower(extensions.unaccent(l.municipio)) = any (
+              select lower(extensions.unaccent(btrim(m))) from unnest(p_municipios) as m))
+    and (p_modalidades is null or cardinality(p_modalidades) = 0 or l.modalidade_id = any (p_modalidades))
+    and (p_abertura_de is null or l.data_abertura_proposta >= p_abertura_de::timestamptz)
+    and (p_abertura_ate is null or l.data_abertura_proposta < (p_abertura_ate + 1)::timestamptz)
+  group by l.uf, l.municipio
+  order by total desc
+  limit 5000;
+$$;
+
 -- 6.3 Exportação dos dados pessoais do usuário (LGPD, art. 18).
 create or replace function public.exportar_meus_dados()
 returns jsonb
@@ -1162,10 +1204,12 @@ revoke execute on function public.ao_criar_usuario() from public, anon, authenti
 revoke execute on function public.ao_excluir_usuario() from public, anon, authenticated;
 revoke execute on function public.criar_organizacao(text, text) from public, anon;
 revoke execute on function public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[]) from public, anon;
+revoke execute on function public.radar_contagem(text, text[], text[], int[], date, date) from public, anon;
 revoke execute on function public.exportar_meus_dados() from public, anon;
 grant execute on function public.limpar_licitacoes_antigas(int) to service_role;
 grant execute on function public.criar_organizacao(text, text) to authenticated;
 grant execute on function public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[]) to authenticated, service_role;
+grant execute on function public.radar_contagem(text, text[], text[], int[], date, date) to authenticated, service_role;
 grant execute on function public.exportar_meus_dados() to authenticated;
 
 -- 6.5 Visões prontas para o front-end (respeitam o RLS de quem consulta).

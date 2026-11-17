@@ -39,6 +39,18 @@ window.LH = window.LH || {};
   const valorTexto = (l) => (l.valor == null ? 'Valor sigiloso' : fmt.moeda(l.valor));
   const prazoTexto = (l) => (l.abertura ? `Propostas até ${fmt.data(l.abertura)}${l.hora ? ` às ${esc(l.hora)}` : ''}` : 'Prazo não informado');
 
+  // --- Modalidades -----------------------------------------------------------------
+  // Códigos oficiais do PNCP (manual da API, tabela "Modalidade de contratação").
+  LH.MODALIDADES = [
+    [6, 'Pregão Eletrônico'], [8, 'Dispensa de Licitação'], [4, 'Concorrência Eletrônica'],
+    [7, 'Pregão Presencial'], [9, 'Inexigibilidade'], [3, 'Concurso'], [5, 'Concorrência Presencial'],
+    [12, 'Credenciamento'], [13, 'Leilão Presencial'], [1, 'Leilão Eletrônico'],
+  ];
+  // Nomes antigos (radares salvos antes desta lista) -> nome atual.
+  const APELIDOS_MODALIDADE = { 'Dispensa Eletrônica': 'Dispensa de Licitação', Dispensa: 'Dispensa de Licitação' };
+  LH.nomeModalidade = (nome) => APELIDOS_MODALIDADE[nome] || nome;
+  LH.idModalidade = (nome) => LH.MODALIDADES.find(([, n]) => n === LH.nomeModalidade(nome))?.[0] ?? null;
+
   // --- Perfil do órgão -----------------------------------------------------------
   // Esfera: vem do PNCP (orgao_esfera). Na demonstração, deduzida do nome do órgão.
   const ESFERAS = { M: 'Municipal', E: 'Estadual', F: 'Federal', D: 'Distrital' };

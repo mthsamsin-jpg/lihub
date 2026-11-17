@@ -64,6 +64,7 @@ begin
   foreach funcao in array array[
     'public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int)',
     'public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[])',
+    'public.radar_contagem(text, text[], text[], int[], date, date)',
     'public.exportar_meus_dados()', 'public.criar_organizacao(text, text)',
     'public.limpar_licitacoes_antigas(int)', 'public.validar_card()', 'public.verificar_limite_empresas()',
     'public.proteger_ultimo_dono()', 'public.ao_excluir_usuario()', 'public.ao_criar_usuario()',

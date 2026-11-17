@@ -42,7 +42,7 @@ window.LH = window.LH || {};
     AM: ['Manaus', 'Parintins'],
   };
 
-  const MODALIDADES = ['Pregão Eletrônico', 'Dispensa Eletrônica', 'Concorrência Eletrônica', 'Pregão Presencial', 'Credenciamento', 'Inexigibilidade'];
+  const MODALIDADES = ['Pregão Eletrônico', 'Dispensa de Licitação', 'Concorrência Eletrônica', 'Pregão Presencial', 'Credenciamento', 'Inexigibilidade'];
 
   // --- Licitações de exemplo ----------------------------------------------------
   // [objeto, órgão, UF, município, modalidade, valor estimado, dias até a abertura, hora, plataforma]
@@ -55,9 +55,9 @@ window.LH = window.LH || {};
     ['Serviços de manutenção da rede elétrica e iluminação pública', 'Prefeitura Municipal de Sorocaba', 'SP', 'Sorocaba', 'Concorrência Eletrônica', 4890000, 18, '10:00', 'Licitanet'],
     ['Aquisição de gêneros alimentícios para a merenda escolar (agricultura familiar excluída)', 'Prefeitura Municipal de Londrina', 'PR', 'Londrina', 'Pregão Eletrônico', 735400, 5, '09:00', 'BLL Compras'],
     ['Locação de veículos com motorista para atender a Secretaria de Obras', 'Prefeitura Municipal de Niterói', 'RJ', 'Niterói', 'Pregão Eletrônico', 1210000, 7, '10:30', 'Compras.gov.br'],
-    ['Aquisição de cadeiras e mesas de escritório ergonômicas', 'Câmara Municipal de Florianópolis', 'SC', 'Florianópolis', 'Dispensa Eletrônica', 58900, 2, '11:00', 'Compras.gov.br'],
+    ['Aquisição de cadeiras e mesas de escritório ergonômicas', 'Câmara Municipal de Florianópolis', 'SC', 'Florianópolis', 'Dispensa de Licitação', 58900, 2, '11:00', 'Compras.gov.br'],
     ['Serviço de vigilância patrimonial armada, postos 12x36', 'Instituto Federal (reitoria)', 'GO', 'Goiânia', 'Pregão Eletrônico', 3100000, 15, '09:00', 'Compras.gov.br'],
-    ['Fornecimento de água mineral em galões de 20 litros', 'Prefeitura Municipal de Recife', 'PE', 'Recife', 'Dispensa Eletrônica', 42800, 1, '15:00', 'Compras.gov.br'],
+    ['Fornecimento de água mineral em galões de 20 litros', 'Prefeitura Municipal de Recife', 'PE', 'Recife', 'Dispensa de Licitação', 42800, 1, '15:00', 'Compras.gov.br'],
     ['Desenvolvimento e sustentação de sistemas web, com métricas de ponto de função', 'Companhia Estadual de Tecnologia', 'RS', 'Porto Alegre', 'Concorrência Eletrônica', 6800000, 25, '10:00', 'Compras.gov.br'],
     ['Aquisição de luvas de procedimento, máscaras e aventais descartáveis', 'Hospital Regional', 'CE', 'Fortaleza', 'Pregão Eletrônico', 389000, 4, '09:00', 'BNC Compras'],
     ['Contratação de empresa para coleta e destinação de resíduos de serviços de saúde', 'Consórcio Intermunicipal de Saúde', 'MG', 'Uberlândia', 'Pregão Eletrônico', 960000, 11, '14:30', 'Portal de Compras Públicas'],
@@ -66,7 +66,7 @@ window.LH = window.LH || {};
     ['Aquisição de toners e cartuchos para impressoras', 'Defensoria Pública do Estado', 'ES', 'Vitória', 'Pregão Eletrônico', 96500, 3, '10:00', 'Compras.gov.br'],
     ['Credenciamento de clínicas para exames de imagem', 'Secretaria Municipal de Saúde de Belém', 'PA', 'Belém', 'Credenciamento', 1800000, 30, '08:00', 'Portal de Compras Públicas'],
     ['Serviços de buffet e coffee break para eventos institucionais', 'Assembleia Legislativa', 'DF', 'Brasília', 'Pregão Eletrônico', 215000, 10, '10:00', 'Compras.gov.br'],
-    ['Aquisição de café torrado e moído, açúcar e adoçante', 'Prefeitura Municipal de Joinville', 'SC', 'Joinville', 'Dispensa Eletrônica', 31600, 2, '09:30', 'Compras.gov.br'],
+    ['Aquisição de café torrado e moído, açúcar e adoçante', 'Prefeitura Municipal de Joinville', 'SC', 'Joinville', 'Dispensa de Licitação', 31600, 2, '09:30', 'Compras.gov.br'],
     ['Licença de software de gestão escolar com implantação e treinamento', 'Secretaria de Estado da Educação', 'AM', 'Manaus', 'Inexigibilidade', 540000, 14, '11:00', 'Compras.gov.br'],
     ['Fornecimento de uniformes escolares (camisetas, bermudas e agasalhos)', 'Prefeitura Municipal de Juiz de Fora', 'MG', 'Juiz de Fora', 'Pregão Eletrônico', 1340000, 13, '09:00', 'BLL Compras'],
     ['Aquisição de álcool 70% líquido e em gel, sabonete e papel toalha', 'Tribunal de Justiça do Estado', 'PE', 'Recife', 'Pregão Eletrônico', 158200, 6, '14:00', 'Compras.gov.br'],
@@ -75,7 +75,7 @@ window.LH = window.LH || {};
 
   const licitacoes = brutas.map((b, i) => ({
     id: 1001 + i,
-    numero: `${b[4] === 'Pregão Eletrônico' ? 'PE' : b[4] === 'Dispensa Eletrônica' ? 'DE' : b[4] === 'Concorrência Eletrônica' ? 'CE' : 'LIC'} ${String(90010 + i * 7).padStart(5, '0')}/2026`,
+    numero: `${b[4] === 'Pregão Eletrônico' ? 'PE' : b[4] === 'Dispensa de Licitação' ? 'DE' : b[4] === 'Concorrência Eletrônica' ? 'CE' : 'LIC'} ${String(90010 + i * 7).padStart(5, '0')}/2026`,
     objeto: b[0], orgao: b[1], uf: b[2], municipio: b[3], modalidade: b[4],
     valor: b[5], abertura: somar(b[6]), hora: b[7], plataforma: b[8],
     publicada: somar(-((i * 5) % 9) - 1),
@@ -192,7 +192,7 @@ window.LH = window.LH || {};
       { id: 'p2', numero: 'PROP-2026-015', licitacaoId: 1001, criada: somar(-1), status: 'Rascunho', total: 0, itens: [] },
     ],
     radares: [
-      { id: 'r1', nome: 'Material de escritório (SP e PR)', palavras: ['papel', 'toner', 'expediente'], ufs: ['SP', 'PR'], modalidades: ['Pregão Eletrônico', 'Dispensa Eletrônica'], canais: { email: true, telegram: false, computador: true }, ativo: true },
+      { id: 'r1', nome: 'Material de escritório (SP e PR)', palavras: ['papel', 'toner', 'expediente'], ufs: ['SP', 'PR'], modalidades: ['Pregão Eletrônico', 'Dispensa de Licitação'], canais: { email: true, telegram: false, computador: true }, ativo: true },
       { id: 'r2', nome: 'Limpeza e conservação', palavras: ['limpeza', 'conservação', 'higienização'], ufs: [], modalidades: ['Pregão Eletrônico'], canais: { email: true, telegram: true, computador: false }, ativo: true },
     ],
     empresa: {

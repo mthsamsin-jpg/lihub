@@ -85,7 +85,10 @@ export const config = {
   pncp: {
     urlConsulta: texto('PNCP_URL_CONSULTA', 'https://pncp.gov.br/api/consulta'),
     urlIntegracao: texto('PNCP_URL_INTEGRACAO', 'https://pncp.gov.br/api/pncp'),
-    modalidades: lista('PNCP_MODALIDADES', ['6', '8', '4']).map(Number),
+    // Modalidades baixadas do PNCP (as mesmas do filtro do site):
+    // 6 Pregão Eletr., 8 Dispensa, 4 Concorrência Eletr., 7 Pregão Pres., 9 Inexigibilidade,
+    // 3 Concurso, 5 Concorrência Pres., 12 Credenciamento, 13 Leilão Pres., 1 Leilão Eletr.
+    modalidades: lista('PNCP_MODALIDADES', ['6', '8', '4', '7', '9', '3', '5', '12', '13', '1']).map(Number),
     diasAFrente: inteiro('PNCP_DIAS', 60),
     timeoutMs: inteiro('PNCP_TIMEOUT_MS', 90_000),
     tentativas: inteiro('PNCP_TENTATIVAS', 4),

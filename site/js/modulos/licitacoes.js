@@ -120,37 +120,61 @@ LH.vistas = LH.vistas || {};
     },
   };
 
-  // --- Radar de Licitações (busca regional com mapa) -----------------------------------
-  // Mapa do Brasil em "ladrilhos": cada estado é um quadrado na posição aproximada
-  // do mapa (coluna, linha). Clicar seleciona; os municípios refinam a busca.
-  const ID_MODALIDADE = { 'Pregão Eletrônico': 6, 'Dispensa Eletrônica': 8, 'Concorrência Eletrônica': 4 };
+  // --- Radar de Licitações (proximidade geográfica com mapa) ---------------------------
+  // Filtros em linha -> raio a partir de uma cidade -> mapa com as licitações
+  // agrupadas por município. As coordenadas vêm de site/dados/municipios.js e o
+  // mapa usa a biblioteca Leaflet (carregada só nesta tela).
   const MAX_TERMOS = 20;
-  const MAX_MUNICIPIOS = 50;
-  const ESTADOS = {
-    RR: ['Roraima', 'norte', 3, 1], AP: ['Amapá', 'norte', 5, 1],
-    AM: ['Amazonas', 'norte', 2, 2], PA: ['Pará', 'norte', 4, 2], MA: ['Maranhão', 'nordeste', 5, 2], CE: ['Ceará', 'nordeste', 6, 2], RN: ['Rio Grande do Norte', 'nordeste', 7, 2],
-    AC: ['Acre', 'norte', 1, 3], RO: ['Rondônia', 'norte', 2, 3], TO: ['Tocantins', 'norte', 4, 3], PI: ['Piauí', 'nordeste', 5, 3], PE: ['Pernambuco', 'nordeste', 6, 3], PB: ['Paraíba', 'nordeste', 7, 3],
-    MT: ['Mato Grosso', 'centro', 3, 4], GO: ['Goiás', 'centro', 4, 4], BA: ['Bahia', 'nordeste', 5, 4], SE: ['Sergipe', 'nordeste', 6, 4], AL: ['Alagoas', 'nordeste', 7, 4],
-    MS: ['Mato Grosso do Sul', 'centro', 3, 5], DF: ['Distrito Federal', 'centro', 4, 5], MG: ['Minas Gerais', 'sudeste', 5, 5], ES: ['Espírito Santo', 'sudeste', 6, 5],
-    SP: ['São Paulo', 'sudeste', 4, 6], RJ: ['Rio de Janeiro', 'sudeste', 5, 6],
-    PR: ['Paraná', 'sul', 4, 7], SC: ['Santa Catarina', 'sul', 4, 8], RS: ['Rio Grande do Sul', 'sul', 4, 9],
+  const MAX_MUNICIPIOS = 2000;
+  const RAIO_MAX = 1000;
+  const NOMES_UF = {
+    AC: 'Acre', AL: 'Alagoas', AP: 'Amapá', AM: 'Amazonas', BA: 'Bahia', CE: 'Ceará', DF: 'Distrito Federal', ES: 'Espírito Santo',
+    GO: 'Goiás', MA: 'Maranhão', MT: 'Mato Grosso', MS: 'Mato Grosso do Sul', MG: 'Minas Gerais', PA: 'Pará', PB: 'Paraíba', PR: 'Paraná',
+    PE: 'Pernambuco', PI: 'Piauí', RJ: 'Rio de Janeiro', RN: 'Rio Grande do Norte', RS: 'Rio Grande do Sul', RO: 'Rondônia', RR: 'Roraima',
+    SC: 'Santa Catarina', SP: 'São Paulo', SE: 'Sergipe', TO: 'Tocantins',
   };
 
-  // Municípios de cada UF: lista oficial do IBGE (pública); sem internet, os de exemplo.
-  const cacheMunicipios = new Map();
-  function municipiosDa(uf) {
-    if (!cacheMunicipios.has(uf)) {
-      cacheMunicipios.set(uf, fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`)
-        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-        .then((lista) => lista.map((m) => m.nome))
-        .catch(() => { cacheMunicipios.delete(uf); return LH.dados.MUNICIPIOS[uf] || []; }));
-    }
-    return cacheMunicipios.get(uf);
+  const carregar = (tag, atributos) => new Promise((ok, falha) => {
+    const el = Object.assign(document.createElement(tag), atributos);
+    el.onload = ok;
+    el.onerror = () => falha(new Error(`Não consegui carregar ${atributos.src || atributos.href}. Confira a internet.`));
+    document.head.append(el);
+  });
+  // Leaflet 1.9.4 e o agrupamento (markercluster 1.5.3), do cdnjs; e as coordenadas.
+  let recursosMapa = null;
+  const carregarRecursosMapa = () => {
+    recursosMapa ??= Promise.all([
+      carregar('link', { rel: 'stylesheet', href: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css' }),
+      carregar('link', { rel: 'stylesheet', href: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css' }),
+      LH.geo ? null : carregar('script', { src: 'dados/municipios.js' }),
+      carregar('script', { src: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js' })
+        .then(() => carregar('script', { src: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js' })),
+    ]).catch((e) => { recursosMapa = null; throw e; });
+    return recursosMapa;
+  };
+
+  /** Distância em km entre dois pontos (fórmula de haversine). */
+  function distanciaKm(a, b) {
+    const rad = (g) => (g * Math.PI) / 180;
+    const dLat = rad(b[0] - a[0]);
+    const dLon = rad(b[1] - a[1]);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(dLon / 2) ** 2;
+    return 6371 * 2 * Math.asin(Math.sqrt(h));
   }
+  /** Coordenadas de um município ("Nome", "UF") ou null. */
+  const coordenadas = (nome, uf) => {
+    const m = (LH.geo?.municipios[uf] || []).find((x) => normalizar(x[0]) === normalizar(nome));
+    return m ? [m[1], m[2]] : null;
+  };
 
   /** Termos -> consulta "a or b" (aspas para expressões com espaço). */
   const consultaDosTermos = (termos) => termos.map((p) => (p.includes(' ') ? `"${p}"` : p)).join(' or ');
-  /** Filtros de busca de um radar (ou da tela). Com municípios escolhidos, a busca fica só neles. */
+  const lerTermos = (texto) => [...new Map(String(texto || '').split(/[,;\n]/)
+    .map((t) => t.replace(/"/g, '').trim().replace(/\s+/g, ' ')).filter((t) => t.length >= 2)
+    .map((t) => [normalizar(t), t.slice(0, 60)])).values()];
+  const idsModalidade = (nomes) => (LH.repo.modo === 'demo' ? nomes.map(LH.nomeModalidade) : nomes.map(LH.idModalidade).filter(Boolean));
+
+  /** Filtros de busca de um radar salvo (para as contagens e os alertas). */
   const filtrosDoRadar = (r, ordem = 'prazo') => {
     const municipios = r.municipios || [];
     const ufsDosMunicipios = [...new Set(municipios.map((m) => m.split('/')[1]).filter(Boolean))];
@@ -158,7 +182,7 @@ LH.vistas = LH.vistas || {};
       termo: consultaDosTermos(r.palavras || []),
       ufs: municipios.length ? ufsDosMunicipios : (r.ufs || []),
       municipios: municipios.map((m) => m.split('/')[0]),
-      modalidades: LH.repo.modo === 'demo' ? (r.modalidades || []) : (r.modalidades || []).map((m) => ID_MODALIDADE[m]).filter(Boolean),
+      modalidades: idsModalidade(r.modalidades || []),
       ordem,
     };
   };
@@ -172,60 +196,55 @@ LH.vistas = LH.vistas || {};
     render: () => `
       ${LH.cabecalho({
         titulo: 'Radar de Licitações',
-        texto: 'Escolha os estados no mapa, refine por município e informe até 20 termos. Os resultados aparecem na hora e você pode salvar a busca como radar para receber alertas.',
+        texto: '<span id="radar-subtitulo">Busca por proximidade geográfica: escolha uma cidade, ajuste o raio e veja as licitações abertas no mapa.</span>',
         acoes: `<button class="btn" type="button" data-acao="computador">${icone('computador')} Alertas no computador</button>`,
       })}
-      <section class="card spot regional" data-reveal aria-label="Busca regional">
-        <div class="regional__mapa">
-          <div class="card__titulo"><h2>${icone('local')} Estados</h2><span class="fraco" id="ufs-resumo">Brasil inteiro</span></div>
-          <div class="mapa-uf" role="group" aria-label="Mapa do Brasil por estado: clique para selecionar">
-            ${Object.entries(ESTADOS).map(([uf, [nome, regiao, col, lin]]) => `
-              <button type="button" class="mapa-uf__estado mapa-uf__estado--${regiao}" style="grid-column:${col};grid-row:${lin}"
-                data-uf="${uf}" aria-pressed="false" title="${esc(nome)}"><span>${uf}</span></button>`).join('')}
+      <form class="card radar-filtros" id="radar-form" data-reveal autocomplete="off">
+        <div class="radar-filtros__linha">
+          <label class="campo radar-filtros__busca"><span class="campo__rotulo">Busca <span class="fraco" id="termos-conta">(até ${MAX_TERMOS} termos)</span></span>
+            <input name="termos" placeholder="ex.: cadeira, computador, TI, limpeza"></label>
+          <div class="campo"><span class="campo__rotulo">Modalidade</span>
+            <details class="seletor" id="sel-modalidade">
+              <summary class="seletor__botao"><span data-resumo>Todas</span>${icone('setaBaixo')}</summary>
+              <div class="seletor__lista" role="group" aria-label="Modalidades">
+                <label class="marcar seletor__todas"><input type="checkbox" data-todas checked> Todas</label>
+                ${LH.MODALIDADES.map(([, m]) => `
+                <label class="marcar"><input type="checkbox" name="modalidades" value="${esc(m)}"> ${esc(m)}</label>`).join('')}
+              </div>
+            </details>
           </div>
-          <div class="mapa-uf__legenda">
-            <span><i class="norte"></i>Norte</span><span><i class="nordeste"></i>Nordeste</span><span><i class="centro"></i>Centro-Oeste</span><span><i class="sudeste"></i>Sudeste</span><span><i class="sul"></i>Sul</span>
-            <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="limpar-ufs">Limpar estados</button>
-          </div>
+          <label class="campo"><span class="campo__rotulo">Estado</span>
+            <select name="uf"><option value="">Selecione</option>${Object.entries(NOMES_UF).sort((a, b) => a[0].localeCompare(b[0])).map(([uf, nome]) => `<option value="${uf}" title="${esc(nome)}">${uf}</option>`).join('')}</select></label>
+          <label class="campo"><span class="campo__rotulo">Cidade</span>
+            <select name="cidade" disabled><option value="">Selecione o estado</option></select></label>
+          <label class="campo"><span class="campo__rotulo">Abertura de</span><input type="date" name="de"></label>
+          <label class="campo"><span class="campo__rotulo">Abertura até</span><input type="date" name="ate"></label>
         </div>
-
-        <form class="regional__filtros form" id="form-regional" autocomplete="off">
-          <div class="campo">
-            <span class="campo__rotulo">Municípios <span class="fraco">(opcional, até ${MAX_MUNICIPIOS})</span></span>
-            <div class="regional__municipio">
-              <select id="mun-uf" aria-label="Estado do município"><option value="">Escolha um estado no mapa</option></select>
-              <input id="mun-nome" list="mun-lista" placeholder="ex.: Ananindeua" disabled aria-label="Nome do município">
-              <datalist id="mun-lista"></datalist>
-              <button type="button" class="btn" data-acao="add-municipio" disabled>${icone('mais')} Adicionar</button>
+        <div class="radar-filtros__linha2">
+          <div class="campo radar-raio">
+            <span class="campo__rotulo">Raio</span>
+            <div class="radar-raio__controle">
+              <input type="range" name="raio" min="0" max="${RAIO_MAX}" step="5" value="50" aria-label="Raio em quilômetros">
+              <output id="raio-valor">50 km</output>
             </div>
-            <div class="chips" id="municipios"></div>
           </div>
+          <button class="btn btn--primario" type="submit" id="radar-buscar" disabled>${icone('busca')} Buscar</button>
+          <button class="btn btn--fantasma" type="button" data-acao="salvar" disabled>${icone('sino')} Salvar como radar</button>
+          <span class="fraco radar-filtros__dica" id="radar-dica">Escolha o estado para buscar.</span>
+        </div>
+      </form>
 
-          <div class="campo">
-            <span class="campo__rotulo">Termos de busca <span class="fraco" id="termos-conta">0/${MAX_TERMOS}</span></span>
-            <div class="termos" id="termos">
-              <input id="termo-novo" aria-label="Novo termo de busca">
-            </div>
-            <span class="fraco" style="font-size:.78rem">Basta um dos termos aparecer no objeto da licitação. Tecle Enter ou vírgula para separar.</span>
-          </div>
-
-          <fieldset class="campo" style="border:0;padding:0;margin:0">
-            <legend class="campo__rotulo">Modalidades (nenhuma = todas)</legend>
-            <div class="chips">${Object.keys(ID_MODALIDADE).map((m) => `<label class="marcar chip"><input type="checkbox" name="modalidades" value="${esc(m)}"> ${esc(m)}</label>`).join('')}</div>
-          </fieldset>
-
-          <div class="regional__acoes">
-            <button class="btn btn--primario btn--grande" type="submit">${icone('radar')} Buscar na região</button>
-            <button class="btn" type="button" data-acao="salvar">${icone('sino')} Salvar como radar</button>
-            <button class="btn btn--fantasma" type="button" data-acao="limpar">Limpar tudo</button>
-          </div>
-        </form>
+      <section class="card radar-mapa" data-reveal aria-label="Mapa das licitações">
+        <div id="mapa" class="radar-mapa__mapa" role="application" aria-label="Mapa interativo das licitações por município"></div>
+        <div class="radar-mapa__aviso" id="mapa-aviso">
+          <p>Selecione um <strong>estado</strong>, uma <strong>cidade</strong> e clique em <strong>Buscar</strong><br>para ver as licitações no mapa.</p>
+        </div>
+        <div class="radar-mapa__resumo card--vidro" id="mapa-resumo" hidden></div>
       </section>
 
-      <section aria-live="polite" style="margin-top:18px" id="area-resultados" hidden>
-        <div class="resultados__barra"><span id="reg-contagem"></span><span class="fraco" id="reg-filtros"></span></div>
-        <div class="resultados" id="reg-resultados"></div>
-        <div class="mais-resultados" id="reg-mais" hidden><button class="btn" type="button">${icone('setaBaixo')} Carregar mais</button></div>
+      <section aria-live="polite" style="margin-top:18px" id="area-municipio" hidden>
+        <div class="resultados__barra"><span id="mun-titulo"></span><button class="btn btn--pequeno btn--fantasma" type="button" data-acao="fechar-municipio">${icone('fechar')} Fechar</button></div>
+        <div class="resultados" id="mun-resultados"></div>
       </section>
 
       <div class="grade grade--lateral" style="margin-top:18px">
@@ -237,164 +256,238 @@ LH.vistas = LH.vistas || {};
       </div>`,
 
     montar(raiz) {
-      const estado = { ufs: new Set(), municipios: [], termos: [] };
-      const form = raiz.querySelector('#form-regional');
-      const selUf = raiz.querySelector('#mun-uf');
-      const inpMun = raiz.querySelector('#mun-nome');
-      const botaoMun = raiz.querySelector('[data-acao="add-municipio"]');
-      const inpTermo = raiz.querySelector('#termo-novo');
-      const area = raiz.querySelector('#area-resultados');
-      const caixa = raiz.querySelector('#reg-resultados');
-      const mais = raiz.querySelector('#reg-mais');
-      let consulta = null;
-      let offset = 0;
-      let total = 0;
+      const form = raiz.querySelector('#radar-form');
+      const selCidade = form.cidade;
+      const botaoBuscar = raiz.querySelector('#radar-buscar');
+      const botaoSalvar = raiz.querySelector('[data-acao="salvar"]');
+      const aviso = raiz.querySelector('#mapa-aviso');
+      const resumo = raiz.querySelector('#mapa-resumo');
+      const areaMun = raiz.querySelector('#area-municipio');
+      const caixaMun = raiz.querySelector('#mun-resultados');
+      let mapa = null;
+      let camadas = null;
+      let ultima = null; // última busca: { filtros, ufs, municipios, ... } (para salvar e abrir municípios)
       let pedido = 0;
-      let ufPreferida = '';
+      let vivo = true;
 
-      const atual = () => ({
-        palavras: [...estado.termos], ufs: [...estado.ufs], municipios: [...estado.municipios],
-        modalidades: [...form.querySelectorAll('[name=modalidades]:checked')].map((c) => c.value),
+      // --- Filtros ---
+      const modalidadesMarcadas = () => [...form.querySelectorAll('[name=modalidades]:checked')].map((c) => c.value);
+      const atualizarModalidade = () => {
+        const marcadas = modalidadesMarcadas();
+        const resumo = raiz.querySelector('#sel-modalidade [data-resumo]');
+        resumo.textContent = !marcadas.length ? 'Todas' : (marcadas.length === 1 ? marcadas[0] : `${marcadas.length} selecionadas`);
+        resumo.title = marcadas.join(', ') || 'Todas as modalidades';
+        form.querySelector('[data-todas]').checked = !marcadas.length;
+      };
+      const atualizarTermos = () => {
+        const n = lerTermos(form.termos.value).length;
+        const conta = raiz.querySelector('#termos-conta');
+        conta.textContent = n ? `(${n}/${MAX_TERMOS} termos)` : `(até ${MAX_TERMOS} termos)`;
+        conta.classList.toggle('texto-perigo', n > MAX_TERMOS);
+      };
+      const atualizarCidades = async () => {
+        const uf = form.uf.value;
+        selCidade.disabled = !uf;
+        if (!uf) { selCidade.innerHTML = '<option value="">Selecione o estado</option>'; return; }
+        selCidade.innerHTML = '<option value="">Carregando...</option>';
+        try { await carregarRecursosMapa(); } catch { /* sem internet: segue com o que houver */ }
+        const nomes = (LH.geo?.municipios[uf] || []).map((m) => m[0]);
+        selCidade.innerHTML = `<option value="">Todo o estado</option>${nomes.map((n) => `<option>${esc(n)}</option>`).join('')}`;
+        selCidade.disabled = false;
+      };
+      const atualizarRaio = () => {
+        const km = Number(form.raio.value);
+        raiz.querySelector('#raio-valor').textContent = km ? `${km} km` : 'Só a cidade';
+        form.raio.style.setProperty('--p', `${(km / RAIO_MAX) * 100}%`);
+        form.raio.disabled = !selCidade.value;
+      };
+      const atualizarBotoes = () => {
+        botaoBuscar.disabled = !form.uf.value;
+        raiz.querySelector('#radar-dica').textContent = !form.uf.value ? 'Escolha o estado para buscar.'
+          : (selCidade.value ? `Raio a partir de ${selCidade.value}/${form.uf.value}.` : `Todo o estado de ${NOMES_UF[form.uf.value]}. Escolha uma cidade para usar o raio.`);
+        atualizarRaio();
+      };
+
+      // --- Mapa ---
+      const iniciarMapa = async () => {
+        await carregarRecursosMapa();
+        if (!vivo || mapa) return;
+        const L = window.L;
+        mapa = L.map(raiz.querySelector('#mapa'), { zoomControl: true, worldCopyJump: true, minZoom: 3 }).setView([-14.5, -52], 4);
+        // Mapa do OpenStreetMap; a versão escura é o mesmo mapa com um filtro de cor (CSS).
+        const osm = (classe) => L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 18, className: classe,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">colaboradores do OpenStreetMap</a>',
+        });
+        const escuro = osm('mapa-tiles--escuro');
+        const claro = osm('mapa-tiles--claro');
+        escuro.addTo(mapa);
+        L.control.layers({ 'Mapa escuro': escuro, 'Mapa claro': claro }, null, { position: 'topright' }).addTo(mapa);
+        camadas = L.layerGroup().addTo(mapa);
+        setTimeout(() => mapa.invalidateSize(), 50);
+      };
+
+      const tamanho = (n) => (n >= 100 ? 54 : n >= 30 ? 46 : n >= 10 ? 40 : 34);
+      const iconeNumero = (n, grupo) => window.L.divIcon({
+        className: '',
+        html: `<span class="mapa-ponto${grupo ? ' mapa-ponto--grupo' : ''}" style="--t:${tamanho(n)}px">${fmt.numero(n)}</span>`,
+        iconSize: [tamanho(n), tamanho(n)],
       });
 
-      // --- Mapa e municípios ---
-      const carregarListaMunicipios = async () => {
-        const uf = selUf.value;
-        const lista = raiz.querySelector('#mun-lista');
-        if (!uf) { lista.innerHTML = ''; return; }
-        const nomes = await municipiosDa(uf);
-        if (selUf.value === uf) lista.innerHTML = nomes.map((n) => `<option value="${esc(n)}">`).join('');
-      };
-      const desenharEstados = () => {
-        raiz.querySelectorAll('[data-uf]').forEach((b) => {
-          const ligado = estado.ufs.has(b.dataset.uf);
-          b.classList.toggle('ligado', ligado);
-          b.setAttribute('aria-pressed', String(ligado));
+      const desenharNoMapa = ({ pontos, centro, raioKm, cidade }) => {
+        const L = window.L;
+        camadas.clearLayers();
+        const limites = [];
+        if (centro) {
+          L.marker(centro, {
+            icon: L.divIcon({ className: '', html: `<span class="mapa-centro">${LH.icone('local')}</span>`, iconSize: [30, 30], iconAnchor: [15, 28] }),
+            title: cidade, zIndexOffset: 1000,
+          }).addTo(camadas).bindTooltip(cidade, { direction: 'top', offset: [0, -24] });
+          if (raioKm) {
+            const circulo = L.circle(centro, { radius: raioKm * 1000, className: 'mapa-raio', interactive: false }).addTo(camadas);
+            limites.push(circulo.getBounds());
+          }
+        }
+        const grupo = L.markerClusterGroup({
+          showCoverageOnHover: false, maxClusterRadius: 55, spiderfyOnMaxZoom: true,
+          iconCreateFunction: (c) => iconeNumero(c.getAllChildMarkers().reduce((s, m) => s + m.options.total, 0), true),
         });
-        const ufs = [...estado.ufs].sort();
-        raiz.querySelector('#ufs-resumo').textContent = ufs.length ? `${ufs.length} estado(s): ${ufs.join(', ')}` : 'Brasil inteiro';
-        const escolhida = estado.ufs.has(ufPreferida) ? ufPreferida : (estado.ufs.has(selUf.value) ? selUf.value : ufs[0]);
-        selUf.innerHTML = ufs.length
-          ? ufs.map((uf) => `<option value="${uf}"${uf === escolhida ? ' selected' : ''}>${esc(ESTADOS[uf][0])} (${uf})</option>`).join('')
-          : '<option value="">Escolha um estado no mapa</option>';
-        inpMun.disabled = !ufs.length;
-        botaoMun.disabled = !ufs.length;
-        carregarListaMunicipios();
-      };
-      const desenharMunicipios = () => {
-        raiz.querySelector('#municipios').innerHTML = estado.municipios.map((m, i) => `
-          <span class="chip chip--remover">${icone('local')} ${esc(m.replace('/', ' · '))}
-            <button type="button" data-remover-mun="${i}" aria-label="Remover ${esc(m)}">${icone('fechar')}</button></span>`).join('')
-          + (estado.municipios.length ? '<span class="fraco regional__nota">Com municípios escolhidos, a busca fica só neles.</span>' : '');
-      };
-      const adicionarMunicipio = async () => {
-        const uf = selUf.value;
-        const digitado = inpMun.value.trim();
-        if (!uf || !digitado) return;
-        const nomes = await municipiosDa(uf);
-        const oficial = nomes.find((n) => normalizar(n) === normalizar(digitado));
-        if (!oficial && nomes.length > 10) return LH.aviso(`Não achei "${digitado}" entre os municípios de ${ESTADOS[uf][0]}. Escolha um nome da lista.`, 'alerta');
-        const chave = `${oficial || digitado}/${uf}`;
-        if (estado.municipios.includes(chave)) return LH.aviso('Este município já está na busca.', 'info');
-        if (estado.municipios.length >= MAX_MUNICIPIOS) return LH.aviso(`Use no máximo ${MAX_MUNICIPIOS} municípios.`, 'alerta');
-        estado.municipios.push(chave);
-        inpMun.value = '';
-        desenharMunicipios();
-        inpMun.focus();
-      };
-
-      // --- Termos (até 20) ---
-      const desenharTermos = () => {
-        const caixaTermos = raiz.querySelector('#termos');
-        caixaTermos.querySelectorAll('.chip').forEach((c) => c.remove());
-        inpTermo.insertAdjacentHTML('beforebegin', estado.termos.map((t, i) => `
-          <span class="chip chip--remover">${esc(t)}<button type="button" data-remover-termo="${i}" aria-label="Remover ${esc(t)}">${icone('fechar')}</button></span>`).join(''));
-        raiz.querySelector('#termos-conta').textContent = `${estado.termos.length}/${MAX_TERMOS}`;
-        inpTermo.disabled = estado.termos.length >= MAX_TERMOS;
-        inpTermo.placeholder = inpTermo.disabled ? 'Limite de 20 termos'
-          : (estado.termos.length ? 'Mais um termo...' : 'ex.: limpeza, merenda escolar, ar condicionado');
-      };
-      const adicionarTermos = (texto) => {
-        const novos = String(texto).split(',').map((t) => t.replace(/"/g, '').trim().replace(/\s+/g, ' ')).filter((t) => t.length >= 2);
-        for (const t of novos) {
-          if (estado.termos.length >= MAX_TERMOS) { LH.aviso(`Use no máximo ${MAX_TERMOS} termos.`, 'alerta'); break; }
-          if (!estado.termos.some((x) => normalizar(x) === normalizar(t))) estado.termos.push(t.slice(0, 60));
+        for (const p of pontos) {
+          const m = L.marker(p.coord, { icon: iconeNumero(p.total), total: p.total, title: `${p.municipio}/${p.uf}` });
+          m.bindPopup(`
+            <div class="mapa-popup">
+              <strong>${esc(p.municipio)}/${esc(p.uf)}</strong>
+              <span>${fmt.numero(p.total)} licitação(ões) aberta(s)${p.distancia != null ? ` · ${fmt.numero(Math.round(p.distancia))} km` : ''}</span>
+              <button type="button" class="btn btn--pequeno btn--primario" data-ver-municipio="${esc(p.uf)}|${esc(p.municipio)}">Ver licitações</button>
+            </div>`);
+          grupo.addLayer(m);
         }
-        inpTermo.value = '';
-        desenharTermos();
+        camadas.addLayer(grupo);
+        if (pontos.length) limites.push(L.latLngBounds(pontos.map((p) => p.coord)));
+        const tudo = limites.reduce((acc, b) => (acc ? acc.extend(b) : L.latLngBounds(b.getSouthWest(), b.getNorthEast())), null);
+        if (tudo) mapa.flyToBounds(tudo.pad(0.08), { duration: 0.8, maxZoom: 11 });
+        else if (centro) mapa.flyTo(centro, 10, { duration: 0.8 });
       };
 
-      // --- Busca e resultados (cards) ---
-      const buscar = async (continuar = false) => {
+      // --- Busca ---
+      const montarConsulta = () => {
+        const uf = form.uf.value;
+        const cidade = selCidade.value;
+        const raioKm = Number(form.raio.value);
+        const termos = lerTermos(form.termos.value);
+        if (termos.length > MAX_TERMOS) throw new Error(`Use no máximo ${MAX_TERMOS} termos (você digitou ${termos.length}).`);
+        const de = form.de.value;
+        const ate = form.ate.value;
+        if (de && ate && de > ate) throw new Error('A data "Abertura de" precisa ser antes da "Abertura até".');
+        let centro = null;
+        let alvos = []; // [{ nome, uf, coord, distancia }]
+        if (cidade) {
+          centro = coordenadas(cidade, uf);
+          if (!centro) throw new Error(`Não achei a posição de ${cidade} no mapa.`);
+          alvos = Object.entries(LH.geo.municipios).flatMap(([u, lista]) => lista.map((m) => ({ nome: m[0], uf: u, coord: [m[1], m[2]] })))
+            .map((m) => ({ ...m, distancia: distanciaKm(centro, m.coord) }))
+            .filter((m) => (raioKm ? m.distancia <= raioKm : (m.uf === uf && normalizar(m.nome) === normalizar(cidade))));
+        }
+        return {
+          uf, cidade, raioKm: cidade ? raioKm : 0, termos, centro, alvos,
+          filtros: {
+            termo: consultaDosTermos(termos),
+            ufs: cidade ? [...new Set(alvos.map((a) => a.uf))] : [uf],
+            municipios: cidade ? alvos.map((a) => a.nome) : [],
+            modalidades: idsModalidade(modalidadesMarcadas()),
+            de, ate,
+          },
+        };
+      };
+
+      const executar = async (consulta) => {
         const meu = ++pedido;
-        area.hidden = false;
-        if (!continuar) {
-          offset = 0;
-          caixa.innerHTML = LH.carregando('Buscando licitações na região...');
-          mais.hidden = true;
-          const partes = [
-            consulta.municipios.length ? `${consulta.municipios.length} município(s)` : (consulta.ufs.length ? consulta.ufs.join(', ') : 'Brasil inteiro'),
-            estado.termos.length ? `${estado.termos.length} termo(s)` : 'todos os objetos',
-          ];
-          raiz.querySelector('#reg-filtros').textContent = partes.join(' · ');
-        }
+        botaoBuscar.disabled = true;
+        botaoBuscar.innerHTML = `${LH.icone('atualizar', 'girando')} Buscando...`;
+        aviso.hidden = true;
+        areaMun.hidden = true;
         try {
-          const [favs, r] = await Promise.all([LH.repo.favoritos(), LH.repo.buscar(consulta, offset)]);
-          if (meu !== pedido) return;
-          if (!continuar) total = r.total ?? r.lista.length;
-          const html = r.lista.map((l) => LH.cartaoLicitacao(l, favs)).join('');
-          if (continuar) caixa.insertAdjacentHTML('beforeend', html);
-          else caixa.innerHTML = html || LH.vazio('radar', 'Nada aberto nessa região', 'Tente outros termos, mais estados ou tire os municípios.');
-          offset += r.lista.length;
-          raiz.querySelector('#reg-contagem').innerHTML = `<strong>${fmt.numero(total)}</strong> licitação(ões) aberta(s)${offset < total ? ` · mostrando ${fmt.numero(offset)}` : ''}`;
-          mais.hidden = offset >= total || r.lista.length < (r.porPagina || 20);
-          LH.revelar(caixa);
-          if (!continuar) area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          await iniciarMapa();
+          const linhas = await LH.repo.radarContagem(consulta.filtros);
+          if (meu !== pedido || !vivo) return;
+          // Só o que está dentro do raio (municípios com o mesmo nome em outra UF ficam de fora).
+          const dentro = consulta.alvos.length ? new Map(consulta.alvos.map((a) => [`${a.uf}|${normalizar(a.nome)}`, a])) : null;
+          let semPosicao = 0;
+          const pontos = [];
+          for (const l of linhas) {
+            const alvo = dentro?.get(`${l.uf}|${normalizar(l.municipio)}`);
+            if (dentro && !alvo) continue;
+            const coord = alvo?.coord || coordenadas(l.municipio, l.uf);
+            if (!coord) { semPosicao += l.total; continue; }
+            pontos.push({ ...l, coord, distancia: alvo?.distancia ?? null });
+          }
+          const total = pontos.reduce((s, p) => s + p.total, 0);
+          ultima = { ...consulta, pontos };
+          desenharNoMapa({ pontos, centro: consulta.centro, raioKm: consulta.raioKm, cidade: consulta.cidade ? `${consulta.cidade}/${consulta.uf}` : '' });
+          const onde = consulta.cidade
+            ? (consulta.raioKm ? `num raio de ${fmt.numero(consulta.raioKm)} km de ${consulta.cidade}/${consulta.uf}` : `em ${consulta.cidade}/${consulta.uf}`)
+            : (consulta.uf ? `em ${NOMES_UF[consulta.uf]}` : 'na seleção do radar');
+          raiz.querySelector('#radar-subtitulo').textContent = consulta.cidade
+            ? `Proximidade a partir de ${consulta.cidade}/${consulta.uf}` : `Licitações abertas ${onde}`;
+          resumo.hidden = false;
+          resumo.innerHTML = total
+            ? `<strong>${fmt.numero(total)}</strong> licitação(ões) em <strong>${fmt.numero(pontos.length)}</strong> município(s) ${esc(onde)}${semPosicao ? `<br><span class="fraco">${fmt.numero(semPosicao)} sem posição no mapa</span>` : ''}<br><span class="fraco">Clique num número para ver as licitações.</span>`
+            : `Nenhuma licitação aberta ${esc(onde)}.<br><span class="fraco">Aumente o raio ou tire alguns filtros.</span>`;
+          botaoSalvar.disabled = false;
         } catch (e) {
-          if (meu === pedido) caixa.innerHTML = LH.erroHtml(e);
+          if (meu === pedido) {
+            aviso.hidden = false;
+            aviso.innerHTML = `<p>${LH.icone('alerta')} ${esc(e.message)}</p>`;
+          }
+        } finally {
+          if (meu === pedido) {
+            botaoBuscar.innerHTML = `${LH.icone('busca')} Buscar`;
+            atualizarBotoes();
+          }
         }
-      };
-      const iniciarBusca = () => {
-        if (inpTermo.value.trim()) adicionarTermos(inpTermo.value);
-        consulta = filtrosDoRadar(atual());
-        buscar();
       };
 
-      const carregarRadar = (r) => {
-        estado.ufs = new Set(r.ufs || []);
-        estado.municipios = [...(r.municipios || [])];
-        for (const m of estado.municipios) estado.ufs.add(m.split('/')[1]);
-        estado.termos = [...(r.palavras || [])].slice(0, MAX_TERMOS);
-        form.querySelectorAll('[name=modalidades]').forEach((c) => { c.checked = (r.modalidades || []).includes(c.value); });
-        desenharEstados(); desenharMunicipios(); desenharTermos();
-        iniciarBusca();
+      const verMunicipio = async (uf, municipio) => {
+        mapa?.closePopup();
+        areaMun.hidden = false;
+        raiz.querySelector('#mun-titulo').innerHTML = `${LH.icone('local')} <strong>${esc(municipio)}/${esc(uf)}</strong>`;
+        caixaMun.innerHTML = LH.carregando('Carregando as licitações...');
+        areaMun.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        try {
+          const [favs, lista] = await Promise.all([LH.repo.favoritos(), LH.repo.licitacoesDoMunicipio(ultima.filtros, uf, municipio)]);
+          caixaMun.innerHTML = lista.length ? lista.map((l) => LH.cartaoLicitacao(l, favs)).join('')
+            : LH.vazio('busca', 'Nada encontrado', 'As licitações deste município podem ter encerrado agora há pouco.');
+          LH.revelar(caixaMun);
+        } catch (e) { caixaMun.innerHTML = LH.erroHtml(e); }
       };
 
       // --- Radares salvos e alertas ---
       let radares = [];
       const desenharRadares = async () => {
         radares = await LH.repo.radares().catch((e) => { LH.aviso(e.message, 'perigo'); return []; });
-        const caixaRadares = raiz.querySelector('#radares');
+        if (!vivo) return;
+        const caixa = raiz.querySelector('#radares');
         const resultados = await Promise.all(radares.map((r) => doRadar(r).catch(() => ({ lista: [], total: null }))));
-        caixaRadares.innerHTML = radares.length ? radares.map((r, i) => {
+        caixa.innerHTML = radares.length ? radares.map((r, i) => {
           const qtd = resultados[i].total;
-          const regiao = r.municipios?.length ? r.municipios.map((m) => m.replace('/', ' · ')).join(', ')
+          const mun = r.municipios || [];
+          const regiao = mun.length ? (mun.length > 3 ? `${mun.length} municípios (${mun.slice(0, 2).map((m) => m.split('/')[0]).join(', ')}...)` : mun.map((m) => m.replace('/', ' · ')).join(', '))
             : (r.ufs.length ? `UFs: ${r.ufs.join(', ')}` : 'Brasil inteiro');
           return `
           <article class="card spot" data-reveal>
             <div class="card__titulo">
-              <h3>${icone('radar')} ${esc(r.nome)}</h3>
+              <h3>${LH.icone('radar')} ${esc(r.nome)}</h3>
               <label class="chave"><input type="checkbox" data-alternar="${r.id}" ${r.ativo ? 'checked' : ''}> ${r.ativo ? 'Ligado' : 'Desligado'}</label>
             </div>
             <div class="chips">${r.palavras.map((p) => `<span class="chip">${esc(p)}</span>`).join('') || '<span class="fraco">Todos os objetos</span>'}</div>
             <p class="fraco" style="margin-top:10px">${esc(regiao)} · ${r.modalidades.length ? esc(r.modalidades.join(', ')) : 'Todas as modalidades'}</p>
             <div class="card__rodape">
               <span class="selo selo--info">${qtd == null ? 'Sem conexão' : `${fmt.numero(qtd)} aberta(s) agora`}</span>
-              <button class="btn btn--pequeno btn--primario" type="button" data-abrir="${r.id}">${icone('olho')} Ver resultados</button>
-              <button class="btn btn--pequeno btn--perigo" type="button" data-excluir="${r.id}" style="margin-left:auto">${icone('lixeira')} Excluir</button>
+              <button class="btn btn--pequeno btn--primario" type="button" data-abrir="${r.id}">${LH.icone('local')} Ver no mapa</button>
+              <button class="btn btn--pequeno btn--perigo" type="button" data-excluir="${r.id}" style="margin-left:auto">${LH.icone('lixeira')} Excluir</button>
             </div>
           </article>`;
-        }).join('') : `<div class="card">${LH.vazio('radar', 'Nenhum radar salvo', 'Monte uma busca no mapa acima e clique em "Salvar como radar" para receber alertas.')}</div>`;
+        }).join('') : `<div class="card">${LH.vazio('radar', 'Nenhum radar salvo', 'Faça uma busca no mapa e clique em "Salvar como radar" para receber alertas.')}</div>`;
 
         const vistos = new Set();
         const alertas = radares.flatMap((r, i) => (r.ativo ? resultados[i].lista.slice(0, 4) : []))
@@ -402,20 +495,22 @@ LH.vistas = LH.vistas || {};
           .sort((a, b) => String(b.publicada).localeCompare(String(a.publicada))).slice(0, 6);
         raiz.querySelector('#alertas').innerHTML = alertas.length ? alertas.map((l) => `
           <li class="lista__item">
-            <span class="lista__icone">${icone('sino')}</span>
+            <span class="lista__icone">${LH.icone('sino')}</span>
             <div class="lista__texto"><strong>${esc(l.objeto)}</strong><span>${esc([l.municipio, l.uf].filter(Boolean).join('/'))} · ${l.valor == null ? 'valor sigiloso' : fmt.moeda(l.valor)}${l.publicada ? ` · publicada ${fmt.relativo(l.publicada)}` : ''}</span></div>
-            <button class="btn-icone btn-icone--pequeno" type="button" data-alerta="${l.id}" aria-label="Ver detalhes">${icone('olho')}</button>
+            <button class="btn-icone btn-icone--pequeno" type="button" data-alerta="${l.id}" aria-label="Ver detalhes">${LH.icone('olho')}</button>
           </li>`).join('') : '<li class="fraco">Ligue um radar para ver os alertas.</li>';
         LH.revelar(raiz);
       };
 
       const salvarRadar = () => {
-        const r = atual();
-        if (!r.palavras.length && !r.ufs.length && !r.municipios.length) return LH.aviso('Escolha ao menos um estado ou um termo antes de salvar.', 'alerta');
-        const sugestao = [r.palavras.slice(0, 2).join(', '), r.municipios[0]?.split('/')[0] || r.ufs.slice(0, 3).join('/')].filter(Boolean).join(' em ');
+        if (!ultima) return;
+        const municipios = ultima.cidade ? ultima.alvos.map((a) => `${a.nome}/${a.uf}`) : [];
+        if (municipios.length > MAX_MUNICIPIOS) return LH.aviso(`O raio tem ${fmt.numero(municipios.length)} municípios. Para salvar, use um raio com até ${fmt.numero(MAX_MUNICIPIOS)}.`, 'alerta');
+        const sugestao = [ultima.termos.slice(0, 2).join(', '), ultima.cidade ? `${ultima.cidade}${ultima.raioKm ? ` +${ultima.raioKm} km` : ''}` : NOMES_UF[ultima.uf]].filter(Boolean).join(' · ');
         LH.modal({
           titulo: 'Salvar como radar',
           html: `
+            <p>Você recebe alertas de novas licitações ${ultima.cidade ? `nos ${fmt.numero(municipios.length)} município(s) deste raio` : `em ${esc(NOMES_UF[ultima.uf])}`}.</p>
             <label class="campo"><span class="campo__rotulo">Nome do radar</span><input id="radar-nome" maxlength="120" value="${esc(sugestao.slice(0, 120))}"></label>
             <div class="chips">
               <label class="chave"><input type="checkbox" id="radar-email" checked> E-mail</label>
@@ -429,7 +524,8 @@ LH.vistas = LH.vistas || {};
               if (!nome) return fundo.querySelector('#radar-nome').focus();
               try {
                 await LH.repo.salvarRadar({
-                  ...r, nome, ativo: true,
+                  nome, ativo: true, palavras: ultima.termos, ufs: ultima.filtros.ufs, municipios,
+                  modalidades: modalidadesMarcadas(),
                   canais: ['email', 'telegram', 'computador'].reduce((c, k) => ({ ...c, [k]: fundo.querySelector(`#radar-${k}`).checked }), {}),
                 });
                 fechar();
@@ -441,55 +537,46 @@ LH.vistas = LH.vistas || {};
         });
       };
 
-      // --- Eventos ---
-      LH.ao(raiz, 'click', '[data-uf]', (e, b) => {
-        const uf = b.dataset.uf;
-        if (estado.ufs.has(uf)) {
-          estado.ufs.delete(uf);
-          const antes = estado.municipios.length;
-          estado.municipios = estado.municipios.filter((m) => !m.endsWith(`/${uf}`));
-          if (estado.municipios.length !== antes) desenharMunicipios();
-        } else {
-          estado.ufs.add(uf);
-          ufPreferida = uf; // o seletor de município já abre no estado que acabou de ser marcado
-        }
-        desenharEstados();
-      });
-      selUf.addEventListener('change', () => { ufPreferida = selUf.value; carregarListaMunicipios(); });
-      botaoMun.addEventListener('click', adicionarMunicipio);
-      inpMun.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); adicionarMunicipio(); } });
-      inpTermo.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ',') {
-          e.preventDefault();
-          if (inpTermo.value.trim()) adicionarTermos(inpTermo.value);
-          else if (e.key === 'Enter') iniciarBusca();
-        } else if (e.key === 'Backspace' && !inpTermo.value && estado.termos.length) {
-          estado.termos.pop();
-          desenharTermos();
-        }
-      });
-      inpTermo.addEventListener('paste', (e) => {
-        const texto = e.clipboardData?.getData('text') || '';
-        if (/[,\n]/.test(texto)) { e.preventDefault(); adicionarTermos(texto.replace(/\n/g, ',')); }
-      });
-      raiz.querySelector('#termos').addEventListener('click', (e) => { if (e.target.id === 'termos') inpTermo.focus(); });
-      LH.ao(raiz, 'click', '[data-remover-termo]', (e, b) => { estado.termos.splice(Number(b.dataset.removerTermo), 1); desenharTermos(); inpTermo.focus(); });
-      LH.ao(raiz, 'click', '[data-remover-mun]', (e, b) => { estado.municipios.splice(Number(b.dataset.removerMun), 1); desenharMunicipios(); });
-      form.addEventListener('submit', (e) => { e.preventDefault(); iniciarBusca(); });
-      mais.querySelector('button').addEventListener('click', () => buscar(true));
-      LH.ligarAcoesLicitacao(caixa); // Baixar edital, Ver itens, Site oficial, favoritar, IA, CRM
+      const abrirRadar = (r) => {
+        form.termos.value = (r.palavras || []).join(', ');
+        form.querySelectorAll('[name=modalidades]').forEach((c) => { c.checked = (r.modalidades || []).map(LH.nomeModalidade).includes(c.value); });
+        atualizarTermos(); atualizarModalidade();
+        const mun = r.municipios || [];
+        const alvos = mun.map((m) => { const [nome, uf] = m.split('/'); return { nome, uf, coord: coordenadas(nome, uf), distancia: null }; }).filter((a) => a.coord);
+        const termos = r.palavras || [];
+        executar({
+          uf: mun.length ? '' : (r.ufs[0] || ''), cidade: '', raioKm: 0, termos, centro: null, alvos,
+          filtros: { ...filtrosDoRadar(r), de: form.de.value, ate: form.ate.value },
+        });
+        raiz.querySelector('.radar-mapa').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
 
+      // --- Eventos ---
+      form.uf.addEventListener('change', async () => { await atualizarCidades(); atualizarBotoes(); });
+      selCidade.addEventListener('change', atualizarBotoes);
+      form.raio.addEventListener('input', atualizarRaio);
+      form.termos.addEventListener('input', atualizarTermos);
+      form.addEventListener('change', (e) => {
+        if (e.target.matches('[data-todas]')) form.querySelectorAll('[name=modalidades]').forEach((c) => { c.checked = false; });
+        if (e.target.name === 'modalidades' || e.target.matches('[data-todas]')) atualizarModalidade();
+      });
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!form.uf.value) return;
+        try { await carregarRecursosMapa(); } catch (erro) { return LH.aviso(erro.message, 'perigo'); }
+        try { executar(montarConsulta()); } catch (erro) { LH.aviso(erro.message, 'alerta'); }
+      });
+      // Fecha o seletor de modalidade ao clicar fora.
+      const fecharSeletor = (e) => { const d = raiz.querySelector('#sel-modalidade'); if (d?.open && !d.contains(e.target)) d.open = false; };
+      document.addEventListener('click', fecharSeletor);
+
+      LH.ao(raiz, 'click', '[data-ver-municipio]', (e, b) => { const [uf, m] = b.dataset.verMunicipio.split('|'); verMunicipio(uf, m); });
+      LH.ligarAcoesLicitacao(caixaMun); // Baixar edital, Ver itens, Site oficial, favoritar, IA, CRM
       LH.ao(raiz, 'click', '[data-acao]', async (e, b) => {
-        if (caixa.contains(b)) return; // botões dos cards já tratados acima
+        if (caixaMun.contains(b)) return;
         const acao = b.dataset.acao;
-        if (acao === 'limpar-ufs') { estado.ufs.clear(); estado.municipios = []; desenharEstados(); desenharMunicipios(); }
-        if (acao === 'limpar') {
-          estado.ufs.clear(); estado.municipios = []; estado.termos = [];
-          form.querySelectorAll('[name=modalidades]').forEach((c) => { c.checked = false; });
-          desenharEstados(); desenharMunicipios(); desenharTermos();
-          area.hidden = true;
-        }
         if (acao === 'salvar') salvarRadar();
+        if (acao === 'fechar-municipio') areaMun.hidden = true;
         if (acao === 'computador') {
           if (!('Notification' in window)) return LH.aviso('Este navegador não mostra alertas no computador.', 'alerta');
           const ok = (await Notification.requestPermission()) === 'granted';
@@ -498,9 +585,10 @@ LH.vistas = LH.vistas || {};
         }
       });
       LH.ao(raiz, 'click', '[data-alerta]', (e, b) => LH.detalhesLicitacao(b.dataset.alerta));
-      LH.ao(raiz, 'click', '[data-abrir]', (e, b) => {
+      LH.ao(raiz, 'click', '[data-abrir]', async (e, b) => {
         const r = radares.find((x) => String(x.id) === b.dataset.abrir);
-        if (r) carregarRadar(r);
+        if (!r) return;
+        try { await carregarRecursosMapa(); abrirRadar(r); } catch (erro) { LH.aviso(erro.message, 'perigo'); }
       });
       LH.ao(raiz, 'change', '[data-alternar]', async (e, chave) => {
         try {
@@ -515,9 +603,16 @@ LH.vistas = LH.vistas || {};
         desenharRadares();
       });
 
-      desenharEstados();
-      desenharTermos();
+      atualizarBotoes();
+      iniciarMapa().catch(() => {
+        aviso.innerHTML = `<p>${LH.icone('alerta')} Não consegui carregar o mapa. Confira a internet e abra o Radar de novo.</p>`;
+      });
       desenharRadares();
+      return () => {
+        vivo = false;
+        document.removeEventListener('click', fecharSeletor);
+        mapa?.remove();
+      };
     },
   };
 

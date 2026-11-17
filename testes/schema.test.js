@@ -161,6 +161,15 @@ test('catálogo PNCP: leitura para todos, gravação só pelo sincronizador', as
     `select municipio from public.buscar_licitacoes(p_municipios => array['Ananindeua'])`);
   assert.equal(nenhum.rows.length, 0);
 
+  // Radar: contagem por município, com termo sem acento e filtro de UF.
+  const radar = await como(ids.b, `select uf, municipio, total from public.radar_contagem(p_termo => 'notebooks or manutencao')`);
+  assert.deepEqual(radar.rows.map((r) => [r.uf, r.municipio, Number(r.total)]).sort(),
+    [['RJ', 'Rio de Janeiro', 1], ['SP', 'São Paulo', 1]]);
+  const radarSp = await como(ids.b, `select municipio from public.radar_contagem(p_ufs => array['SP'], p_municipios => array['sao paulo', 'Campinas'])`);
+  assert.deepEqual(radarSp.rows, [{ municipio: 'São Paulo' }]);
+  const futuro = await como(ids.b, `select count(*)::int as n from public.radar_contagem(p_abertura_de => (current_date + 400))`);
+  assert.equal(futuro.rows[0].n, 0, 'filtro de data de abertura');
+
   await assert.rejects(
     como(ids.a, `insert into public.licitacoes (fonte, numero_controle_pncp, objeto)
                  values ('pncp', 'falsa-1', 'Tentativa de gravar no catálogo')`),
