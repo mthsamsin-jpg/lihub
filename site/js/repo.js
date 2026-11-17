@@ -202,6 +202,29 @@ window.LH = window.LH || {};
       return data.map(normalizar);
     },
 
+    /** Observações do usuário: ids -> Map(id, texto). */
+    async observacoes(ids) {
+      const lista = [...new Set(ids.map(Number))].filter(Boolean).slice(0, 200);
+      if (!lista.length) return new Map();
+      const { data, error } = await db().from('licitacao_observacoes').select('licitacao_id, texto').in('licitacao_id', lista);
+      if (error?.code === '42P01' || error?.code === 'PGRST205') {
+        throw new Error('Falta a tabela de observações: rode o supabase/atualizar-observacoes.sql no Supabase.');
+      }
+      if (error) throw erroBanco(error, 'Não consegui carregar as observações');
+      return new Map(data.map((o) => [Number(o.licitacao_id), o.texto]));
+    },
+    /** Grava (ou apaga, se vazio) a observação do usuário na licitação. */
+    async salvarObservacao(id, texto) {
+      const tabela = db().from('licitacao_observacoes');
+      const { error } = texto
+        ? await tabela.upsert({ licitacao_id: Number(id), texto, atualizado_em: new Date().toISOString() }, { onConflict: 'user_id,licitacao_id' })
+        : await tabela.delete().eq('licitacao_id', Number(id));
+      if (error?.code === '42P01' || error?.code === 'PGRST205') {
+        throw new Error('Falta a tabela de observações: rode o supabase/atualizar-observacoes.sql no Supabase.');
+      }
+      if (error) throw erroBanco(error, 'Não consegui salvar a observação');
+    },
+
     async licitacoes(ids) {
       const lista = [...new Set(ids.map(Number))].filter(Boolean);
       if (!lista.length) return [];
@@ -629,6 +652,16 @@ window.LH = window.LH || {};
     },
     licitacoesDoMunicipio: async (f, uf, municipio) => filtrarRadarDemo(f).filter((l) => l.uf === uf && l.municipio === municipio),
     licitacoes: async (ids) => ids.map(LH.dados.licitacao).filter(Boolean),
+    // Demonstração: observações neste navegador.
+    async observacoes(ids) {
+      const todas = LH.estado.obter('observacoes') || {};
+      return new Map(ids.filter((id) => todas[id]).map((id) => [Number(id), todas[id]]));
+    },
+    async salvarObservacao(id, texto) {
+      const todas = { ...(LH.estado.obter('observacoes') || {}) };
+      if (texto) todas[id] = texto; else delete todas[id];
+      LH.estado.salvar('observacoes', todas);
+    },
     favoritos: async () => new Set(LH.estado.obter('favoritos')),
     alternarFavorito: async (id) => LH.estado.alternarFavorito(Number(id)),
     kpis: async () => ({

@@ -56,7 +56,7 @@ begin
   drop view if exists public.vw_crm_cards, public.vw_consentimentos_atuais;
   drop table if exists
     public.documentos, public.propostas, public.radares, public.eventos, public.monitoramentos,
-    public.crm_cards, public.favoritos, public.analises_edital, public.licitacao_itens,
+    public.crm_cards, public.favoritos, public.licitacao_observacoes, public.analises_edital, public.licitacao_itens,
     public.kanban_etapas, public.empresas, public.consentimentos, public.assinaturas,
     public.sync_execucoes, public.membros, public.perfis, public.licitacoes, public.organizacoes;
 

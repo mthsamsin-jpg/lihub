@@ -72,15 +72,24 @@ window.LH = window.LH || {};
     return LH.PLATAFORMAS.find(([, , partes]) => partes.some((p) => n.includes(semAcento(p))))?.[0] || 'outros';
   };
 
-  // --- Observações do usuário nos cards (guardadas neste navegador) ------------------
-  const CHAVE_OBS = 'lh:observacoes';
-  const lerObs = () => { try { return JSON.parse(localStorage.getItem(CHAVE_OBS) || '{}'); } catch { return {}; } };
-  LH.observacao = (id) => lerObs()[id] || '';
-  LH.salvarObservacao = (id, texto) => {
-    const todas = lerObs();
-    if (texto.trim()) todas[id] = texto.trim().slice(0, 2000); else delete todas[id];
-    try { localStorage.setItem(CHAVE_OBS, JSON.stringify(todas)); return true; } catch { return false; }
-  };
+  // --- Observações do usuário nos cards ---------------------------------------------
+  // Ficam na conta (tabela licitacao_observacoes). O card nasce com o campo vazio e
+  // as observações chegam logo depois, de uma vez para todos os cards da tela.
+  const obsCache = new Map();
+  LH.observacao = (id) => obsCache.get(Number(id)) || '';
+  async function preencherObservacoes(raiz) {
+    const campos = [...raiz.querySelectorAll('textarea[data-obs]:not([data-obs-ok])')];
+    if (!campos.length) return;
+    campos.forEach((c) => { c.dataset.obsOk = '1'; });
+    const faltam = campos.map((c) => Number(c.dataset.obs)).filter((id) => !obsCache.has(id));
+    try {
+      if (faltam.length) {
+        const achadas = await LH.repo.observacoes(faltam);
+        faltam.forEach((id) => obsCache.set(id, achadas.get(id) || ''));
+      }
+      for (const c of campos) if (!c.value && document.activeElement !== c) c.value = LH.observacao(c.dataset.obs);
+    } catch { /* sem observações: o campo continua vazio e editável */ }
+  }
 
   // --- Perfil do órgão -----------------------------------------------------------
   // Esfera: vem do PNCP (orgao_esfera). Na demonstração, deduzida do nome do órgão.
@@ -281,12 +290,21 @@ window.LH = window.LH || {};
 
   /** Liga os botões dos cards de licitação dentro da raiz. aoMudar() redesenha a lista. */
   LH.ligarAcoesLicitacao = (raiz, aoMudar) => {
-    raiz.addEventListener('change', (e) => {
+    raiz.addEventListener('change', async (e) => {
       const campo = e.target.closest?.('[data-obs]');
       if (!campo) return;
-      if (LH.salvarObservacao(campo.dataset.obs, campo.value)) LH.aviso('Observação salva neste navegador.', 'sucesso');
-      else LH.aviso('Não consegui salvar: o navegador bloqueou o armazenamento.', 'perigo');
+      const id = Number(campo.dataset.obs);
+      const texto = campo.value.trim().slice(0, 2000);
+      try {
+        await LH.repo.salvarObservacao(id, texto);
+        obsCache.set(id, texto);
+        LH.aviso(texto ? 'Observação salva na sua conta.' : 'Observação apagada.', 'sucesso');
+      } catch (erro) {
+        LH.aviso(erro.message, 'perigo');
+      }
     });
+    preencherObservacoes(raiz);
+    new MutationObserver(LH.atrasar(() => preencherObservacoes(raiz), 60)).observe(raiz, { childList: true, subtree: true });
     LH.ao(raiz, 'click', '[data-acao]', async (e, botao) => {
       const id = Number(botao.dataset.id);
       switch (botao.dataset.acao) {

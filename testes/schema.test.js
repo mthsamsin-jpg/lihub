@@ -242,6 +242,23 @@ test('Storage: PDF só entra na pasta da própria organização', async () => {
     /row-level security/);
 });
 
+test('observações: cada usuário vê e edita só as próprias', async () => {
+  const salvar = (u, texto) => como(u, `insert into public.licitacao_observacoes (licitacao_id, texto) values ($1, $2)
+    on conflict (user_id, licitacao_id) do update set texto = excluded.texto`, [ids.licPncp, texto]);
+  await salvar(ids.a, 'Ligar para o pregoeiro');
+  await salvar(ids.a, 'Ligar amanhã');
+  await salvar(ids.b, 'Nota do Beto');
+  const daAna = await como(ids.a, `select texto from public.licitacao_observacoes`);
+  assert.deepEqual(daAna.rows.map((r) => r.texto), ['Ligar amanhã']);
+  await como(ids.b, `delete from public.licitacao_observacoes`);
+  const aindaDaAna = await como(ids.a, `select texto from public.licitacao_observacoes`);
+  assert.equal(aindaDaAna.rows.length, 1, 'o Beto não apaga a observação da Ana');
+  await assert.rejects(salvar(ids.b, '   '), /check constraint/);
+  await assert.rejects(
+    como(ids.b, `insert into public.licitacao_observacoes (licitacao_id, texto) values ($1, 'x')`, [ids.licManualA]),
+    /row-level security/);
+});
+
 test('favoritos, consentimentos e exportação de dados (LGPD)', async () => {
   await como(ids.b, `insert into public.favoritos (licitacao_id) values ($1)`, [ids.licPncp]);
   await assert.rejects(

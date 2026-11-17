@@ -336,6 +336,15 @@ create table if not exists public.favoritos (
 );
 create index if not exists favoritos_licitacao_idx on public.favoritos (licitacao_id);
 
+-- 3.7b Observações de cada usuário nos cards de licitação.
+create table if not exists public.licitacao_observacoes (
+  user_id        uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  licitacao_id   bigint not null references public.licitacoes (id) on delete cascade,
+  texto          text not null check (char_length(btrim(texto)) between 1 and 2000),
+  atualizado_em  timestamptz not null default now(),
+  primary key (user_id, licitacao_id)
+);
+
 -- 3.8 Etapas do Kanban (personalizáveis por organização).
 create table if not exists public.kanban_etapas (
   id              uuid primary key default gen_random_uuid(),
@@ -798,6 +807,7 @@ alter table public.empresas         enable row level security;
 alter table public.licitacoes       enable row level security;
 alter table public.licitacao_itens  enable row level security;
 alter table public.favoritos        enable row level security;
+alter table public.licitacao_observacoes enable row level security;
 alter table public.kanban_etapas    enable row level security;
 alter table public.crm_cards        enable row level security;
 alter table public.analises_edital  enable row level security;
@@ -817,7 +827,7 @@ alter table public.monitoramentos   enable row level security;
 grant usage on schema public to authenticated, service_role;
 grant select, insert, update, delete on
   public.organizacoes, public.perfis, public.membros, public.empresas,
-  public.licitacoes, public.licitacao_itens, public.favoritos, public.kanban_etapas,
+  public.licitacoes, public.licitacao_itens, public.favoritos, public.licitacao_observacoes, public.kanban_etapas,
   public.crm_cards, public.analises_edital, public.consentimentos, public.sync_execucoes,
   public.assinaturas, public.documentos, public.propostas, public.radares, public.eventos,
   public.monitoramentos
@@ -831,7 +841,7 @@ grant execute on function
 -- chave service_role, que ignora o RLS e NUNCA pode ir para o navegador.
 revoke all on
   public.organizacoes, public.perfis, public.membros, public.empresas,
-  public.licitacoes, public.licitacao_itens, public.favoritos, public.kanban_etapas,
+  public.licitacoes, public.licitacao_itens, public.favoritos, public.licitacao_observacoes, public.kanban_etapas,
   public.crm_cards, public.analises_edital, public.consentimentos, public.sync_execucoes,
   public.assinaturas, public.documentos, public.propostas, public.radares, public.eventos,
   public.monitoramentos
@@ -944,6 +954,13 @@ create policy favoritos_proprios on public.favoritos for all to authenticated
   using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid())
               and exists (select 1 from public.licitacoes l where l.id = favoritos.licitacao_id));
+
+-- 5.7b observações (somente as próprias)
+drop policy if exists observacoes_proprias on public.licitacao_observacoes;
+create policy observacoes_proprias on public.licitacao_observacoes for all to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid())
+              and exists (select 1 from public.licitacoes l where l.id = licitacao_observacoes.licitacao_id));
 
 -- 5.8 kanban_etapas
 drop policy if exists etapas_ver on public.kanban_etapas;
