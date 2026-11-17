@@ -99,6 +99,31 @@ async function verificarChaves() {
   ok('Conexão com o Supabase');
 }
 
+/**
+ * Links dos e-mails (confirmação e nova senha): pede ao Supabase para voltar ao
+ * SITE_URL com um token falso (não cria nem confirma nada) e vê para onde ele manda.
+ * Se o endereço não estiver em "Redirect URLs", o Supabase usa a "Site URL" no lugar.
+ */
+async function verificarLinksEmail() {
+  const site = config.site.url;
+  if (/localhost|127\.0\.0\.1/.test(site)) {
+    nota(`SITE_URL é ${site} (computador). No Render ela deve ser https://usolicitahub.com.br.`);
+  }
+  const destino = `${site}/app.html`;
+  const teste = new URL('/auth/v1/verify', config.supabase.url);
+  teste.search = new URLSearchParams({ token: 'teste-invalido', type: 'signup', redirect_to: destino });
+  try {
+    const r = await fetch(teste, { headers: { apikey: config.supabase.chavePublica }, redirect: 'manual', signal: AbortSignal.timeout(20_000) });
+    const foiPara = r.headers.get('location') || '';
+    if (foiPara.startsWith(destino)) return ok(`Links dos e-mails voltam para ${site}`);
+    const base = foiPara.split('#')[0].split('?')[0] || '(nenhum)';
+    falha(`Os links dos e-mails estão indo para ${base} em vez de ${site}. No Supabase: Authentication > URL Configuration > `
+      + `Site URL = ${site} e, em Redirect URLs, adicione ${site}/**`);
+  } catch (e) {
+    nota(`Não consegui testar os links dos e-mails (${e.cause?.code ?? e.name}).`);
+  }
+}
+
 async function verificarEstrutura(admin, visitante) {
   const faltam = [];
   const semPermissao = [];
@@ -225,6 +250,7 @@ await verificarChaves();
 const admin = createClient(config.supabase.url, config.supabase.chaveSecreta, semSessao);
 const visitante = createClient(config.supabase.url, config.supabase.chavePublica, semSessao);
 await verificarEstrutura(admin, visitante);
+await verificarLinksEmail();
 if (opcoes.completo) await verificarCadastro(admin);
 else nota('Para testar também o cadastro de usuários: npm run verificar -- --completo');
 await mostrarCatalogo(admin);
