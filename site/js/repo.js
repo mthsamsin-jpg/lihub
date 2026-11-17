@@ -11,7 +11,8 @@ window.LH = window.LH || {};
   const dois = (n) => String(n).padStart(2, '0');
   const sem = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const COLUNAS = 'id, fonte, numero_controle_pncp, objeto, orgao_razao_social, uf, municipio, modalidade_nome, '
-    + 'valor_estimado, data_publicacao, data_encerramento_proposta, sistema_origem, link_sistema_origem, link_pncp, orgao_esfera';
+    + 'valor_estimado, data_publicacao, data_encerramento_proposta, sistema_origem, link_sistema_origem, link_pncp, orgao_esfera, '
+    + 'unidade_codigo, numero_compra, ano_compra';
   const EXTRAS = ['ie', 'im', 'regime', 'endereco', 'cep', 'representante', 'cpfRepresentante', 'cargo', 'banco', 'agencia', 'conta'];
   const POR_PAGINA = 20;
 
@@ -39,6 +40,8 @@ window.LH = window.LH || {};
       linkPncp: r.link_pncp || null,
       linkDisputa: r.link_sistema_origem || null,
       esfera: r.orgao_esfera && r.orgao_esfera !== 'N' ? r.orgao_esfera : null,
+      edital: r.numero_compra ? [r.numero_compra, r.ano_compra].filter(Boolean).join('/') : null,
+      uasg: r.unidade_codigo || null,
       me_epp: false,
     };
     cache.set(l.id, l);
@@ -86,11 +89,53 @@ window.LH = window.LH || {};
   const db = () => LH.nuvem.cliente;
   const ctx = () => LH.nuvem.ctx;
 
+  /** Trechos do nome do portal -> condição do PostgREST (sem vírgulas, parênteses nem espaços). */
+  const padraoIlike = (p) => `*${String(p).replace(/[,()"]/g, '').replace(/\s+/g, '*')}*`;
+  function filtroPlataformas(chaves) {
+    const conds = [];
+    for (const [chave, , partes] of LH.PLATAFORMAS) {
+      if (chaves.includes(chave)) conds.push(...partes.map((p) => `sistema_origem.ilike.${padraoIlike(p)}`));
+    }
+    if (chaves.includes('outros')) {
+      const todas = LH.PLATAFORMAS.flatMap(([, , partes]) => partes).map((p) => `sistema_origem.not.ilike.${padraoIlike(p)}`);
+      conds.push(`and(${todas.join(',')})`, 'sistema_origem.is.null');
+    }
+    return conds.join(',');
+  }
+  const ORDEM_TABELA = {
+    prazo: ['data_encerramento_proposta', { ascending: true }],
+    relevancia: ['data_encerramento_proposta', { ascending: true }],
+    valor: ['valor_estimado', { ascending: false, nullsFirst: false }],
+    recentes: ['data_publicacao', { ascending: false, nullsFirst: false }],
+  };
+  /** Busca com filtro de plataforma / período de abertura (a função do banco não tem esses filtros). */
+  async function buscarNaTabela(f, offset) {
+    const agora = new Date().toISOString();
+    const de = f.de ? `${f.de}T00:00:00-03:00` : null;
+    let q = db().from('licitacoes').select(COLUNAS, { count: 'exact' })
+      .gte('data_encerramento_proposta', de && de > agora ? de : agora);
+    if (f.ate) q = q.lte('data_encerramento_proposta', `${f.ate}T23:59:59-03:00`);
+    const termo = String(f.termo || '').trim();
+    if (termo) q = q.textSearch('busca', termo, { type: 'websearch', config: 'portugues_sem_acento' });
+    if (f.orgao) q = q.ilike('orgao_razao_social', `%${String(f.orgao).trim()}%`);
+    if (f.uf) q = q.eq('uf', f.uf);
+    if (f.municipio) q = q.ilike('municipio', String(f.municipio).trim());
+    if (f.modalidade) q = q.eq('modalidade_id', Number(f.modalidade));
+    if (f.min) q = q.gte('valor_estimado', f.min);
+    if (f.max) q = q.lte('valor_estimado', f.max);
+    if (f.plataformas?.length) q = q.or(filtroPlataformas(f.plataformas));
+    const [coluna, opcoes] = ORDEM_TABELA[f.ordem] || ORDEM_TABELA.prazo;
+    const { data, error, count } = await q.order(coluna, opcoes).order('id').range(offset, offset + POR_PAGINA - 1);
+    if (error) throw erroBanco(error, 'A busca falhou');
+    return { lista: data.map(normalizar), total: count ?? data.length, porPagina: POR_PAGINA };
+  }
+
   const real = {
     modo: 'real',
     modalidades: LH.MODALIDADES.map(([id, nome]) => [String(id), nome]),
 
     async buscar(f, offset = 0) {
+      if (f.plataformas?.length || f.de) return buscarNaTabela(f, offset);
       const municipios = (f.municipios?.length ? f.municipios : [f.municipio]).map((m) => String(m || '').trim()).filter(Boolean);
       const termoBase = [f.termo, f.orgao].map((s) => String(s || '').trim()).filter(Boolean).join(' ');
       const termo = termoBase;
@@ -117,10 +162,10 @@ window.LH = window.LH || {};
       // A função de busca não devolve a esfera do órgão: lê só essa coluna, de uma vez.
       const esferas = new Map();
       if (data?.length) {
-        const { data: extra } = await db().from('licitacoes').select('id, orgao_esfera').in('id', data.map((r) => r.id));
-        for (const e of extra || []) esferas.set(Number(e.id), e.orgao_esfera);
+        const { data: extra } = await db().from('licitacoes').select('id, orgao_esfera, unidade_codigo, numero_compra, ano_compra').in('id', data.map((r) => r.id));
+        for (const e of extra || []) esferas.set(Number(e.id), e);
       }
-      const lista = (data || []).map((r) => normalizar({ ...r, orgao_esfera: esferas.get(Number(r.id)) }));
+      const lista = (data || []).map((r) => normalizar({ ...r, ...esferas.get(Number(r.id)), id: r.id }));
       return { lista, total: data?.length ? Number(data[0].total) : null, porPagina: POR_PAGINA };
     },
 
@@ -568,7 +613,9 @@ window.LH = window.LH || {};
           && (!ufs.length || ufs.includes(l.uf))
           && (!f.min || l.valor >= f.min)
           && (!f.max || l.valor <= f.max)
-          && (!f.ate || l.abertura <= f.ate);
+          && (!f.ate || l.abertura <= f.ate)
+          && (!f.de || l.abertura >= f.de)
+          && (!f.plataformas?.length || f.plataformas.includes(LH.plataformaDe(l.plataforma)));
       }).sort(ordens[f.ordem] || ordens.prazo);
       return { lista: lista.slice(offset, offset + POR_PAGINA), total: lista.length, porPagina: POR_PAGINA };
     },

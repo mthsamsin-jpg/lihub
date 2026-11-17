@@ -14,88 +14,123 @@ LH.vistas = LH.vistas || {};
     const nivel = LH.NIVEIS_DOCUMENTACAO.find(([, , , re]) => re.test(nome));
     return [valor, nivel ? `${nome} · documentação ${nivel[1].toLowerCase()}` : nome];
   };
+  const carregar = (tag, atributos) => new Promise((ok, falha) => {
+    const el = Object.assign(document.createElement(tag), atributos);
+    el.onload = ok;
+    el.onerror = () => falha(new Error(`Não consegui carregar ${atributos.src || atributos.href}. Confira a internet.`));
+    document.head.append(el);
+  });
   const ORDENS = [['relevancia', 'Mais relevantes'], ['prazo', 'Prazo mais próximo'], ['valor', 'Maior valor'], ['recentes', 'Publicadas recentemente']];
 
   // --- Buscar Licitações ---------------------------------------------------------
+  // Painel de filtros avançados em cima (objeto, estado, cidade, modalidade,
+  // plataformas e período de abertura) e os cards dos editais embaixo.
+  const plataformasTodas = () => [...LH.PLATAFORMAS, LH.PLATAFORMA_OUTROS];
   LH.vistas.buscar = {
     titulo: 'Buscar Licitações',
     render: (p) => `
       ${LH.cabecalho({
         titulo: 'Buscar Licitações',
-        texto: 'Oportunidades abertas publicadas no PNCP. Busque por palavra-chave, órgão, modalidade e local.',
+        texto: 'Editais abertos de todos os portais oficiais que publicam no PNCP: Comprasnet, BLL, BNC, BBMNET, Portal de Compras Públicas e outros, num lugar só.',
         acoes: LH.repo.modo === 'demo' ? '<span class="selo">Dados de exemplo</span>' : '<span class="selo selo--sucesso">PNCP · atualizado sozinho</span>',
       })}
-      <div class="grade grade--filtros">
-        <form class="card form filtros" id="filtros" data-reveal="esquerda" autocomplete="off">
-          <div class="card__titulo"><h2>${icone('filtro')} Filtros</h2></div>
-          <label class="campo"><span class="campo__rotulo">Palavra-chave</span>
-            <input name="termo" value="${esc(p.q || '')}" placeholder="ex.: limpeza, notebook, &quot;ar condicionado&quot;"></label>
-          <label class="campo"><span class="campo__rotulo">Órgão</span>
-            <input name="orgao" placeholder="ex.: Prefeitura, Tribunal"></label>
+      <form class="card form busca-avancada" id="filtros" data-reveal autocomplete="off">
+        <div class="card__titulo"><h2>${icone('filtro')} Filtros avançados</h2></div>
+        <div class="busca-avancada__linha">
+          <label class="campo busca-avancada__objeto"><span class="campo__rotulo">Objeto</span>
+            <input name="termo" value="${esc(p.q || '')}" placeholder="ex.: notebook, cadeira de rodas, &quot;ar condicionado&quot;"></label>
+          <label class="campo"><span class="campo__rotulo">Estado (UF)</span>
+            <select name="uf">${LH.opcoesUf('')}</select></label>
+          <label class="campo"><span class="campo__rotulo">Cidade</span>
+            <input name="municipio" list="busca-cidades" placeholder="Escolha o estado" disabled>
+            <datalist id="busca-cidades"></datalist></label>
           <label class="campo"><span class="campo__rotulo">Modalidade</span>
             <select name="modalidade">${LH.opcoes(LH.repo.modalidades.map(comDocumentacao), '', 'Todas')}</select></label>
-          <details class="perfil-legenda">
-            <summary>${icone('info')} Como ler o perfil do órgão</summary>
-            <p><strong>Esfera</strong>: municipal, estadual ou federal, como o órgão está registrado no PNCP.</p>
-            <p><strong>Documentação</strong>: estimativa pela modalidade (Lei 14.133/2021). Na dispensa, parte da habilitação pode ser dispensada (art. 70); na concorrência, costuma ser pedida completa. Confira sempre no edital.</p>
-          </details>
-          <div class="form__linha">
-            <label class="campo"><span class="campo__rotulo">UF</span>
-              <select name="uf">${LH.opcoesUf('')}</select></label>
-            <label class="campo"><span class="campo__rotulo">Município</span>
-              <input name="municipio" placeholder="opcional"></label>
-          </div>
-          <div class="form__linha">
-            <label class="campo"><span class="campo__rotulo">Valor mínimo (R$)</span><input name="min" inputmode="decimal" placeholder="0"></label>
-            <label class="campo"><span class="campo__rotulo">Valor máximo (R$)</span><input name="max" inputmode="decimal" placeholder="sem limite"></label>
-          </div>
-          <label class="campo"><span class="campo__rotulo">Propostas até</span><input type="date" name="ate"></label>
-          <div class="form__linha">
-            <button class="btn btn--primario" type="submit">${icone('busca')} Buscar</button>
-            <button class="btn btn--fantasma" type="reset">Limpar</button>
-          </div>
-        </form>
+        </div>
 
-        <section aria-live="polite">
-          <div class="resultados__barra">
-            <span id="contagem"></span>
-            <label class="campo" style="grid-auto-flow:column;align-items:center;gap:8px">
-              <span class="campo__rotulo">Ordenar por</span>
-              <select id="ordem">${LH.opcoes(ORDENS, p.q ? 'relevancia' : 'prazo')}</select>
-            </label>
+        <fieldset class="plataformas">
+          <legend>${icone('computador')} Plataforma
+            <button type="button" class="link-botao" data-plataformas="todas">Marcar todas</button>
+            <button type="button" class="link-botao" data-plataformas="nenhuma">Limpar</button></legend>
+          <div class="plataformas__grade">
+            ${plataformasTodas().map(([chave, nome]) => `
+            <label class="plataforma"><input type="checkbox" name="plataformas" value="${esc(chave)}" checked><span>${esc(nome)}</span></label>`).join('')}
           </div>
-          <div class="resultados" id="resultados"></div>
-          <div class="mais-resultados" id="mais" hidden><button class="btn" type="button">${icone('setaBaixo')} Carregar mais</button></div>
-        </section>
-      </div>`,
+          <p class="fraco plataformas__nota">${icone('info')} Todos são portais oficiais. Cada um publica no PNCP (Lei 14.133/2021), e o LicitaHub reúne tudo pela API do PNCP.</p>
+        </fieldset>
+
+        <div class="busca-avancada__linha busca-avancada__linha--fim">
+          <label class="campo"><span class="campo__rotulo">Abertura de</span><input type="date" name="de"></label>
+          <label class="campo"><span class="campo__rotulo">Abertura até</span><input type="date" name="ate"></label>
+          <details class="busca-avancada__mais">
+            <summary>${icone('mais')} Mais filtros</summary>
+            <div class="busca-avancada__extras">
+              <label class="campo"><span class="campo__rotulo">Órgão</span><input name="orgao" placeholder="ex.: Prefeitura, Tribunal"></label>
+              <label class="campo"><span class="campo__rotulo">Valor mínimo (R$)</span><input name="min" inputmode="decimal" placeholder="0"></label>
+              <label class="campo"><span class="campo__rotulo">Valor máximo (R$)</span><input name="max" inputmode="decimal" placeholder="sem limite"></label>
+            </div>
+          </details>
+        </div>
+        <div class="busca-avancada__rodape">
+          <button class="btn btn--fantasma" type="reset">Limpar filtros</button>
+          <button class="btn btn--primario btn--grande" type="submit">${icone('busca')} Pesquisar</button>
+        </div>
+      </form>
+
+      <section aria-live="polite" class="busca-resultados">
+        <div class="resultados__barra">
+          <span id="contagem"></span>
+          <label class="campo" style="grid-auto-flow:column;align-items:center;gap:8px">
+            <span class="campo__rotulo">Ordenar por</span>
+            <select id="ordem">${LH.opcoes(ORDENS, p.q ? 'relevancia' : 'prazo')}</select>
+          </label>
+        </div>
+        <div class="resultados" id="resultados"></div>
+        <div class="mais-resultados" id="mais" hidden><button class="btn" type="button">${icone('setaBaixo')} Carregar mais</button></div>
+      </section>`,
     montar(raiz) {
       const form = raiz.querySelector('#filtros');
       const ordem = raiz.querySelector('#ordem');
       const caixa = raiz.querySelector('#resultados');
       const mais = raiz.querySelector('#mais');
+      const cidade = form.municipio;
       let favs = new Set();
       let offset = 0;
       let total = 0;
       let pedido = 0; // ignora respostas de buscas antigas
 
+      const plataformasMarcadas = () => [...form.querySelectorAll('[name=plataformas]:checked')].map((c) => c.value);
       const ler = () => {
         const d = new FormData(form);
+        const marcadas = plataformasMarcadas();
         return {
           termo: d.get('termo'), orgao: d.get('orgao'), modalidade: d.get('modalidade'), uf: d.get('uf'),
-          municipio: d.get('municipio'), min: fmt.lerNumero(d.get('min')), max: fmt.lerNumero(d.get('max')),
-          ate: d.get('ate'), ordem: ordem.value,
+          municipio: d.get('municipio') || '', min: fmt.lerNumero(d.get('min')), max: fmt.lerNumero(d.get('max')),
+          de: d.get('de'), ate: d.get('ate'), ordem: ordem.value,
+          // todas marcadas = sem filtro
+          plataformas: marcadas.length === plataformasTodas().length ? [] : marcadas,
         };
       };
       const buscar = async (continuar = false) => {
         const meu = ++pedido;
+        const f = ler();
         if (!continuar) {
           offset = 0;
-          caixa.innerHTML = LH.carregando('Buscando licitações...');
           mais.hidden = true;
+          if (!plataformasMarcadas().length) {
+            caixa.innerHTML = LH.vazio('computador', 'Nenhuma plataforma marcada', 'Marque ao menos um portal no filtro "Plataforma".');
+            raiz.querySelector('#contagem').textContent = '';
+            return;
+          }
+          if (f.de && f.ate && f.de > f.ate) {
+            caixa.innerHTML = LH.vazio('calendario', 'Período inválido', 'A data "Abertura de" precisa ser antes de "Abertura até".');
+            return;
+          }
+          caixa.innerHTML = LH.carregando('Buscando licitações...');
         }
         try {
           if (!continuar) favs = await LH.repo.favoritos();
-          const r = await LH.repo.buscar(ler(), offset);
+          const r = await LH.repo.buscar(f, offset);
           if (meu !== pedido) return;
           if (!continuar) total = r.total ?? 0;
           const html = r.lista.map((l) => LH.cartaoLicitacao(l, favs)).join('');
@@ -110,9 +145,29 @@ LH.vistas = LH.vistas || {};
         }
       };
 
+      // Cidades do estado escolhido (lista oficial do IBGE, carregada só quando precisa)
+      const atualizarCidades = async () => {
+        const uf = form.uf.value;
+        cidade.value = '';
+        cidade.disabled = !uf;
+        cidade.placeholder = uf ? 'Todas as cidades' : 'Escolha o estado';
+        raiz.querySelector('#busca-cidades').innerHTML = '';
+        if (!uf) return;
+        try {
+          if (!LH.geo) await carregar('script', { src: 'dados/municipios.js' });
+          raiz.querySelector('#busca-cidades').innerHTML = (LH.geo?.municipios[uf] || [])
+            .map((m) => `<option value="${esc(m[0])}"></option>`).join('');
+        } catch { /* sem a lista, a cidade continua podendo ser digitada */ }
+      };
+
       form.addEventListener('submit', (e) => { e.preventDefault(); buscar(); });
-      form.addEventListener('reset', () => setTimeout(() => buscar()));
-      form.addEventListener('input', LH.atrasar(() => buscar(), 450));
+      form.addEventListener('reset', () => setTimeout(() => { atualizarCidades(); buscar(); }));
+      form.uf.addEventListener('change', atualizarCidades);
+      form.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-plataformas]');
+        if (!b) return;
+        form.querySelectorAll('[name=plataformas]').forEach((c) => { c.checked = b.dataset.plataformas === 'todas'; });
+      });
       ordem.addEventListener('change', () => buscar());
       mais.querySelector('button').addEventListener('click', () => buscar(true));
       LH.ligarAcoesLicitacao(caixa);
@@ -134,12 +189,6 @@ LH.vistas = LH.vistas || {};
     SC: 'Santa Catarina', SP: 'São Paulo', SE: 'Sergipe', TO: 'Tocantins',
   };
 
-  const carregar = (tag, atributos) => new Promise((ok, falha) => {
-    const el = Object.assign(document.createElement(tag), atributos);
-    el.onload = ok;
-    el.onerror = () => falha(new Error(`Não consegui carregar ${atributos.src || atributos.href}. Confira a internet.`));
-    document.head.append(el);
-  });
   // Leaflet 1.9.4 e o agrupamento (markercluster 1.5.3), do cdnjs; e as coordenadas.
   let recursosMapa = null;
   const carregarRecursosMapa = () => {

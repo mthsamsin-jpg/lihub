@@ -51,6 +51,37 @@ window.LH = window.LH || {};
   LH.nomeModalidade = (nome) => APELIDOS_MODALIDADE[nome] || nome;
   LH.idModalidade = (nome) => LH.MODALIDADES.find(([, n]) => n === LH.nomeModalidade(nome))?.[0] ?? null;
 
+  // --- Plataformas (portais onde a disputa acontece) ---------------------------------
+  // O PNCP informa em "sistema_origem" o portal que publicou a compra. Cada portal é
+  // reconhecido por pedaços do nome; o que não casar com nenhum vai para "Demais portais".
+  LH.PLATAFORMAS = [
+    ['comprasnet', 'Comprasnet (Compras.gov.br)', ['compras.gov', 'comprasnet', 'siasg']],
+    ['licitacoes-e', 'Licitações-e (Banco do Brasil)', ['licitacoes-e', 'licitações-e', 'banco do brasil']],
+    ['bbmnet', 'BBMNET', ['bbmnet', 'bbm net']],
+    ['bnc', 'BNC', ['bnc', 'bolsa nacional de compras']],
+    ['pcp', 'Portal de Compras Públicas', ['portal de compras p', 'portaldecompraspublicas']],
+    ['bll', 'BLL Compras', ['bll', 'bolsa de licita']],
+    ['licitar', 'Licitar Digital', ['licitar digital', 'licitardigital']],
+    ['licitamais', 'Licita Mais Brasil', ['licita mais', 'licitamais']],
+  ];
+  LH.PLATAFORMA_OUTROS = ['outros', 'Demais portais integrados'];
+  const semAcento = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  /** Nome vindo do PNCP -> chave da plataforma ('outros' se não for nenhuma da lista). */
+  LH.plataformaDe = (nome) => {
+    const n = semAcento(nome);
+    return LH.PLATAFORMAS.find(([, , partes]) => partes.some((p) => n.includes(semAcento(p))))?.[0] || 'outros';
+  };
+
+  // --- Observações do usuário nos cards (guardadas neste navegador) ------------------
+  const CHAVE_OBS = 'lh:observacoes';
+  const lerObs = () => { try { return JSON.parse(localStorage.getItem(CHAVE_OBS) || '{}'); } catch { return {}; } };
+  LH.observacao = (id) => lerObs()[id] || '';
+  LH.salvarObservacao = (id, texto) => {
+    const todas = lerObs();
+    if (texto.trim()) todas[id] = texto.trim().slice(0, 2000); else delete todas[id];
+    try { localStorage.setItem(CHAVE_OBS, JSON.stringify(todas)); return true; } catch { return false; }
+  };
+
   // --- Perfil do órgão -----------------------------------------------------------
   // Esfera: vem do PNCP (orgao_esfera). Na demonstração, deduzida do nome do órgão.
   const ESFERAS = { M: 'Municipal', E: 'Estadual', F: 'Federal', D: 'Distrital' };
@@ -87,13 +118,18 @@ window.LH = window.LH || {};
   LH.cartaoLicitacao = (l, favs = new Set()) => {
     const fav = favs.has(l.id);
     const dias = l.abertura ? LH.datas.diasAte(l.abertura) : 99;
+    const status = !l.abertura ? ['Aberta', 'selo--sucesso'] : dias < 0 ? ['Encerrada', 'selo--perigo'] : ['Aberta', 'selo--sucesso'];
+    const obs = LH.observacao(l.id);
     return `
     <article class="card spot licitacao" data-reveal>
+      <div class="licitacao__corpo">
+      <div class="licitacao__principal">
       <div class="licitacao__topo">
         <div>
           <div class="chips">
+            <span class="selo ${status[1]} licitacao__status"><i aria-hidden="true"></i>${status[0]}</span>
             <span class="selo selo--info">${esc(l.modalidade)}</span>
-            <span class="selo">${esc(l.numero)}</span>
+            <span class="selo" title="Número de identificação">#${esc(l.numero)}</span>
             ${l.me_epp ? '<span class="selo selo--sucesso">Exclusiva ME/EPP</span>' : ''}
             ${dias >= 0 && dias <= 3 ? `<span class="selo selo--alerta">${icone('relogio')} Encerra ${fmt.relativo(l.abertura)}</span>` : ''}
           </div>
@@ -104,20 +140,30 @@ window.LH = window.LH || {};
         <button type="button" class="btn-icone btn-icone--pequeno ${fav ? 'ligado' : ''}" data-acao="favoritar" data-id="${l.id}"
           aria-pressed="${fav}" aria-label="${fav ? 'Tirar dos favoritos' : 'Favoritar'}">${icone('estrela')}</button>
       </div>
+      <dl class="licitacao__ficha">
+        <div><dt>Nº do edital</dt><dd>${esc(l.edital || l.numero)}</dd></div>
+        <div><dt>UASG / Unidade</dt><dd>${esc(l.uasg || '—')}</dd></div>
+        <div><dt>Abertura</dt><dd>${l.abertura ? `${fmt.data(l.abertura)}${l.hora ? ` às ${esc(l.hora)}` : ''}` : 'Não informada'}</dd></div>
+        <div><dt>Cidade/UF</dt><dd>${esc([l.municipio, l.uf].filter(Boolean).join('/') || '—')}</dd></div>
+      </dl>
       <div class="licitacao__info">
-        <span>${icone('local')} ${esc([l.municipio, l.uf].filter(Boolean).join('/'))}</span>
-        <span>${icone('calendario')} ${prazoTexto(l)}</span>
         <span>${icone('moeda')} <b class="licitacao__valor">${valorTexto(l)}</b></span>
         <span>${icone('computador')} ${esc(l.plataforma)}</span>
       </div>
+      </div>
+      <div class="licitacao__lateral" role="group" aria-label="Ações rápidas">
+        <button type="button" class="btn btn--pequeno btn--primario" data-acao="baixar" data-id="${l.id}">${icone('baixar')} Baixar Edital</button>
+        ${siteOficial(l)
+          ? `<a class="btn btn--pequeno btn--rapida" href="${esc(siteOficial(l))}" target="_blank" rel="noopener noreferrer">${icone('externo')} Ver Site Oficial</a>`
+          : `<button type="button" class="btn btn--pequeno btn--rapida" disabled title="O órgão não informou o site">${icone('externo')} Ver Site Oficial</button>`}
+        <button type="button" class="btn btn--pequeno btn--rapida" data-acao="itens" data-id="${l.id}">${icone('caixa')} Ver itens</button>
+      </div>
+      </div>
+      <label class="licitacao__obs">
+        <span>${icone('lapis')} Observação</span>
+        <textarea rows="1" maxlength="2000" data-obs="${l.id}" placeholder="Nova observação...">${esc(obs)}</textarea>
+      </label>
       <div class="licitacao__acoes">
-        <div class="licitacao__rapidas" role="group" aria-label="Ações rápidas">
-          <button type="button" class="btn btn--pequeno btn--rapida" data-acao="baixar" data-id="${l.id}">${icone('baixar')} Baixar edital</button>
-          <button type="button" class="btn btn--pequeno btn--rapida" data-acao="itens" data-id="${l.id}">${icone('caixa')} Ver itens</button>
-          ${siteOficial(l)
-            ? `<a class="btn btn--pequeno btn--rapida" href="${esc(siteOficial(l))}" target="_blank" rel="noopener noreferrer">${icone('externo')} Site oficial</a>`
-            : `<button type="button" class="btn btn--pequeno btn--rapida" disabled title="O órgão não informou o site">${icone('externo')} Site oficial</button>`}
-        </div>
         <div class="licitacao__mais">
           <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="detalhes" data-id="${l.id}">${icone('olho')} Detalhes</button>
           <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="ler-ia" data-id="${l.id}">${icone('brilho')} Ler com IA</button>
@@ -235,6 +281,12 @@ window.LH = window.LH || {};
 
   /** Liga os botões dos cards de licitação dentro da raiz. aoMudar() redesenha a lista. */
   LH.ligarAcoesLicitacao = (raiz, aoMudar) => {
+    raiz.addEventListener('change', (e) => {
+      const campo = e.target.closest?.('[data-obs]');
+      if (!campo) return;
+      if (LH.salvarObservacao(campo.dataset.obs, campo.value)) LH.aviso('Observação salva neste navegador.', 'sucesso');
+      else LH.aviso('Não consegui salvar: o navegador bloqueou o armazenamento.', 'perigo');
+    });
     LH.ao(raiz, 'click', '[data-acao]', async (e, botao) => {
       const id = Number(botao.dataset.id);
       switch (botao.dataset.acao) {

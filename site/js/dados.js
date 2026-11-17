@@ -78,6 +78,7 @@ window.LH = window.LH || {};
     numero: `${b[4] === 'Pregão Eletrônico' ? 'PE' : b[4] === 'Dispensa de Licitação' ? 'DE' : b[4] === 'Concorrência Eletrônica' ? 'CE' : 'LIC'} ${String(90010 + i * 7).padStart(5, '0')}/2026`,
     objeto: b[0], orgao: b[1], uf: b[2], municipio: b[3], modalidade: b[4],
     valor: b[5], abertura: somar(b[6]), hora: b[7], plataforma: b[8],
+    edital: `${String(i * 3 + 11).padStart(3, '0')}/2026`, uasg: b[8] === 'Compras.gov.br' ? String(925000 + i * 137) : null,
     publicada: somar(-((i * 5) % 9) - 1),
     fonte: 'PNCP',
     me_epp: b[5] <= 80000,
