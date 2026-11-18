@@ -9,7 +9,7 @@ window.LH = window.LH || {};
   const { esc, icone } = LH;
   let caixa = null;
 
-  const LOGO = `<span class="logo"><span class="logo__marca" aria-hidden="true"><img src="img/logo-180.png" width="36" height="36" alt="" decoding="async"></span><span class="logo__nome">Uso Licita<b>Hub</b></span></span>`;
+  const LOGO = `<span class="logo"><span class="logo__marca" aria-hidden="true"><svg class="logo__hex" viewBox="0 0 48 48" width="38" height="38" fill="none" stroke-linejoin="round" aria-hidden="true"><g class="logo__ciano" stroke="#22d3ee"><polygon points="24,3 42.19,13.5 42.19,34.5 24,45 5.81,34.5 5.81,13.5" stroke-width="2.2"/><polygon points="24,6.5 39.16,15.25 39.16,32.75 24,41.5 8.84,32.75 8.84,15.25" stroke-width="1.4" opacity=".75"/></g><g class="logo__roxo" stroke="#c084fc"><polygon points="24,11.5 34.83,17.75 34.83,30.25 24,36.5 13.17,30.25 13.17,17.75" stroke-width="2"/><polygon points="24,14.5 32.23,19.25 32.23,28.75 24,33.5 15.77,28.75 15.77,19.25" stroke-width="1.3" opacity=".75"/></g><circle class="logo__nucleo" cx="24" cy="24" r="3.6" fill="#fff"/></svg></span><span class="logo__nome">Uso Licita<b>Hub</b></span></span>`;
 
   const formularios = {
     entrar: () => `
