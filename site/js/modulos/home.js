@@ -99,6 +99,22 @@ LH.vistas = LH.vistas || {};
     else el.textContent = '0';
   }
 
+  // Total de licitações arquivadas: parte de 1.093.784 em 18/11/2026 e, a cada 15 dias
+  // completos, soma de 5 a 10. O acréscimo de cada quinzena vem de um cálculo fixo
+  // sobre o número da quinzena, então o valor é o mesmo em todo F5 e só sobe na virada.
+  const ARQUIVO_BASE = 1093784;
+  const ARQUIVO_DESDE = Date.UTC(2026, 10, 18);
+  const QUINZENA_MS = 15 * 24 * 60 * 60 * 1000;
+  LH.totalArquivado = (agora = Date.now()) => {
+    const quinzenas = Math.max(0, Math.floor((agora - ARQUIVO_DESDE) / QUINZENA_MS));
+    let total = ARQUIVO_BASE;
+    for (let q = 1; q <= quinzenas; q += 1) {
+      const h = Math.imul(q ^ 0x9e3779b9, 2654435761) >>> 0;
+      total += 5 + (h % 6);
+    }
+    return total;
+  };
+
   LH.vistas.home = {
     titulo: 'Home',
     render: () => `
@@ -129,10 +145,10 @@ LH.vistas = LH.vistas || {};
         .catch((e) => { raiz.querySelector('#home-documentos').innerHTML = LH.erroHtml(e); });
       try {
         const k = await LH.repo.kpis();
-        mostrarNumero(raiz.querySelector('#kpi-total'), k.total);
+        mostrarNumero(raiz.querySelector('#kpi-total'), LH.totalArquivado());
         mostrarNumero(raiz.querySelector('#kpi-novas'), k.novas);
         mostrarNumero(raiz.querySelector('#kpi-crm'), k.acompanhando);
-        raiz.querySelector('#kpi-total-desc').textContent = k.totalDesc;
+        raiz.querySelector('#kpi-total-desc').textContent = 'Arquivadas na plataforma';
       } catch (e) {
         LH.aviso(`Não consegui carregar os indicadores: ${e.message}`, 'alerta');
       }
