@@ -1,7 +1,7 @@
 // Robô de lances: cobertura por centavos e a trava do piso (nunca abaixo).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decidir, validarLimites, Disputa, SalaSimulada, STATUS } from '../src/robo/motor.js';
+import { decidir, validarLimites, Disputa, SalaSimulada, STATUS, FASES, preferenciaLC123 } from '../src/robo/motor.js';
 
 const base = { piso: 90, teto: 100, decremento: 0.01 };
 
@@ -46,7 +46,7 @@ test('Disputa: cobre os concorrentes e para no piso com alerta', async () => {
       { tipo: 'lance', valor: 95, autor: 'F5' },
       { tipo: 'lance', valor: 90.5, autor: 'F2' },
       { tipo: 'lance', valor: 89.9, autor: 'F5' },
-      { tipo: 'lance', valor: 50, autor: 'F2' }, // não deve ser lido: o robô já parou
+      { tipo: 'lance', valor: 50, autor: 'F2' }, // lido só para acompanhar: o robô já parou no piso
     ],
   });
   const original = sala.enviarLance.bind(sala);
@@ -82,4 +82,56 @@ test('Disputa: respeita o intervalo mínimo entre os próprios lances', async ()
   const d = new Disputa({ sala, ...base, intervaloMs: 20000, agora: () => relogio, esperar: async (ms) => { esperas.push(ms); relogio += ms; } });
   await d.iniciar();
   assert.deepEqual(esperas, [20000, 20000]);
+});
+
+test('decidir: só dá lance na fase aberta e na prorrogação', () => {
+  const praca = { ...base, melhorConcorrente: 95, nossoLance: 96 };
+  assert.equal(decidir({ ...praca, fase: FASES.ABERTA }).acao, 'lance');
+  assert.equal(decidir({ ...praca, fase: FASES.PRORROGACAO }).acao, 'lance');
+  for (const fase of [FASES.DESEMPATE, FASES.NEGOCIACAO, FASES.HABILITACAO, FASES.ENCERRADA]) {
+    assert.deepEqual(decidir({ ...praca, fase }), { acao: 'aguardar', motivo: 'fase' }, fase);
+  }
+});
+
+test('preferenciaLC123: empate ficto quando a ME/EPP fica até 5% acima de quem não é ME/EPP', () => {
+  const r = preferenciaLC123([
+    { autor: 'nos', valor: 100, porte: 'demais' },
+    { autor: 'F5', valor: 105, porte: 'me' },
+    { autor: 'F9', valor: 105.01, porte: 'epp' },
+    { autor: 'F2', valor: 101, porte: 'demais' },
+  ]);
+  assert.equal(r.empate, true);
+  assert.equal(r.lider.autor, 'nos');
+  assert.equal(r.beneficiada.autor, 'F5');
+  assert.equal(r.limite, 105);
+  assert.deepEqual([...r.faixa], ['F5'], 'F9 passou de 5%');
+  // Se quem lidera já é ME/EPP, não há empate ficto.
+  assert.equal(preferenciaLC123([{ autor: 'F5', valor: 99, porte: 'me' }, { autor: 'F9', valor: 100, porte: 'epp' }]).empate, false);
+});
+
+test('decidir: foge da faixa de 5% da ME/EPP só se o piso permitir', () => {
+  const praca = { piso: 90, teto: 120, decremento: 0.01, nossoLance: 100, melhorConcorrente: 104, melhorMeEpp: 104, fugirEmpate: true };
+  // 104 / 1,05 = 99,047... -> 99,04 (99,04 * 1,05 = 103,99 < 104)
+  assert.deepEqual(decidir(praca), { acao: 'lance', valor: 99.04, motivo: 'fuga_empate' });
+  assert.equal(decidir({ ...praca, fugirEmpate: false }).acao, 'aguardar', 'desligado: só aguarda na frente');
+  assert.equal(decidir({ ...praca, nossoPorte: 'me' }).acao, 'aguardar', 'nós somos ME: não precisa fugir');
+  assert.deepEqual(decidir({ ...praca, piso: 99.5 }), { acao: 'aguardar', motivo: 'empate_inevitavel' }, 'nunca abaixo do piso');
+  assert.equal(decidir({ ...praca, melhorMeEpp: 106 }).acao, 'aguardar', 'fora da faixa: não mexe');
+});
+
+test('SalaSimulada: percorre as fases e o robô nunca fura o piso', async () => {
+  const fases = []; const enviados = [];
+  const sala = new SalaSimulada({ inicial: 103, minimoConcorrentes: 92, passoMs: 5, abertaMs: 120, prorrogacaoMs: 40, etapaMs: 5 });
+  const original = sala.enviarLance.bind(sala);
+  sala.enviarLance = async (v) => { enviados.push(v); return original(v); };
+  const d = new Disputa({ sala, piso: 90, teto: 100, custo: 80, decremento: 0.01, fugirEmpate: true, aoFase: (f) => fases.push(f) });
+  await d.iniciar();
+  assert.equal(fases[0], FASES.ABERTA);
+  for (const f of [FASES.DESEMPATE, FASES.NEGOCIACAO, FASES.HABILITACAO, FASES.ENCERRADA]) assert.ok(fases.includes(f), `faltou a fase ${f}: ${fases}`);
+  assert.ok(enviados.length > 0);
+  assert.ok(enviados.every((v) => v >= 90 && v <= 100), String(enviados));
+  assert.equal(d.status, STATUS.PARADO);
+  const ranking = d.ranking();
+  assert.ok(ranking.some((x) => x.autor === 'nos'));
+  assert.ok(ranking.every((x, i) => i === 0 || x.valor >= ranking[i - 1].valor));
 });

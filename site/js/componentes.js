@@ -63,6 +63,8 @@ window.LH = window.LH || {};
     ['bll', 'BLL Compras', ['bll', 'bolsa de licita']],
     ['licitar', 'Licitar Digital', ['licitar digital', 'licitardigital']],
     ['licitamais', 'Licita Mais Brasil', ['licita mais', 'licitamais']],
+    ['licitanet', 'Licitanet', ['licitanet']],
+    ['comprasbr', 'ComprasBR', ['comprasbr', 'compras br']],
   ];
   LH.PLATAFORMA_OUTROS = ['outros', 'Demais portais integrados'];
   const semAcento = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();

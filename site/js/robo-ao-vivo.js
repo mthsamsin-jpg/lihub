@@ -31,7 +31,7 @@ window.LH = window.LH || {};
       pendentes.set(id, setTimeout(() => {
         pendentes.delete(id);
         const i = item(id);
-        if (i) LH.repo.roboEstado(id, { status: i.status, nossoLance: i.nossoLance, melhorLance: i.melhorLance }).catch((e) => LH.aviso(e.message, 'perigo'));
+        if (i) LH.repo.roboEstado(id, { status: i.status, nossoLance: i.nossoLance, melhorLance: i.melhorLance, fase: i.fase ?? null }).catch((e) => LH.aviso(e.message, 'perigo'));
       }, 300));
     };
   })();
@@ -44,8 +44,9 @@ window.LH = window.LH || {};
     if (salvar) gravar(id);
   };
 
-  const falar = (autor, texto, tipo = '') => {
-    const msg = { autor, texto, tipo, hora: new Date().toLocaleTimeString('pt-BR') };
+  /** extra (lances): { porte, posicao, valor, quantidade, itemId } para o feed mostrar posição, ME/EPP e unitário x total. */
+  const falar = (autor, texto, tipo = '', extra = null) => {
+    const msg = { autor, texto, tipo, hora: new Date().toLocaleTimeString('pt-BR'), ...(extra || {}) };
     chat.push(msg);
     if (chat.length > MAX_MSGS) chat.shift();
     emitir('chat', msg);
@@ -58,6 +59,10 @@ window.LH = window.LH || {};
     item,
     mensagens: () => chat,
     disputa: (id) => disputas.get(id),
+    /** Ranking da praça do item: [{ autor, valor, porte, posicao }] ("nos" = nós). */
+    ranking: (id) => disputas.get(id)?.ranking() || [],
+    /** Situação da LC 123 no ranking atual do item. */
+    preferencia: (id) => LH.robo.preferenciaLC123(api.ranking(id)),
     falar,
 
     /** Carrega os itens uma vez por sessão. "Ativo" de outra visita vira "pausado". */
@@ -89,9 +94,21 @@ window.LH = window.LH || {};
       const custo = i.custo ?? i.piso * 0.9;
       const minimo = custo * 0.95 + Math.random() * (i.piso * 1.05 - custo * 0.95);
       const sala = new LH.robo.SalaSimulada({ inicial: i.teto * 1.03, minimoConcorrentes: Math.round(minimo * 100) / 100 });
+      const qtd = i.quantidade || 1;
+      const posicaoDe = (autor) => d.ranking().find((x) => x.autor === autor)?.posicao ?? null;
       const d = new LH.robo.Disputa({
         sala, piso: i.piso, teto: i.teto, custo: i.custo, decremento: i.decremento,
         intervaloMs: Math.min(i.intervaloSeg * 1000, INTERVALO_SIMULACAO_MS), nossoLance: null,
+        nossoPorte: i.nossoPorte || 'demais', fugirEmpate: !!i.fugirEmpate,
+        aoFase: (fase, ev) => {
+          mudar(id, { fase, fimEm: ev.fimEm ?? null });
+          if (fase === 'negociacao' && d.ranking()[0]?.autor === 'nos') {
+            LH.aviso(`Negociação aberta: o pregoeiro pede contraproposta · ${nome}`, 'alerta');
+            LH.notificar?.('Negociação com o pregoeiro', nome);
+          }
+        },
+        aoEncerrada: () => falar('Sistema', `Disputa encerrada · ${nome}. O robô tinha parado no preço mínimo de segurança.`, 'robo-chat__msg--sistema', { itemId: id }),
+        aoAviso: (texto) => falar('Robô (nós)', texto, 'robo-chat__msg--alerta', { itemId: id }),
         aoStatus: (status, motivo) => {
           mudar(id, { status });
           if (motivo === 'encerrada') {
@@ -100,9 +117,16 @@ window.LH = window.LH || {};
             falar('Sistema', `Disputa encerrada · ${nome}. ${venceu ? 'Terminamos na frente.' : 'Não ficamos com o melhor lance.'}`, 'robo-chat__msg--sistema');
           }
         },
-        aoLance: (v) => { mudar(id, { nossoLance: v }); falar('Robô (nós)', `Lance de ${moeda(v)} · ${nome}`, 'robo-chat__msg--nos'); },
-        aoConcorrente: (v, autor) => { mudar(id, { melhorLance: v }); falar(autor, `Lance de ${moeda(v)} · ${nome}`); },
-        aoMensagem: (m) => falar(m.autor, m.texto, 'robo-chat__msg--oficial'),
+        aoLance: (v, motivo) => {
+          mudar(id, { nossoLance: v });
+          falar('Robô (nós)', motivo === 'fuga_empate' ? `Lance para sair da faixa de 5% da ME/EPP · ${nome}` : nome, 'robo-chat__msg--nos',
+            { porte: i.nossoPorte || 'demais', posicao: posicaoDe('nos'), valor: v, quantidade: qtd, itemId: id });
+        },
+        aoConcorrente: (v, autor, porte) => {
+          mudar(id, { melhorLance: d.melhorConcorrente });
+          falar(autor, nome, '', { porte: porte || 'demais', posicao: posicaoDe(autor), valor: v, quantidade: qtd, itemId: id });
+        },
+        aoMensagem: (m) => falar(m.autor, m.texto, m.autor === 'Sistema' ? 'robo-chat__msg--sistema' : 'robo-chat__msg--oficial', { itemId: id }),
         aoAlerta: (texto) => {
           falar('Trava de segurança', texto, 'robo-chat__msg--alerta');
           LH.aviso(texto, 'perigo');
@@ -110,7 +134,7 @@ window.LH = window.LH || {};
         },
       });
       disputas.set(id, d);
-      mudar(id, { nossoLance: null, melhorLance: null });
+      mudar(id, { nossoLance: null, melhorLance: null, fase: 'aberta', fimEm: null });
       falar('Sistema', `Robô ligado · ${portal ? `${portal} · ` : ''}${nome}. Piso ${moeda(i.piso)}, teto ${moeda(i.teto)}.`, 'robo-chat__msg--sistema');
       d.iniciar().catch((e) => { LH.aviso(e.message, 'perigo'); mudar(id, { status: 'stopped_at_floor' }); });
     },
@@ -172,6 +196,7 @@ window.LH = window.LH || {};
         <span class="robo-mini__mais" data-m="mais"></span>
         <button type="button" class="robo-mini__x" data-m-acao="fechar" aria-label="Esconder o mini player">${icone('fechar')}</button>
       </header>
+      <div class="robo-mini__portal" data-m="portal"></div>
       <p class="robo-mini__item" data-m="item"></p>
       <div class="robo-mini__placar">
         <div><span>Praça</span><strong data-m="praca"></strong></div>
@@ -209,6 +234,9 @@ window.LH = window.LH || {};
       el.className = `robo-mini robo-mini--${CLASSE[i.status]}`;
       q('status').querySelector('b').textContent = ROTULO[i.status];
       q('mais').textContent = vivos.length > 1 ? `+${vivos.length - 1} robô${vivos.length > 2 ? 's' : ''}` : '';
+      const FASE = { aberta: 'Fase aberta', prorrogacao: 'Prorrogação', desempate: 'Desempate ME/EPP', negociacao: 'Negociação', habilitacao: 'Habilitação', encerrada: 'Encerrada' };
+      q('portal').innerHTML = `${LH.portaisRobo?.selo(i.plataforma) || ''}<span>${FASE[i.fase] || ''}</span>`;
+      if (i.status === 'running' && i.fase && !['aberta', 'prorrogacao'].includes(i.fase)) q('status').querySelector('b').textContent = 'Acompanhando';
       q('item').textContent = i.descricao;
       q('item').title = i.descricao;
       q('praca').textContent = moeda(i.melhorLance);

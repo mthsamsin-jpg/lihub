@@ -596,7 +596,21 @@ create trigger robo_conferir_lance before insert or update on public.robo_itens
 alter table public.robo_itens add column if not exists plataforma text not null default 'comprasnet';
 alter table public.robo_itens drop constraint if exists robo_itens_plataforma;
 alter table public.robo_itens add constraint robo_itens_plataforma check (plataforma in (
-  'comprasnet', 'licitacoes-e', 'bbmnet', 'bnc', 'pcp', 'bll', 'licitar', 'licitamais', 'petronect', 'outros'));
+  'comprasnet', 'pncp', 'licitacoes-e', 'bbmnet', 'bnc', 'pcp', 'bll', 'licitanet', 'licitar', 'licitamais',
+  'comprasbr', 'petronect', 'outros'));
+-- Sala de disputa: quantidade (lance pelo valor unitário), nosso porte para a LC 123,
+-- fuga da faixa de 5% de ME/EPP (só até o piso) e a fase atual do pregão.
+alter table public.robo_itens add column if not exists quantidade int not null default 1;
+alter table public.robo_itens add column if not exists nosso_porte text not null default 'demais';
+alter table public.robo_itens add column if not exists fugir_empate boolean not null default false;
+alter table public.robo_itens add column if not exists fase text;
+alter table public.robo_itens drop constraint if exists robo_itens_quantidade;
+alter table public.robo_itens add constraint robo_itens_quantidade check (quantidade between 1 and 100000000);
+alter table public.robo_itens drop constraint if exists robo_itens_nosso_porte;
+alter table public.robo_itens add constraint robo_itens_nosso_porte check (nosso_porte in ('me', 'epp', 'demais'));
+alter table public.robo_itens drop constraint if exists robo_itens_fase;
+alter table public.robo_itens add constraint robo_itens_fase check (fase is null or fase in (
+  'aberta', 'prorrogacao', 'desempate', 'negociacao', 'habilitacao', 'encerrada'));
 create index if not exists robo_itens_organizacao_idx on public.robo_itens (organizacao_id);
 
 alter table public.robo_itens enable row level security;

@@ -2,4 +2,4 @@
 // (site/js/robo-motor.js), para as regras e a trava do piso serem uma só.
 import '../../site/js/robo-motor.js';
 
-export const { STATUS, validarLimites, decidir, Disputa, SalaSimulada, centavos } = globalThis.LHRobo;
+export const { STATUS, FASES, FASES_DE_LANCE, MARGEM_LC123, ehMeEpp, validarLimites, decidir, ordenarRanking, preferenciaLC123, Disputa, SalaSimulada, centavos } = globalThis.LHRobo;

@@ -1,8 +1,14 @@
 /* =============================================================================
    Uso LicitaHub · Robô de Lances (6. Disputa)
-   Painel em tempo real: itens em disputa, melhor lance da praça x nosso lance,
-   status do robô, edição rápida do piso e do teto e o chat da sala.
-   O motor e a trava do piso ficam em js/robo-motor.js (LH.robo).
+   Sala de disputa em tempo real, igual ao que o operador vê nos portais:
+   - card por item com o selo do portal, as fases do pregão em abas (aberta,
+     prorrogação, desempate ME/EPP, negociação, habilitação), quantidade e valor
+     unitário x total, placar e a trava do piso;
+   - painel lateral com o ranking da praça (posição, ME/EPP, faixa de 5% da
+     LC 123) e o feed de lances/mensagens da sala;
+   - o item em que estamos na liderança sobe para o topo; ao perder, desce.
+   O motor e as travas ficam em js/robo-motor.js (LH.robo), o estado ao vivo em
+   js/robo-ao-vivo.js e as regras dos portais em js/robo-portais.js.
    Por enquanto a sala é SIMULADA: os portais não têm API pública de lances.
    ============================================================================= */
 window.LH = window.LH || {};
@@ -16,43 +22,74 @@ LH.vistas = LH.vistas || {};
     paused: ['Pausado', 'robo-status--pausado'],
     stopped_at_floor: ['Parado por segurança', 'robo-status--piso'],
   };
+  const FASES = [
+    ['aberta', 'Aberta', 'Lances livres. O robô cobre a praça por centavos, respeitando o intervalo do portal, o teto e o piso.'],
+    ['prorrogacao', 'Prorrogação', 'Lance nos últimos instantes estende o prazo automaticamente. O robô continua cobrindo até o piso.'],
+    ['desempate', 'Desempate ME/EPP', 'LC 123, art. 44: a ME/EPP que ficou até 5% acima do melhor lance de uma empresa que não é ME/EPP pode cobri-lo. Não há lances do robô nesta fase.'],
+    ['negociacao', 'Negociação', 'O pregoeiro negocia com o arrematante pelo chat. A contraproposta é decisão sua: o robô só acompanha.'],
+    ['habilitacao', 'Habilitação', 'O arrematante envia os documentos de habilitação e a proposta ajustada no prazo do edital.'],
+  ];
+  const ORDEM_FASE = Object.fromEntries(FASES.map(([k], n) => [k, n]));
+  const PORTE = { me: 'ME', epp: 'EPP', demais: 'Demais' };
   const moeda = (v) => (v == null ? '—' : fmt.moeda(v));
-  // Portais onde o robô pode atuar: os mesmos da busca, mais a Petronect.
-  const PORTAIS = () => [...LH.PLATAFORMAS.map(([k, n]) => [k, n]), ['petronect', 'Petronect'], LH.PLATAFORMA_OUTROS];
-  const nomePortal = (k) => (PORTAIS().find(([c]) => c === k) || LH.PLATAFORMA_OUTROS)[1];
-  const curto = (nome) => nome.replace(/\s*\(.*\)$/, '');
+  const portais = () => LH.portaisRobo;
+  const nomePortal = (k) => portais().de(k).nome;
+  const lidera = (i) => i.nossoLance != null && (i.melhorLance == null || i.nossoLance < i.melhorLance);
+  const emLances = (i) => !i.fase || i.fase === 'aberta' || i.fase === 'prorrogacao';
+  const seloPorte = (p) => (p === 'me' || p === 'epp' ? `<span class="selo-porte">${PORTE[p]}</span>` : '');
+  const reduzMovimento = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const cronometro = (fimEm) => {
+    const s = Math.max(0, Math.ceil((fimEm - Date.now()) / 1000));
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  };
 
   LH.vistas.robo = {
     titulo: 'Robô de lances',
     render: () => `
       ${LH.cabecalho({
         titulo: 'Robô de lances',
-        texto: 'Cobre os lances dos concorrentes por centavos e para sozinho no seu preço mínimo de segurança. Nunca dá lance em prejuízo.',
+        texto: 'Cobre os lances dos concorrentes por centavos, acompanha as fases do pregão e para sozinho no seu preço mínimo de segurança. Nunca dá lance em prejuízo.',
         acoes: `<span class="selo selo--alerta">${icone('info')} Sala simulada</span>
                 <button class="btn btn--primario" type="button" data-novo>${icone('mais')} Novo item</button>`,
       })}
-      <p class="nota robo-aviso">${icone('escudo')} <span><strong>Trava de segurança:</strong> o robô nunca dá lance abaixo do preço mínimo nem acima do teto. A regra é conferida no motor e de novo no banco de dados. Os portais oficiais (Compras.gov.br e outros) ainda não têm API pública de lances, então a sala abaixo é uma <strong>simulação</strong> para testar a estratégia.</span></p>
+      <p class="nota robo-aviso">${icone('escudo')} <span><strong>Prejuízo zero:</strong> o robô nunca dá lance abaixo do preço mínimo nem acima do teto, e o mínimo nunca fica abaixo do custo. A regra é conferida no motor e de novo no banco de dados. Os portais ainda não têm API pública de lances, então a sala abaixo é uma <strong>simulação</strong> com as regras do modo aberto e da LC 123, para testar a estratégia.</span></p>
       <div class="robo-portais" role="group" aria-label="Filtrar por portal">
         <span class="robo-portais__rotulo">${icone('computador')} Portal</span>
         <button type="button" class="chip-portal ativo" data-portal="">Todos</button>
-        ${PORTAIS().map(([k, n]) => `<button type="button" class="chip-portal" data-portal="${esc(k)}">${esc(curto(n))}</button>`).join('')}
+        ${portais().lista().map((p) => `<button type="button" class="chip-portal" data-portal="${esc(p.chave)}" style="--matiz:${p.matiz}"><i aria-hidden="true"></i>${esc(p.nome)}</button>`).join('')}
       </div>
       <div class="robo-grade">
         <section class="robo-itens" id="robo-itens" aria-live="polite">${LH.carregando('Carregando itens...')}</section>
-        <aside class="card robo-chat" aria-label="Chat da sala de pregão">
+        <aside class="card robo-chat" aria-label="Sala de pregão">
           <div class="card__titulo"><h2>${icone('chat')} Sala de pregão</h2><span class="robo-chat__ao-vivo"><i></i> ao vivo</span></div>
-          <ol class="robo-chat__lista" id="robo-chat"><li class="robo-chat__vazio">As mensagens oficiais e os lances aparecem aqui quando o robô estiver ativo.</li></ol>
+          <div class="robo-abas" role="tablist">
+            <button type="button" role="tab" class="robo-aba ativo" aria-selected="true" data-painel="ranking">${icone('grafico')} Ranking</button>
+            <button type="button" role="tab" class="robo-aba" aria-selected="false" data-painel="feed">${icone('chat')} Lances ao vivo</button>
+          </div>
+          <div class="robo-painel" data-painel-corpo="ranking" id="robo-ranking"></div>
+          <ol class="robo-chat__lista robo-painel" data-painel-corpo="feed" id="robo-chat" hidden><li class="robo-chat__vazio">As mensagens oficiais e os lances aparecem aqui quando o robô estiver ativo.</li></ol>
         </aside>
       </div>`,
     montar(raiz) {
       const caixa = raiz.querySelector('#robo-itens');
       const chat = raiz.querySelector('#robo-chat');
+      const painelRanking = raiz.querySelector('#robo-ranking');
       const vivo = LH.roboAoVivo; // estado global: as disputas seguem rodando fora desta tela
+      const abaDe = new Map(); // id -> fase escolhida pelo operador nas abas do card
       let filtro = '';
+      let foco = null; // item mostrado no ranking
       let carregado = false;
       const item = (id) => vivo.item(id);
 
-      const msgHtml = (m) => `<li class="robo-chat__msg ${m.tipo}"><b>${esc(m.autor)}</b><time>${m.hora}</time><p>${esc(m.texto)}</p></li>`;
+      // --- Feed de lances e mensagens ---
+      const msgHtml = (m) => {
+        const lance = m.valor != null;
+        const pos = m.posicao ? `<span class="robo-pos">${m.posicao}º</span>` : '';
+        const corpo = lance
+          ? `<p><strong>${moeda(m.valor)}</strong> <span class="fraco">/un</span> · total ${moeda(m.valor * (m.quantidade || 1))}<small>${esc(m.texto)}</small></p>`
+          : `<p>${esc(m.texto)}</p>`;
+        return `<li class="robo-chat__msg ${m.tipo}${lance ? ' robo-chat__msg--lance' : ''}"><b>${pos}${esc(m.autor)}${lance ? seloPorte(m.porte) : ''}</b><time>${m.hora}</time>${corpo}</li>`;
+      };
       const falarNaTela = (m) => {
         chat.querySelector('.robo-chat__vazio')?.remove();
         chat.insertAdjacentHTML('beforeend', msgHtml(m));
@@ -64,7 +101,56 @@ LH.vistas = LH.vistas || {};
         requestAnimationFrame(() => { chat.scrollTop = chat.scrollHeight; });
       }
 
-      // Barra teto -> piso: quanto da margem de descida o nosso lance já consumiu.
+      // --- Ranking da praça (item em foco) ---
+      const desenharRanking = () => {
+        const i = foco && item(foco);
+        if (!i) { painelRanking.innerHTML = '<p class="robo-chat__vazio">Clique num item para ver o ranking da praça.</p>'; return; }
+        const r = vivo.ranking(i.id);
+        const pref = vivo.preferencia(i.id);
+        const qtd = i.quantidade || 1;
+        const linhas = r.map((x) => {
+          const nos = x.autor === 'nos';
+          const faixa = pref.faixa.has(x.autor);
+          return `<li class="robo-rank${nos ? ' robo-rank--nos' : ''}${x.posicao === 1 ? ' robo-rank--lider' : ''}${faixa ? ' robo-rank--faixa' : ''}">
+            <span class="robo-pos">${x.posicao}º</span>
+            <span class="robo-rank__nome">${nos ? 'Nós (robô)' : esc(x.autor)}${seloPorte(x.porte)}${faixa ? '<em title="Na faixa de 5% da LC 123: pode cobrir no desempate">≤5%</em>' : ''}</span>
+            <span class="robo-rank__valor"><strong>${moeda(x.valor)}</strong><small>total ${moeda(x.valor * qtd)}</small></span>
+          </li>`;
+        }).join('');
+        painelRanking.innerHTML = `
+          <div class="robo-rank__cabeca">${portais().selo(i.plataforma)}<b title="${esc(i.descricao)}">${esc(i.descricao)}</b></div>
+          ${r.length ? `<ol class="robo-rank__lista">${linhas}</ol>` : '<p class="robo-chat__vazio">Inicie o robô neste item para ver a praça.</p>'}
+          <p class="robo-rank__nota">${icone('balanca')} <span><b>LC 123:</b> ME/EPP até ${LH.robo.MARGEM_LC123}% acima do 1º colocado (quando ele não é ME/EPP) pode cobrir o lance no desempate.${pref.empate ? ` Limite agora: <strong>${moeda(pref.limite)}</strong>.` : ''}</span></p>`;
+      };
+
+      // --- Card do item ---
+      const abasFases = (i) => {
+        const atual = i.fase && ORDEM_FASE[i.fase] != null ? i.fase : (i.fase === 'encerrada' ? 'habilitacao' : null);
+        const nAtual = atual ? ORDEM_FASE[atual] : (i.fase === 'encerrada' ? FASES.length : -1);
+        const vista = abaDe.get(i.id) || atual || 'aberta';
+        const [, nomeVista, textoVista] = FASES[ORDEM_FASE[vista]];
+        const tempo = vista === atual && i.fimEm && emLances(i) ? `<span class="robo-fase__tempo" data-fim="${i.fimEm}">${icone('relogio')} <b>${cronometro(i.fimEm)}</b></span>` : '';
+        return `<div class="robo-fases">
+          <div class="robo-fases__abas" role="tablist" aria-label="Fases do pregão">
+            ${FASES.map(([k, nome], n) => {
+              const estado = i.fase === 'encerrada' || n < nAtual ? 'feita' : n === nAtual ? 'atual' : 'futura';
+              return `<button type="button" role="tab" class="robo-fase robo-fase--${estado}${k === vista ? ' ativo' : ''}" aria-selected="${k === vista}" data-fase="${k}">${estado === 'feita' ? icone('check') : '<i></i>'}<span>${nome}</span></button>`;
+            }).join('')}
+          </div>
+          <p class="robo-fases__texto"><b>${nomeVista}${vista === atual ? ' · agora' : ''}</b> ${textoVista} ${tempo}</p>
+        </div>`;
+      };
+
+      const alertaLC123 = (i) => {
+        if (i.status === 'idle' && !vivo.ranking(i.id).length) return '';
+        const pref = vivo.preferencia(i.id);
+        if (!pref.empate) return '';
+        const b = pref.beneficiada;
+        if (b.autor === 'nos') return `<p class="robo-lc123 robo-lc123--bom">${icone('balanca')} Temos preferência da LC 123: podemos cobrir o 1º colocado no desempate.</p>`;
+        if (pref.lider.autor !== 'nos') return '';
+        return `<p class="robo-lc123">${icone('alerta')} <span><b>${esc(b.autor)} (${PORTE[b.porte]})</b> está a até ${LH.robo.MARGEM_LC123}% do nosso lance (até ${moeda(pref.limite)}) e poderá cobrir no desempate.${i.fugirEmpate ? ' O robô tenta sair da faixa sem passar do piso.' : ' Ative "fugir do empate ficto" no item para o robô tentar sair da faixa.'}</span></p>`;
+      };
+
       const trilho = (i) => {
         if (i.nossoLance == null || !(i.teto > i.piso)) return '';
         const pct = Math.max(0, Math.min(100, ((i.teto - i.nossoLance) / (i.teto - i.piso)) * 100));
@@ -76,21 +162,35 @@ LH.vistas = LH.vistas || {};
       };
 
       const cartao = (i) => {
-        const [rotulo, classe] = ROTULO[i.status] || ROTULO.idle;
-        const vencendo = i.nossoLance != null && (i.melhorLance == null || i.nossoLance < i.melhorLance);
+        let [rotulo, classe] = ROTULO[i.status] || ROTULO.idle;
+        if (i.status === 'running' && !emLances(i)) [rotulo, classe] = ['Acompanhando', 'robo-status--acompanha'];
+        const vencendo = lidera(i);
+        const qtd = i.quantidade || 1;
         const folga = i.nossoLance != null && i.piso ? i.nossoLance - i.piso : null;
+        const r = vivo.ranking(i.id);
+        const nossa = r.find((x) => x.autor === 'nos');
         return `
-        <article class="card robo-item ${classe}" data-item="${esc(i.id)}">
+        <article class="card robo-item ${classe}${vencendo ? ' robo-item--lider' : ''}${foco === i.id ? ' robo-item--foco' : ''}" data-item="${esc(i.id)}">
           <header class="robo-item__topo">
-            <div><span class="selo robo-portal">${icone('computador')} ${esc(curto(nomePortal(i.plataforma)))}</span>
-            <h3>${esc(i.descricao)}</h3></div>
+            <div>
+              <div class="robo-item__selos">${portais().selo(i.plataforma)}${i.itemNumero ? `<span class="selo">Item ${esc(i.itemNumero)}</span>` : ''}<span class="selo" title="Porte da nossa empresa (LC 123)">Nós: ${PORTE[i.nossoPorte || 'demais']}</span></div>
+              <h3>${esc(i.descricao)}</h3>
+            </div>
             <span class="robo-status ${classe}"><i aria-hidden="true"></i>${rotulo}</span>
           </header>
+          ${abasFases(i)}
+          <dl class="robo-specs">
+            <div><dt>Quantidade</dt><dd>${fmt.numero ? fmt.numero(qtd) : qtd} un</dd></div>
+            <div><dt>Unitário inicial (teto)</dt><dd>${moeda(i.teto)}</dd></div>
+            <div><dt>Total inicial</dt><dd>${moeda(i.teto * qtd)}</dd></div>
+            <div><dt>Nossa posição</dt><dd>${nossa ? `${nossa.posicao}º de ${r.length}` : '—'}</dd></div>
+          </dl>
           <div class="robo-placar">
-            <div><span>Melhor lance da praça</span><strong>${moeda(i.melhorLance)}</strong></div>
+            <div><span>Melhor lance da praça</span><strong>${moeda(i.melhorLance)}</strong><em>${i.melhorLance == null ? 'unitário' : `total ${moeda(i.melhorLance * qtd)}`}</em></div>
             <div class="${i.nossoLance == null ? '' : vencendo ? 'robo-placar--vencendo' : 'robo-placar--coberto'}"><span>Nosso lance</span><strong>${moeda(i.nossoLance)}</strong>
-              <em>${i.nossoLance == null ? 'ainda sem lance' : vencendo ? 'estamos na frente' : 'fomos cobertos'}</em></div>
+              <em>${i.nossoLance == null ? 'ainda sem lance' : `${vencendo ? 'estamos na frente' : 'fomos cobertos'} · total ${moeda(i.nossoLance * qtd)}`}</em></div>
           </div>
+          ${alertaLC123(i)}
           ${trilho(i)}
           <dl class="robo-limites">
             <div><dt>Preço teto</dt><dd>${moeda(i.teto)}</dd></div>
@@ -98,50 +198,106 @@ LH.vistas = LH.vistas || {};
             <div class="robo-limites__piso"><dt>Mínimo de segurança</dt><dd>${moeda(i.piso)}</dd></div>
             <div><dt>Folga até o piso</dt><dd>${folga == null ? '—' : moeda(folga)}</dd></div>
           </dl>
+          <p class="robo-regras">${icone('info')} ${esc(portais().regras(i.plataforma))}</p>
           <div class="robo-item__acoes">
             ${i.status === 'running'
               ? `<button class="btn btn--pequeno" data-acao="pausar">${icone('relogio')} Pausar</button>`
               : `<button class="btn btn--pequeno btn--primario" data-acao="iniciar">${icone('play')} ${i.status === 'paused' ? 'Retomar' : 'Iniciar'}</button>`}
             <button class="btn btn--pequeno" data-acao="parar" ${i.status === 'idle' ? 'disabled' : ''}>${icone('fechar')} Parar</button>
             <button class="btn btn--pequeno btn--fantasma" data-acao="limites">${icone('lapis')} Piso e teto</button>
+            <button class="btn btn--pequeno btn--fantasma" data-acao="editar" ${i.status === 'idle' ? '' : 'disabled'}>${icone('engrenagem')} Item</button>
             <button class="btn btn--pequeno btn--fantasma" data-acao="excluir" ${i.status === 'running' ? 'disabled' : ''} aria-label="Excluir item">${icone('lixeira')}</button>
           </div>
         </article>`;
       };
 
+      // Liderança primeiro; o resto mantém a ordem de cadastro.
+      const ordemBase = () => new Map(vivo.lista().map((x, k) => [x.id, k]));
+      const comparar = (base) => (a, b) => (lidera(a) ? 0 : 1) - (lidera(b) ? 0 : 1) || base.get(a.id) - base.get(b.id);
+
+      /** Reordena os cards com animação (FLIP): quem passa a liderar sobe, quem perde desce. */
+      const ordenar = () => {
+        const cards = [...caixa.querySelectorAll('[data-item]')];
+        if (cards.length < 2) return;
+        const base = ordemBase();
+        const cmp = comparar(base);
+        const desejada = [...cards].sort((x, y) => cmp(item(x.dataset.item), item(y.dataset.item)));
+        if (desejada.every((c, k) => c === cards[k])) return;
+        const antes = new Map(cards.map((c) => [c, c.getBoundingClientRect().top]));
+        desejada.forEach((c) => caixa.append(c));
+        if (reduzMovimento()) return;
+        desejada.forEach((c) => {
+          const dy = antes.get(c) - c.getBoundingClientRect().top;
+          if (Math.abs(dy) > 1) c.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 480, easing: 'cubic-bezier(.2,.8,.2,1)' });
+        });
+      };
+
       const desenhar = () => {
         const itens = vivo.lista();
-        const visiveis = itens.filter((i) => !filtro || i.plataforma === filtro);
+        if (!foco || !item(foco)) foco = (itens.find((x) => x.status === 'running') || itens[0])?.id || null;
+        const visiveis = itens.filter((i) => !filtro || i.plataforma === filtro).sort(comparar(ordemBase()));
         if (itens.length && !visiveis.length) {
           caixa.innerHTML = `<div class="card">${LH.vazio('computador', `Nenhum item em ${nomePortal(filtro)}`, 'Escolha outro portal ou cadastre um item neste.', `<button class="btn btn--primario" data-novo>${icone('mais')} Novo item</button>`)}</div>`;
-          return;
+        } else {
+          caixa.innerHTML = itens.length ? visiveis.map(cartao).join('')
+            : `<div class="card">${LH.vazio('alvo', 'Nenhum item no robô', 'Cadastre um item com a quantidade, o preço teto, o seu custo e o preço mínimo de segurança.', `<button class="btn btn--primario" data-novo>${icone('mais')} Novo item</button>`)}</div>`;
         }
-        caixa.innerHTML = itens.length ? visiveis.map(cartao).join('')
-          : `<div class="card">${LH.vazio('alvo', 'Nenhum item no robô', 'Cadastre um item com o preço teto, o seu custo e o preço mínimo de segurança.', `<button class="btn btn--primario" data-novo>${icone('mais')} Novo item</button>`)}</div>`;
+        desenharRanking();
       };
       const redesenhar = (id) => {
         const el = caixa.querySelector(`[data-item="${CSS.escape(id)}"]`);
         if (el && item(id)) el.outerHTML = cartao(item(id));
+        ordenar();
+        if (id === foco) desenharRanking();
       };
-      // --- Formulário (novo item e edição rápida dos limites) ---
+
+      // Cronômetro da fase aberta / prorrogação.
+      const relogio = setInterval(() => {
+        raiz.querySelectorAll('[data-fim]').forEach((el) => { el.querySelector('b').textContent = cronometro(Number(el.dataset.fim)); });
+      }, 1000);
+
+      // --- Formulário (novo item, edição e edição rápida dos limites) ---
       const campo = (nome, rotulo, valor, extra = '') => `<label class="campo"><span class="campo__rotulo">${rotulo}</span>
         <input name="${nome}" inputmode="decimal" value="${valor == null ? '' : esc(String(valor).replace('.', ','))}" ${extra}></label>`;
       const lerForm = (janela) => {
         const f = janela.querySelector('form');
         const n = (k) => (f[k] && f[k].value.trim() !== '' ? fmt.lerNumero(f[k].value) : null);
-        return { descricao: f.descricao?.value.trim(), plataforma: f.plataforma?.value, teto: n('teto'), custo: n('custo'), piso: n('piso'), decremento: n('decremento') ?? 0.01, intervaloSeg: n('intervalo') ?? 20 };
+        return {
+          descricao: f.descricao?.value.trim(), plataforma: f.plataforma?.value, itemNumero: n('itemNumero'),
+          quantidade: Math.max(1, Math.round(n('quantidade') ?? 1)), nossoPorte: f.nossoPorte?.value || 'demais', fugirEmpate: !!f.fugirEmpate?.checked,
+          teto: n('teto'), custo: n('custo'), piso: n('piso'), decremento: n('decremento') ?? 0.01, intervaloSeg: n('intervalo') ?? 20,
+        };
       };
-      const abrirForm = (i = null, soLimites = false) => {
+      const porteDaEmpresa = async () => {
+        try {
+          const p = String((await LH.repo.empresaPerfil?.())?.porte || '').toLowerCase();
+          return p === 'me' || p === 'epp' ? p : 'demais';
+        } catch { return 'demais'; }
+      };
+      const abrirForm = async (i = null, soLimites = false) => {
+        const porte = i?.nossoPorte || (soLimites ? 'demais' : await porteDaEmpresa());
+        const portalInicial = i?.plataforma || filtro || 'comprasnet';
         LH.modal({
           titulo: soLimites ? 'Piso e teto (vale na hora)' : (i ? 'Editar item' : 'Novo item no robô'),
           html: `<form class="form" onsubmit="return false">
             ${soLimites ? `<p class="fraco">${esc(i.descricao)}</p>` : `<label class="campo"><span class="campo__rotulo">Descrição do item</span>
-              <input name="descricao" maxlength="300" required value="${esc(i?.descricao || '')}" placeholder="ex.: Item 1 · Notebook i5 16 GB"></label>
-              <label class="campo"><span class="campo__rotulo">Portal da disputa</span>
-                <select name="plataforma">${LH.opcoes(PORTAIS(), i?.plataforma || filtro || 'comprasnet')}</select></label>`}
-            <div class="form__linha">${campo('teto', 'Preço teto (R$)', i?.teto, 'required')}${soLimites ? '' : campo('custo', 'Custo do fornecedor (R$)', i?.custo)}</div>
-            ${campo('piso', 'Preço mínimo de segurança (R$)', i?.piso, 'required')}
+              <input name="descricao" maxlength="300" required value="${esc(i?.descricao || '')}" placeholder="ex.: Notebook i5 16 GB"></label>
+              <div class="form__linha">
+                <label class="campo"><span class="campo__rotulo">Portal da disputa</span>
+                  <select name="plataforma">${LH.opcoes(portais().opcoes(), portalInicial)}</select></label>
+                ${campo('itemNumero', 'Nº do item/lote', i?.itemNumero)}
+              </div>
+              <p class="fraco robo-form__regras" data-regras>${esc(portais().regras(portalInicial))}</p>
+              <div class="form__linha">
+                ${campo('quantidade', 'Quantidade (un)', i?.quantidade ?? 1, 'required')}
+                <label class="campo"><span class="campo__rotulo">Porte da nossa empresa</span>
+                  <select name="nossoPorte">${LH.opcoes([['me', 'ME (microempresa)'], ['epp', 'EPP (pequeno porte)'], ['demais', 'Demais empresas']], porte)}</select></label>
+              </div>`}
+            <div class="form__linha">${campo('teto', 'Preço teto unitário (R$)', i?.teto, 'required')}${soLimites ? '' : campo('custo', 'Custo unitário (R$)', i?.custo)}</div>
+            ${campo('piso', 'Preço mínimo de segurança, unitário (R$)', i?.piso, 'required')}
             ${soLimites ? '' : `<div class="form__linha">${campo('decremento', 'Cobrir por (R$)', i?.decremento ?? 0.01)}${campo('intervalo', 'Intervalo entre lances (s)', i?.intervaloSeg ?? 20)}</div>
+            <label class="campo campo--check"><input type="checkbox" name="fugirEmpate" ${i?.fugirEmpate ? 'checked' : ''}>
+              <span>Fugir do empate ficto: se uma ME/EPP ficar até 5% acima do nosso lance, descer só o necessário para sair da faixa (nunca abaixo do piso). Só vale quando a nossa empresa não é ME/EPP.</span></label>
             <p class="fraco">O mínimo de segurança deve cobrir o custo, os impostos, o frete e a sua margem. O intervalo e o valor mínimo de cobertura seguem o edital.</p>`}
             <p class="texto-perigo" data-erro hidden></p>
           </form>`,
@@ -157,29 +313,63 @@ LH.vistas = LH.vistas || {};
               try {
                 if (i) vivo.atualizarLimites(i.id, { piso: dados.piso, teto: dados.teto });
                 const salvo = await LH.repo.salvarRoboItem(dados);
-                if (i) vivo.atualizar(i.id, { teto: salvo.teto, custo: salvo.custo, piso: salvo.piso, descricao: salvo.descricao, decremento: salvo.decremento, intervaloSeg: salvo.intervaloSeg });
-                else vivo.adicionar(salvo);
+                if (i) {
+                  const { id, status, nossoLance, melhorLance, fase, ...campos } = salvo;
+                  vivo.atualizar(i.id, campos);
+                } else vivo.adicionar(salvo);
                 fechar();
                 LH.aviso(soLimites ? 'Limites atualizados. O robô já usa os valores novos.' : 'Item salvo.', 'sucesso');
               } catch (e) { caixaErro.textContent = e.message; caixaErro.hidden = false; }
             } },
           ],
         });
+        // O texto das regras acompanha o portal escolhido.
+        const sel = document.querySelector('.modal select[name="plataforma"], dialog select[name="plataforma"]');
+        sel?.addEventListener('change', () => {
+          const alvo = sel.closest('form')?.querySelector('[data-regras]');
+          if (alvo) alvo.textContent = portais().regras(sel.value);
+        });
       };
 
+      // --- Eventos ---
       LH.ao(raiz, 'click', '[data-novo]', () => abrirForm());
       LH.ao(raiz, 'click', '[data-portal]', (e, b) => {
         filtro = b.dataset.portal;
         raiz.querySelectorAll('[data-portal]').forEach((x) => x.classList.toggle('ativo', x === b));
         desenhar();
       });
+      LH.ao(raiz, 'click', '[data-painel]', (e, b) => {
+        raiz.querySelectorAll('[data-painel]').forEach((x) => { x.classList.toggle('ativo', x === b); x.setAttribute('aria-selected', String(x === b)); });
+        raiz.querySelectorAll('[data-painel-corpo]').forEach((p) => { p.hidden = p.dataset.painelCorpo !== b.dataset.painel; });
+        if (b.dataset.painel === 'feed') chat.scrollTop = chat.scrollHeight;
+      });
+      LH.ao(caixa, 'click', '[data-fase]', (e, b) => {
+        const id = b.closest('[data-item]').dataset.item;
+        abaDe.set(id, b.dataset.fase);
+        redesenhar(id);
+      });
+      // Clicar no card põe o item em foco no ranking.
+      caixa.addEventListener('click', (e) => {
+        const card = e.target.closest('[data-item]');
+        if (!card || e.target.closest('button') || card.dataset.item === foco) return;
+        const antes = foco;
+        foco = card.dataset.item;
+        if (antes) redesenhar(antes);
+        redesenhar(foco);
+      });
       LH.ao(caixa, 'click', '[data-acao]', async (e, botao) => {
         const i = item(botao.closest('[data-item]').dataset.item);
         switch (botao.dataset.acao) {
-          case 'iniciar': vivo.iniciar(i.id, curto(nomePortal(i.plataforma))); break;
+          case 'iniciar':
+            if (i.status !== 'paused') abaDe.delete(i.id);
+            foco = i.id;
+            vivo.iniciar(i.id, nomePortal(i.plataforma));
+            desenhar();
+            break;
           case 'pausar': vivo.pausar(i.id); break;
           case 'parar': vivo.parar(i.id); break;
           case 'limites': abrirForm(i, true); break;
+          case 'editar': abrirForm(i); break;
           case 'excluir':
             if (!(await LH.confirmar('Excluir item', `Excluir "${i.descricao}" do robô?`, 'Excluir', true))) return;
             try { await vivo.remover(i.id); } catch (erro) { LH.aviso(erro.message, 'perigo'); }
@@ -192,15 +382,19 @@ LH.vistas = LH.vistas || {};
       // rodando e aparecem no mini player flutuante (js/robo-ao-vivo.js).
       const deixarDeOuvir = vivo.ouvir((tipo, dado) => {
         if (!carregado) return;
-        if (tipo === 'item') redesenhar(dado);
-        else if (tipo === 'lista') desenhar();
+        if (tipo === 'item') {
+          // Mudou a fase: as abas voltam a seguir a fase atual.
+          const i = item(dado);
+          if (i && abaDe.has(dado) && abaDe.get(dado) !== i.fase && i.fase && (ORDEM_FASE[abaDe.get(dado)] ?? 0) < (ORDEM_FASE[i.fase] ?? 0)) abaDe.delete(dado);
+          redesenhar(dado);
+        } else if (tipo === 'lista') desenhar();
         else if (tipo === 'chat') falarNaTela(dado);
       });
       vivo.carregar()
         .then(() => { carregado = true; desenhar(); })
         .catch((e) => { caixa.innerHTML = LH.erroHtml(e); });
 
-      return deixarDeOuvir;
+      return () => { deixarDeOuvir(); clearInterval(relogio); };
     },
   };
 }());

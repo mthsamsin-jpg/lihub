@@ -590,8 +590,9 @@ window.LH = window.LH || {};
       if (error) throw erroBanco(error, 'Não consegui salvar o item');
       return roboParaTela(data);
     },
-    async roboEstado(id, { status, nossoLance, melhorLance }) {
+    async roboEstado(id, { status, nossoLance, melhorLance, fase }) {
       const campos = { bid_status: status };
+      if (fase !== undefined) campos.fase = fase;
       if (nossoLance !== undefined) campos.nosso_lance = nossoLance;
       if (melhorLance !== undefined) campos.melhor_lance = melhorLance;
       const { error } = await db().from('robo_itens').update(campos).eq('id', id);
@@ -609,7 +610,8 @@ window.LH = window.LH || {};
       id: r.id, descricao: r.descricao, itemNumero: r.item_numero, licitacaoId: r.licitacao_id,
       teto: numOuNulo(r.max_price), custo: numOuNulo(r.supplier_cost), piso: numOuNulo(r.min_floor_price),
       decremento: numOuNulo(r.decremento) ?? 0.01, intervaloSeg: r.intervalo_seg ?? 20, status: r.bid_status || 'idle',
-      plataforma: r.plataforma || 'comprasnet',
+      plataforma: r.plataforma || 'comprasnet', quantidade: r.quantidade || 1,
+      nossoPorte: r.nosso_porte || 'demais', fugirEmpate: !!r.fugir_empate, fase: r.fase || null,
       nossoLance: numOuNulo(r.nosso_lance), melhorLance: numOuNulo(r.melhor_lance),
     };
   }
@@ -618,6 +620,7 @@ window.LH = window.LH || {};
       descricao: i.descricao, item_numero: i.itemNumero || null, licitacao_id: i.licitacaoId || null,
       max_price: i.teto, supplier_cost: i.custo ?? null, min_floor_price: i.piso,
       decremento: i.decremento || 0.01, intervalo_seg: i.intervaloSeg ?? 20, plataforma: i.plataforma || 'comprasnet',
+      quantidade: i.quantidade || 1, nosso_porte: i.nossoPorte || 'demais', fugir_empate: !!i.fugirEmpate,
     };
   }
 

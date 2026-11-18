@@ -773,3 +773,93 @@ body.sem-login .app { display: none; }
 .robo-mini__acoes .btn { justify-content: center; }
 @media (max-width: 600px) { .robo-mini { left: 12px; right: 12px; bottom: 12px; width: auto; } }
 @media (prefers-reduced-motion: reduce) { .robo-mini, .robo-mini__status i { animation: none !important; } }
+
+/* --- Robô de lances: sala de disputa (portais, fases, ranking, LC 123) ------------------- */
+/* Selo do portal: sigla + nome, cor só pelo matiz (sem logo de terceiros). */
+.selo-portal {
+  --matiz: 200; display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 3px; border-radius: 999px;
+  font-size: 0.74rem; font-weight: 700; color: hsl(var(--matiz) 90% 78%);
+  background: hsl(var(--matiz) 80% 50% / 0.12); border: 1px solid hsl(var(--matiz) 85% 60% / 0.45);
+}
+.selo-portal b { padding: 2px 7px; border-radius: 999px; font-size: 0.64rem; letter-spacing: 0.04em; color: #04121f; background: hsl(var(--matiz) 85% 65%); }
+.chip-portal { display: inline-flex; align-items: center; gap: 7px; }
+.chip-portal i { width: 8px; height: 8px; border-radius: 50%; background: hsl(var(--matiz, 200) 85% 62%); box-shadow: 0 0 6px hsl(var(--matiz, 200) 85% 62% / 0.6); }
+.selo-porte { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 6px; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em; color: #fde68a; background: rgba(250, 204, 21, 0.14); border: 1px solid rgba(250, 204, 21, 0.45); vertical-align: 1px; }
+.robo-pos { display: inline-grid; place-items: center; min-width: 26px; height: 20px; margin-right: 6px; padding: 0 5px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; font-variant-numeric: tabular-nums; background: rgba(56, 189, 248, 0.14); color: var(--ciano); }
+
+.robo-item { position: relative; }
+.robo-item__selos { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.robo-item.robo-item--lider { border-color: rgba(52, 211, 153, 0.55); }
+.robo-item--lider::before { content: "Liderando"; position: absolute; top: -10px; left: 18px; padding: 2px 10px; border-radius: 999px; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: #04121f; background: linear-gradient(90deg, #34f5a8, #38bdf8); box-shadow: 0 4px 14px rgba(52, 211, 153, 0.35); }
+.robo-item--foco { outline: 2px solid rgba(56, 189, 248, 0.45); outline-offset: 2px; }
+.robo-status.robo-status--acompanha { color: var(--ciano); background: rgba(56, 189, 248, 0.1); }
+
+/* Fases do pregão em abas */
+.robo-fases { display: grid; gap: 8px; }
+.robo-fases__abas { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 12px; background: rgba(4, 11, 22, 0.5); border: 1px solid var(--linha); }
+.robo-fase { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; padding: 7px 6px; border-radius: 9px; border: 1px solid transparent; background: none; color: var(--texto-3); font-size: 0.74rem; font-weight: 700; cursor: pointer; transition: background var(--transicao), color var(--transicao), border-color var(--transicao); }
+.robo-fase span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.robo-fase i { width: 7px; height: 7px; flex: none; border-radius: 50%; background: currentColor; opacity: 0.5; }
+.robo-fase svg { width: 13px; height: 13px; flex: none; }
+.robo-fase:hover { color: var(--texto); }
+.robo-fase--feita { color: var(--texto-2); }
+.robo-fase--feita svg { color: var(--sucesso); }
+.robo-fase--atual { color: var(--ciano); }
+.robo-fase--atual i { opacity: 1; box-shadow: 0 0 8px currentColor; animation: robo-pulso 1.2s ease-in-out infinite; }
+.robo-fase.ativo { background: rgba(14, 165, 233, 0.16); border-color: rgba(56, 189, 248, 0.45); color: #fff; }
+.robo-fases__texto { margin: 0; font-size: 0.8rem; line-height: 1.5; color: var(--texto-2); display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.robo-fases__texto > b { color: var(--texto); }
+.robo-fase__tempo { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; padding: 2px 9px; border-radius: 999px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.4); color: var(--ciano); }
+.robo-fase__tempo svg { width: 13px; height: 13px; }
+.robo-fase__tempo b { font-variant-numeric: tabular-nums; }
+@media (max-width: 700px) { .robo-fases__abas { grid-template-columns: repeat(5, auto); overflow-x: auto; } }
+
+/* Quantidade e valor unitário x total */
+.robo-specs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.robo-specs div { padding: 6px 0; border-bottom: 1px dashed var(--linha); }
+.robo-specs dt { font-size: 0.68rem; color: var(--texto-3); text-transform: uppercase; letter-spacing: 0.04em; }
+.robo-specs dd { margin: 2px 0 0; font-weight: 700; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 700px) { .robo-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.robo-lc123 { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 9px 12px; border-radius: 10px; font-size: 0.8rem; line-height: 1.45; color: #fde68a; background: rgba(250, 204, 21, 0.08); border: 1px solid rgba(250, 204, 21, 0.4); }
+.robo-lc123 svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+.robo-lc123--bom { color: var(--sucesso); background: rgba(52, 211, 153, 0.08); border-color: rgba(52, 211, 153, 0.4); }
+.robo-regras { display: flex; gap: 6px; align-items: flex-start; margin: 0; font-size: 0.74rem; line-height: 1.45; color: var(--texto-3); }
+.robo-regras svg { width: 14px; height: 14px; flex: none; margin-top: 1px; }
+
+/* Painel lateral: abas Ranking / Lances e mensagens */
+.robo-chat { grid-template-rows: auto auto 1fr; }
+.robo-abas { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 12px; border-radius: 12px; background: rgba(4, 11, 22, 0.5); border: 1px solid var(--linha); }
+.robo-aba { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px; border-radius: 9px; border: 1px solid transparent; background: none; color: var(--texto-3); font-size: 0.78rem; font-weight: 700; cursor: pointer; }
+.robo-aba svg { width: 14px; height: 14px; }
+.robo-aba.ativo { background: rgba(14, 165, 233, 0.16); border-color: rgba(56, 189, 248, 0.45); color: #fff; }
+.robo-painel { min-height: 0; overflow-y: auto; }
+.robo-painel[hidden] { display: none; }
+.robo-rank__cabeca { display: grid; gap: 6px; justify-items: start; margin-bottom: 10px; }
+.robo-rank__cabeca b { font-size: 0.86rem; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.robo-rank__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.robo-rank { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(4, 11, 22, 0.5); border: 1px solid var(--linha); font-size: 0.82rem; }
+.robo-rank .robo-pos { margin: 0; }
+.robo-rank__nome { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--texto); }
+.robo-rank__nome em { margin-left: 6px; font-style: normal; font-size: 0.64rem; font-weight: 800; color: #fde68a; }
+.robo-rank__valor { display: grid; justify-items: end; font-variant-numeric: tabular-nums; }
+.robo-rank__valor small { font-size: 0.68rem; color: var(--texto-3); }
+.robo-rank--lider .robo-pos { background: linear-gradient(90deg, #34f5a8, #38bdf8); color: #04121f; }
+.robo-rank--nos { border-color: rgba(56, 189, 248, 0.55); background: rgba(14, 165, 233, 0.12); }
+.robo-rank--nos .robo-rank__nome { color: var(--ciano); font-weight: 700; }
+.robo-rank--faixa { border-color: rgba(250, 204, 21, 0.45); }
+.robo-rank__nota { display: flex; gap: 6px; align-items: flex-start; margin: 12px 0 0; font-size: 0.72rem; line-height: 1.45; color: var(--texto-3); }
+.robo-rank__nota svg { width: 14px; height: 14px; flex: none; margin-top: 1px; color: #fde68a; }
+
+/* Feed: lance com posição, ME/EPP e unitário x total */
+.robo-chat__msg--lance p strong { color: var(--texto); font-variant-numeric: tabular-nums; }
+.robo-chat__msg--lance p small { display: block; font-size: 0.7rem; color: var(--texto-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.robo-chat__msg b .robo-pos { height: 17px; min-width: 22px; font-size: 0.64rem; }
+
+.campo--check { display: flex; gap: 10px; align-items: flex-start; font-size: 0.82rem; color: var(--texto-2); line-height: 1.45; }
+.campo--check input { margin-top: 3px; flex: none; }
+.robo-form__regras { font-size: 0.76rem; }
+
+/* Mini player: portal e fase */
+.robo-mini__portal { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.72rem; color: var(--texto-3); }
+@media (prefers-reduced-motion: reduce) { .robo-fase--atual i { animation: none !important; } }

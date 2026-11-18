@@ -21,6 +21,17 @@
    ============================================================================= */
 (function (raiz) {
   const STATUS = Object.freeze({ PARADO: 'idle', ATIVO: 'running', PAUSADO: 'paused', PISO: 'stopped_at_floor' });
+  // Fases do pregão (modo de disputa aberto). O robô só dá lances em ABERTA e PRORROGACAO.
+  const FASES = Object.freeze({
+    ABERTA: 'aberta', PRORROGACAO: 'prorrogacao', DESEMPATE: 'desempate',
+    NEGOCIACAO: 'negociacao', HABILITACAO: 'habilitacao', ENCERRADA: 'encerrada',
+  });
+  const FASES_DE_LANCE = [FASES.ABERTA, FASES.PRORROGACAO];
+  const ehFaseDeLance = (fase) => fase == null || FASES_DE_LANCE.includes(fase);
+  // LC 123/2006, art. 44 §2º: no pregão, há empate ficto quando a ME/EPP fica até 5% acima
+  // do melhor lance de uma empresa que não é ME/EPP. A ME/EPP pode então cobrir (art. 45).
+  const MARGEM_LC123 = 5; // %
+  const ehMeEpp = (porte) => porte === 'me' || porte === 'epp';
   const centavos = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Math.round(Number(v) * 100));
   const reais = (c) => c / 100;
 
@@ -40,10 +51,22 @@
    * Decide o próximo passo. Não envia nada: só calcula.
    * @returns {{acao:'lance', valor:number} | {acao:'aguardar', motivo:string} | {acao:'parar', motivo:'piso'}}
    */
-  function decidir({ melhorConcorrente, nossoLance, piso, teto, decremento = 0.01 }) {
+  function decidir({ melhorConcorrente, nossoLance, piso, teto, decremento = 0.01, fase = null, nossoPorte = 'demais', melhorMeEpp = null, fugirEmpate = false }) {
     const m = centavos(melhorConcorrente); const n = centavos(nossoLance);
     const p = centavos(piso); const t = centavos(teto); const d = centavos(decremento);
     if (!p || !t || !d || p > t) return { acao: 'parar', motivo: 'limites' };
+    // Fora da etapa de lances (desempate, negociação, habilitação): o robô só acompanha.
+    if (!ehFaseDeLance(fase)) return { acao: 'aguardar', motivo: 'fase' };
+    // Na frente, mas uma ME/EPP está na faixa de 5%: ela poderá cobrir no desempate.
+    // Com "fugirEmpate", o robô desce só o necessário para sair da faixa, se o piso permitir.
+    if (n != null && (m == null || n < m) && fugirEmpate && !ehMeEpp(nossoPorte)) {
+      const me = centavos(melhorMeEpp);
+      if (me != null && me * 100 <= n * (100 + MARGEM_LC123)) {
+        const fora = Math.ceil((me * 100) / (100 + MARGEM_LC123)) - 1; // fora * 1,05 < me
+        if (fora >= p && fora < n) return { acao: 'lance', valor: reais(fora), motivo: 'fuga_empate' };
+        return { acao: 'aguardar', motivo: 'empate_inevitavel' };
+      }
+    }
     // Ninguém deu lance ainda: entra com o teto (o valor da administração).
     if (m == null) return n == null ? { acao: 'lance', valor: reais(t) } : { acao: 'aguardar', motivo: 'sem_concorrente' };
     // Já estamos na frente: não mexe.
@@ -58,6 +81,26 @@
     return { acao: 'lance', valor: reais(alvo) };
   }
 
+  /** Ordena os lances do menor para o maior: [{ autor, valor, porte, posicao }]. */
+  function ordenarRanking(lances) {
+    return [...lances].filter((l) => l.valor != null)
+      .sort((a, b) => centavos(a.valor) - centavos(b.valor))
+      .map((l, i) => ({ ...l, posicao: i + 1 }));
+  }
+
+  /**
+   * Situação da LC 123 no ranking: quem lidera, se há empate ficto e qual ME/EPP pode cobrir.
+   * @returns {{ empate:boolean, lider?:object, beneficiada?:object, limite?:number, faixa:Set<string> }}
+   */
+  function preferenciaLC123(ranking) {
+    const r = ordenarRanking(ranking);
+    const lider = r[0];
+    if (!lider || ehMeEpp(lider.porte)) return { empate: false, lider, faixa: new Set() };
+    const limiteC = Math.floor((centavos(lider.valor) * (100 + MARGEM_LC123)) / 100);
+    const naFaixa = r.slice(1).filter((x) => ehMeEpp(x.porte) && centavos(x.valor) <= limiteC);
+    return { empate: naFaixa.length > 0, lider, beneficiada: naFaixa[0], limite: reais(limiteC), faixa: new Set(naFaixa.map((x) => x.autor)) };
+  }
+
   /**
    * Uma disputa de um item. Use iniciar(), pausar(), retomar(), parar() e
    * atualizarLimites({ piso, teto }) a qualquer momento.
@@ -65,12 +108,15 @@
    *          aoAlerta(texto), aoMensagem({ autor, texto, hora })
    */
   class Disputa {
-    constructor({ sala, piso, teto, custo = null, decremento = 0.01, intervaloMs = 0, nossoLance = null, agora = () => Date.now(), esperar, ...eventos }) {
+    constructor({ sala, piso, teto, custo = null, decremento = 0.01, intervaloMs = 0, nossoLance = null, nossoPorte = 'demais', fugirEmpate = false, agora = () => Date.now(), esperar, ...eventos }) {
       const erros = validarLimites({ teto, custo, piso, decremento });
       if (erros.length) throw new Error(erros[0]);
-      Object.assign(this, { sala, piso, teto, custo, decremento, intervaloMs, nossoLance, agora, eventos });
+      Object.assign(this, { sala, piso, teto, custo, decremento, intervaloMs, nossoLance, nossoPorte, fugirEmpate, agora, eventos });
       this.esperar = esperar || ((ms) => new Promise((ok) => setTimeout(ok, ms)));
       this.melhorConcorrente = null;
+      this.melhorMeEpp = null;
+      this.fase = FASES.ABERTA;
+      this.lances = new Map(); // autor -> { autor, valor, porte } (o menor lance de cada um)
       this.status = STATUS.PARADO;
       this.ultimoLanceEm = -Infinity;
     }
@@ -87,6 +133,20 @@
       this.teto = teto;
     }
 
+    /** Ranking da praça, com o nosso lance como autor "nos". */
+    ranking() {
+      const todos = [...this.lances.values()];
+      if (this.nossoLance != null) todos.push({ autor: 'nos', valor: this.nossoLance, porte: this.nossoPorte });
+      return ordenarRanking(todos);
+    }
+
+    registrarConcorrente(autor, valor, porte = 'demais') {
+      const atual = this.lances.get(autor);
+      if (!atual || valor < atual.valor) this.lances.set(autor, { autor, valor, porte });
+      if (this.melhorConcorrente == null || valor < this.melhorConcorrente) this.melhorConcorrente = valor;
+      if (ehMeEpp(porte) && (this.melhorMeEpp == null || valor < this.melhorMeEpp)) this.melhorMeEpp = valor;
+    }
+
     async avaliar() {
       if (this.status !== STATUS.ATIVO) return;
       const d = decidir(this);
@@ -97,7 +157,13 @@
           : 'Robô parado: confira o preço teto e o preço mínimo.');
         return;
       }
-      if (d.acao !== 'lance') return;
+      if (d.acao !== 'lance') {
+        if (d.motivo === 'empate_inevitavel' && this.avisoEmpate !== this.melhorMeEpp) {
+          this.avisoEmpate = this.melhorMeEpp;
+          this.eventos.aoAviso?.(`Uma ME/EPP está a até ${MARGEM_LC123}% do nosso lance e o piso não permite sair da faixa: ela poderá cobrir no desempate.`);
+        }
+        return;
+      }
       const falta = this.ultimoLanceEm + this.intervaloMs - this.agora();
       if (falta > 0) await this.esperar(falta);
       if (this.status !== STATUS.ATIVO) return;
@@ -107,7 +173,7 @@
       await this.sala.enviarLance(nova.valor);
       this.nossoLance = nova.valor;
       this.ultimoLanceEm = this.agora();
-      this.eventos.aoLance?.(nova.valor);
+      this.eventos.aoLance?.(nova.valor, nova.motivo);
     }
 
     async iniciar() {
@@ -117,14 +183,26 @@
       if (this.rodando) return;
       this.rodando = true;
       try {
-        while (this.status !== STATUS.PARADO && this.status !== STATUS.PISO) {
+        // Parado no piso, o robô não dá mais lances, mas continua acompanhando a sala
+        // (desempate, negociação, habilitação) até ela encerrar.
+        while (this.status !== STATUS.PARADO) {
           const ev = await this.sala.proximoEvento();
-          if (!ev || ev.tipo === 'encerrada') { if (this.status !== STATUS.PARADO) this.mudarStatus(STATUS.PARADO, 'encerrada'); break; }
+          if (!ev || ev.tipo === 'encerrada') {
+            if (this.status === STATUS.PISO) this.eventos.aoEncerrada?.();
+            else this.mudarStatus(STATUS.PARADO, 'encerrada');
+            break;
+          }
           if (ev.tipo === 'mensagem') { this.eventos.aoMensagem?.(ev); continue; }
+          if (ev.tipo === 'fase') {
+            this.fase = ev.fase;
+            this.eventos.aoFase?.(ev.fase, ev);
+            if (ehFaseDeLance(ev.fase)) await this.avaliar();
+            continue;
+          }
           if (ev.tipo === 'lance') {
             if (ev.autor === 'nos') continue;
-            if (this.melhorConcorrente == null || ev.valor < this.melhorConcorrente) this.melhorConcorrente = ev.valor;
-            this.eventos.aoConcorrente?.(ev.valor, ev.autor);
+            this.registrarConcorrente(ev.autor, ev.valor, ev.porte);
+            this.eventos.aoConcorrente?.(ev.valor, ev.autor, ev.porte);
             await this.avaliar();
           }
         }
@@ -140,45 +218,139 @@
 
   const moeda = (v) => (v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
 
-  /** Sala de pregão de mentira: concorrentes dão lances e o pregoeiro manda mensagens. */
+  /**
+   * Sala de pregão de mentira, no modo de disputa ABERTO:
+   *   aberta (tempo fixo) -> prorrogação automática (cada lance nos últimos instantes
+   *   estende o prazo) -> desempate ME/EPP (LC 123) -> negociação -> habilitação -> encerrada.
+   * Os tempos são acelerados. Com "eventos" (lista fixa), só devolve a lista (testes).
+   */
+  const CONCORRENTES_PADRAO = [
+    { autor: 'Fornecedor 2', porte: 'demais' },
+    { autor: 'Fornecedor 5', porte: 'me' },
+    { autor: 'Fornecedor 9', porte: 'epp' },
+    { autor: 'Fornecedor 12', porte: 'demais' },
+  ];
+
   class SalaSimulada {
-    constructor({ inicial, minimoConcorrentes, passoMs = 2500, concorrentes = ['Fornecedor 2', 'Fornecedor 5', 'Fornecedor 9'], aleatorio = Math.random, eventos = null } = {}) {
-      Object.assign(this, { minimo: minimoConcorrentes, passoMs, concorrentes, aleatorio, fila: eventos ? [...eventos] : null });
+    constructor({
+      inicial, minimoConcorrentes, passoMs = 2500, aleatorio = Math.random, eventos = null,
+      concorrentes = CONCORRENTES_PADRAO, abertaMs = 45000, prorrogacaoMs = 12000, etapaMs = 4000, agora = () => Date.now(),
+    } = {}) {
+      Object.assign(this, { passoMs, aleatorio, abertaMs, prorrogacaoMs, etapaMs, agora, fila: eventos ? [...eventos] : null });
+      // Cada concorrente tem o próprio mínimo, perto do mínimo geral da simulação.
+      this.concorrentes = concorrentes.map((c) => (typeof c === 'string' ? { autor: c, porte: 'demais' } : { ...c }))
+        .map((c) => ({ ...c, minimo: Math.round(minimoConcorrentes * (1 + aleatorio() * 0.035) * 100) / 100 }));
       this.praca = inicial;
+      this.melhores = new Map(); // autor -> { autor, valor, porte }
       this.aberta = true;
+      this.fase = null;
+      this.fimEm = null;
+      this.pendentes = [];
       this.mensagens = [
         'Senhores licitantes, a etapa de lances está aberta.',
         'Lembramos que o intervalo mínimo entre lances é o definido no edital.',
-        'Item em disputa. Aguardem o encerramento do tempo aleatório.',
       ];
     }
 
     fechar() { this.aberta = false; }
 
-    async enviarLance(valor) { this.praca = Math.min(this.praca, valor); }
+    async enviarLance(valor) {
+      if (!this.emLances()) return;
+      this.praca = Math.min(this.praca, valor);
+      this.registrar('nos', valor, 'nos');
+      this.prorrogarSeNoFim();
+    }
+
+    emLances() { return this.fase === FASES.ABERTA || this.fase === FASES.PRORROGACAO; }
+    hora() { return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+    registrar(autor, valor, porte) {
+      const atual = this.melhores.get(autor);
+      if (!atual || valor < atual.valor) this.melhores.set(autor, { autor, valor, porte });
+    }
+    // Lance nos últimos instantes: o prazo é estendido (prorrogação automática).
+    prorrogarSeNoFim() {
+      if (this.fimEm - this.agora() > this.prorrogacaoMs) return;
+      this.fimEm = this.agora() + this.prorrogacaoMs;
+      const mudou = this.fase !== FASES.PRORROGACAO;
+      this.fase = FASES.PRORROGACAO;
+      this.pendentes.push({ tipo: 'fase', fase: FASES.PRORROGACAO, fimEm: this.fimEm, hora: this.hora() });
+      if (mudou) this.pendentes.push({ tipo: 'mensagem', autor: 'Sistema', texto: 'Lance nos últimos instantes: prorrogação automática iniciada.', hora: this.hora() });
+    }
+    fase_(fase, texto, extra = {}) {
+      this.fase = fase;
+      this.pendentes.push({ tipo: 'fase', fase, hora: this.hora(), ...extra });
+      if (texto) this.pendentes.push({ tipo: 'mensagem', autor: 'Pregoeiro', texto, hora: this.hora() });
+    }
+
+    /** Fim da etapa de lances: aplica a LC 123 e segue para negociação e habilitação. */
+    encerrarLances() {
+      const ranking = ordenarRanking([...this.melhores.values()].map((x) => ({ ...x, porte: x.porte === 'nos' ? 'demais' : x.porte })));
+      const pref = preferenciaLC123(ranking);
+      this.fase_(FASES.DESEMPATE, pref.empate
+        ? `Etapa de lances encerrada. Empate ficto (LC 123): ${pref.beneficiada.autor} pode cobrir o melhor lance.`
+        : 'Etapa de lances encerrada. Não há empate ficto de ME/EPP.');
+      if (pref.empate && pref.beneficiada.autor !== 'nos') {
+        const me = this.concorrentes.find((c) => c.autor === pref.beneficiada.autor);
+        const valor = Math.round((pref.lider.valor - 0.01) * 100) / 100;
+        // A ME/EPP só cobre se o preço ainda vale a pena para ela (até ~3% abaixo do mínimo dela).
+        if (me && valor >= me.minimo * 0.97) {
+          this.registrar(me.autor, valor, me.porte);
+          this.pendentes.push({ tipo: 'lance', valor, autor: me.autor, porte: me.porte, hora: this.hora(), desempate: true });
+          this.pendentes.push({ tipo: 'mensagem', autor: 'Sistema', texto: `${me.autor} exerceu o direito de preferência e cobriu o melhor lance.`, hora: this.hora() });
+        } else {
+          this.pendentes.push({ tipo: 'mensagem', autor: 'Sistema', texto: `${pref.beneficiada.autor} não exerceu o direito de preferência.`, hora: this.hora() });
+        }
+      }
+      this.depois = [
+        () => {
+          const lider = ordenarRanking([...this.melhores.values()])[0];
+          this.fase_(FASES.NEGOCIACAO, lider?.autor === 'nos'
+            ? 'Senhor fornecedor arrematante, é possível reduzir o valor ofertado? Envie a contraproposta pelo chat.'
+            : `Negociação aberta com ${lider?.autor ?? 'o arrematante'}.`);
+        },
+        () => this.fase_(FASES.HABILITACAO, 'Convoco o arrematante a enviar os documentos de habilitação e a proposta ajustada no prazo do edital.'),
+        () => { this.fase_(FASES.ENCERRADA, 'Sessão encerrada para este item.'); this.aberta = false; },
+      ];
+    }
 
     async proximoEvento() {
-      if (!this.aberta) return { tipo: 'encerrada' };
       if (this.fila) return this.fila.shift() || { tipo: 'encerrada' };
-      await new Promise((ok) => setTimeout(ok, this.passoMs * (0.6 + this.aleatorio() * 0.8)));
+      if (this.pendentes.length) return this.pendentes.shift();
       if (!this.aberta) return { tipo: 'encerrada' };
-      const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      if (this.aleatorio() < 0.2 && this.mensagens.length) {
-        return { tipo: 'mensagem', autor: 'Pregoeiro', texto: this.mensagens.shift(), hora };
+      if (this.fase == null) {
+        this.fimEm = this.agora() + this.abertaMs;
+        this.fase_(FASES.ABERTA, this.mensagens.shift(), { fimEm: this.fimEm });
+        return this.pendentes.shift();
       }
-      // Concorrente cobre a praça por um valor pequeno, até o mínimo dele.
+      if (!this.emLances()) {
+        await new Promise((ok) => setTimeout(ok, this.etapaMs));
+        if (!this.aberta) return { tipo: 'encerrada' };
+        this.depois?.shift()?.();
+        return this.pendentes.shift() || { tipo: 'tique' };
+      }
+      const falta = this.fimEm - this.agora();
+      if (falta <= 0) { this.encerrarLances(); return this.pendentes.shift(); }
+      await new Promise((ok) => setTimeout(ok, Math.min(falta, this.passoMs * (0.6 + this.aleatorio() * 0.8))));
+      if (!this.aberta) return { tipo: 'encerrada' };
+      if (this.pendentes.length) return this.pendentes.shift();
+      if (this.agora() >= this.fimEm) return { tipo: 'tique' };
+      if (this.aleatorio() < 0.12 && this.mensagens.length) {
+        return { tipo: 'mensagem', autor: 'Pregoeiro', texto: this.mensagens.shift(), hora: this.hora() };
+      }
+      // Um concorrente que ainda tem margem cobre a praça por um valor pequeno.
       const reducao = Math.max(0.01, Math.round(this.praca * (0.002 + this.aleatorio() * 0.01) * 100) / 100);
       const valor = Math.round((this.praca - reducao) * 100) / 100;
-      if (valor < this.minimo) {
-        this.aberta = false;
-        return { tipo: 'mensagem', autor: 'Pregoeiro', texto: 'Etapa de lances encerrada para este item.', hora };
-      }
+      const podem = this.concorrentes.filter((c) => valor >= c.minimo);
+      if (!podem.length) return { tipo: 'tique' }; // ninguém desce mais: o tempo corre
+      const c = podem[Math.floor(this.aleatorio() * podem.length)];
       this.praca = valor;
-      return { tipo: 'lance', valor, autor: this.concorrentes[Math.floor(this.aleatorio() * this.concorrentes.length)], hora };
+      this.registrar(c.autor, valor, c.porte);
+      this.prorrogarSeNoFim();
+      return { tipo: 'lance', valor, autor: c.autor, porte: c.porte, hora: this.hora() };
     }
   }
 
-  const api = { STATUS, validarLimites, decidir, Disputa, SalaSimulada, centavos };
+  const api = { STATUS, FASES, FASES_DE_LANCE, MARGEM_LC123, ehMeEpp, validarLimites, decidir, ordenarRanking, preferenciaLC123, Disputa, SalaSimulada, centavos };
   raiz.LHRobo = api;
   if (raiz.LH) raiz.LH.robo = api;
 }(typeof window !== 'undefined' ? window : globalThis));
