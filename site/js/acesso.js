@@ -26,6 +26,7 @@ window.LH = window.LH || {};
           <label class="campo"><span class="campo__rotulo">Nome da sua empresa</span><input name="empresa" autocomplete="organization" required maxlength="160"></label>
         </div>
         <label class="campo"><span class="campo__rotulo">E-mail</span><input type="email" name="email" autocomplete="email" required></label>
+        <label class="campo"><span class="campo__rotulo">WhatsApp (com DDD)</span><input type="tel" name="telefone" autocomplete="tel-national" inputmode="numeric" required maxlength="15" placeholder="(00) 00000-0000" data-telefone></label>
         <label class="campo"><span class="campo__rotulo">Senha (mínimo 8 caracteres)</span><input type="password" name="senha" autocomplete="new-password" required minlength="8"></label>
         <label class="marcar"><input type="checkbox" name="termos" required> <span>Li e aceito os <a href="#" data-legal="termos">Termos de uso</a> e a <a href="#" data-legal="privacidade">Política de privacidade</a>.</span></label>
         <label class="marcar"><input type="checkbox" name="marketing"> <span>Quero receber novidades e dicas por e-mail (opcional).</span></label>
@@ -55,8 +56,30 @@ window.LH = window.LH || {};
         <div class="acesso__recado" aria-live="polite">${recado}</div>
         ${formularios[aba]()}
       </div>`;
+    // Mensagem clara também com o campo vazio (a do navegador é genérica).
+    const tel = caixa.querySelector('[data-telefone]');
+    if (tel) conferirTelefone(tel);
     caixa.querySelector('input')?.focus();
   }
+
+  // --- Telefone (WhatsApp) obrigatório: máscara (00) 00000-0000 e a mesma regra do
+  // banco (public.telefone_br): DDD 11-99; celular 9 dígitos começando com 9; fixo 8
+  // dígitos começando com 2 a 5. O banco confere de novo e recusa o cadastro inválido.
+  const MSG_TELEFONE = 'Informe o seu WhatsApp com DDD, ex.: (11) 98765-4321.';
+  const mascaraTelefone = (v) => {
+    const d = String(v || '').replace(/\D/g, '').replace(/^0+/, '').slice(0, 11);
+    if (d.length <= 2) return d.length ? `(${d}` : '';
+    const resto = d.slice(2);
+    const corte = d.length === 11 ? 5 : 4;
+    return resto.length > corte ? `(${d.slice(0, 2)}) ${resto.slice(0, corte)}-${resto.slice(corte)}` : `(${d.slice(0, 2)}) ${resto}`;
+  };
+  const telefoneValido = (v) => {
+    const d = String(v || '').replace(/\D/g, '');
+    if (!/^\d{10,11}$/.test(d) || Number(d.slice(0, 2)) < 11) return false;
+    const n = d.slice(2);
+    return n.length === 9 ? n[0] === '9' : /^[2-5]/.test(n);
+  };
+  const conferirTelefone = (campo) => campo.setCustomValidity(telefoneValido(campo.value) ? '' : MSG_TELEFONE);
 
   const recadoHtml = (tipo, texto) => `<p class="nota ${tipo === 'erro' ? 'nota--alerta' : ''}">${icone(tipo === 'erro' ? 'alerta' : 'checkCirculo')} ${esc(texto)}</p>`;
 
@@ -73,8 +96,9 @@ window.LH = window.LH || {};
         return;
       }
       if (form.dataset.form === 'cadastrar') {
+        if (!telefoneValido(d.telefone)) throw new Error(MSG_TELEFONE);
         if (!/[A-Za-z]/.test(d.senha) || !/\d/.test(d.senha)) throw new Error('Use letras e números na senha.');
-        const r = await LH.nuvem.cadastrar({ nome: d.nome.trim(), empresa: d.empresa.trim(), email: d.email.trim(), senha: d.senha, marketing: d.marketing === 'on' });
+        const r = await LH.nuvem.cadastrar({ nome: d.nome.trim(), empresa: d.empresa.trim(), email: d.email.trim(), telefone: mascaraTelefone(d.telefone), senha: d.senha, marketing: d.marketing === 'on' });
         if (r.confirmar) {
           desenhar('entrar', recadoHtml('ok', `Conta criada! Enviamos um link de confirmação para ${d.email.trim()}. Abra o e-mail, confirme e depois entre aqui.`));
           return;
@@ -106,6 +130,15 @@ window.LH = window.LH || {};
           if (ir) desenhar(ir.dataset.ir);
         });
         caixa.addEventListener('submit', (e) => { e.preventDefault(); enviar(e.target); });
+        // Máscara enquanto digita; a mensagem de validação aparece ao tentar enviar.
+        caixa.addEventListener('input', (e) => {
+          const campo = e.target.closest?.('[data-telefone]');
+          if (!campo) return;
+          const fim = campo.selectionStart === campo.value.length;
+          campo.value = mascaraTelefone(campo.value);
+          if (fim) campo.setSelectionRange(campo.value.length, campo.value.length);
+          conferirTelefone(campo);
+        });
       }
       caixa.hidden = false;
       desenhar(['entrar', 'cadastrar', 'recuperar'].includes(aba) ? aba : 'entrar', recado ? recadoHtml('ok', recado) : '');

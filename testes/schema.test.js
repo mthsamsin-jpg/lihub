@@ -19,10 +19,11 @@ async function como(userId, sql, params = []) {
   });
 }
 
+// O cadastro exige telefone (WhatsApp): os usuários de teste ganham um, salvo se o teste disser outro.
 async function criarUsuario(email, meta) {
   const r = await db.query(
     `insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id`,
-    [email, JSON.stringify(meta)],
+    [email, JSON.stringify({ telefone: '(11) 98765-4321', ...meta })],
   );
   return r.rows[0].id;
 }
@@ -506,4 +507,22 @@ test('limpeza do projeto do agendamentos: só roda lá e tira tudo do LicitaHub'
   } finally {
     await outro.close();
   }
+});
+
+test('cadastro: telefone (WhatsApp) obrigatório e validado no banco', async () => {
+  const fmt = async (t) => (await db.query('select public.telefone_br($1) as t', [t])).rows[0].t;
+  assert.equal(await fmt('11987654321'), '(11) 98765-4321');
+  assert.equal(await fmt('+55 (21) 3333-4444'), '(21) 3333-4444');
+  assert.equal(await fmt('5511987654321'), '(11) 98765-4321');
+  for (const ruim of [null, '', '1198765', '(11) 88765-4321', '(00) 98765-4321', '(11) 1333-4444', '+1 415 555 0100', '119876543210']) {
+    assert.equal(await fmt(ruim), null, `recusa ${ruim}`);
+  }
+  for (const meta of [{ nome: 'Sem Tel', telefone: null }, { nome: 'Tel Curto', telefone: '(11) 9876-543' }]) {
+    await assert.rejects(criarUsuario(`x${Math.random()}@exemplo.com`, meta), /telefone_invalido/);
+  }
+  const antes = (await db.query('select count(*)::int n from public.organizacoes')).rows[0].n;
+  await assert.rejects(criarUsuario('sem@exemplo.com', { nome: 'Sem', telefone: '' }), /telefone_invalido/);
+  assert.equal((await db.query('select count(*)::int n from public.organizacoes')).rows[0].n, antes, 'recusado não deixa organização órfã');
+  const id = await criarUsuario('tel@exemplo.com', { nome: 'Tel', telefone: '+55 11 98765-4321' });
+  assert.equal((await db.query('select telefone from public.perfis where id = $1', [id])).rows[0].telefone, '(11) 98765-4321', 'grava formatado');
 });

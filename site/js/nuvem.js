@@ -31,6 +31,8 @@ window.LH = window.LH || {};
       [/user_already_exists|already registered/i, 'Este e-mail já tem conta. Entre ou recupere a senha.'],
       [/weak_password|Password should be/i, 'Senha fraca: use pelo menos 8 caracteres, misturando letras e números.'],
       [/rate_limit|rate limit/i, 'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.'],
+      // O banco recusa o cadastro sem WhatsApp válido; o Supabase devolve um erro genérico.
+      [/telefone_invalido|Database error (saving|creating) new user/i, 'Confira o seu WhatsApp com DDD, ex.: (11) 98765-4321.'],
       [/Failed to fetch|NetworkError|fetch/i, 'Sem conexão com o servidor. Confira a internet.'],
     ];
     const achado = mapa.find(([re]) => re.test(codigo) || re.test(msg));
@@ -150,13 +152,13 @@ window.LH = window.LH || {};
     },
 
     /** Cria a conta. Devolve { confirmar: true } quando o Supabase pede confirmação por e-mail. */
-    async cadastrar({ nome, empresa, email, senha, marketing }) {
+    async cadastrar({ nome, empresa, email, telefone, senha, marketing }) {
       const { data, error } = await N.cliente.auth.signUp({
         email,
         password: senha,
         options: {
           emailRedirectTo: linkRetorno(),
-          data: { nome, empresa, versao_termos: VERSAO_TERMOS, versao_privacidade: VERSAO_TERMOS, aceita_marketing: Boolean(marketing) },
+          data: { nome, empresa, telefone, versao_termos: VERSAO_TERMOS, versao_privacidade: VERSAO_TERMOS, aceita_marketing: Boolean(marketing) },
         },
       });
       if (error) throw traduzir(error);

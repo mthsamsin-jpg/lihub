@@ -177,7 +177,7 @@ async function verificarCadastro(admin) {
     email_confirm: true,
     user_metadata: {
       nome: 'Verificação Uso LicitaHub', empresa: 'Organização de teste',
-      versao_termos: 'verificacao', versao_privacidade: 'verificacao', aceita_marketing: false,
+      telefone: '(11) 98765-4321', versao_termos: 'verificacao', versao_privacidade: 'verificacao', aceita_marketing: false,
     },
   });
   if (error) {

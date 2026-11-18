@@ -165,7 +165,7 @@ async function ambienteNoSupabase() {
     email_confirm: true,
     user_metadata: {
       nome: 'Teste da Stripe', empresa: 'Organização de teste da Stripe',
-      versao_termos: 'verificacao', versao_privacidade: 'verificacao', aceita_marketing: false,
+      telefone: '(11) 98765-4321', versao_termos: 'verificacao', versao_privacidade: 'verificacao', aceita_marketing: false,
     },
   });
   if (error) throw new Error(`não consegui criar o usuário de teste no Supabase: ${error.message}`);
