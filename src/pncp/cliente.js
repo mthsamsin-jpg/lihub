@@ -100,12 +100,14 @@ export async function obterJson(url, opcoes = {}) {
     maxRecusas = ritmo.recusasMaximas,
     sinal,
     aoFalhar,
+    prioritario = false, // pedido de quem está esperando na tela: não entra na fila da sincronização
   } = opcoes;
 
   let falhas = 0;
   let recusas = 0;
   for (;;) {
-    await aguardarVez(sinal);
+    if (!prioritario) await aguardarVez(sinal);
+    else if (sinal?.aborted) throw sinal.reason;
     let resposta;
     let erro;
     try {

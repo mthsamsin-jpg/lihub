@@ -1080,3 +1080,6 @@ body.sem-login .app { display: none; }
 .capag--b { color: #93c5fd; background: rgba(59, 130, 246, 0.16); border-color: rgba(59, 130, 246, 0.5); }
 .capag--c { color: #fcd34d; background: rgba(245, 158, 11, 0.16); border-color: rgba(245, 158, 11, 0.5); }
 .capag--d { color: #fca5a5; background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.55); }
+
+/* Botão "Baixar" do edital enquanto o portal do governo responde */
+[data-baixar-edital].baixando { opacity: 0.75; pointer-events: none; cursor: progress; }

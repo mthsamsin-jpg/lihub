@@ -82,17 +82,35 @@ export function normalizarItens(lista) {
  * @param {{ baseIntegracao: string, arquivos?: Function, itens?: Function }} deps
  *   arquivos/itens podem ser trocados nos testes.
  */
+const LIMITE_TOTAL_MS = 40_000;
+
 export function criarDetalhes({ baseIntegracao, arquivos = listarArquivos, itens = listarItens }) {
   const base = (c) => `${baseIntegracao.replace(/\/$/, '')}/v1/orgaos/${c.cnpj}/compras/${c.ano}/${c.sequencial}`;
+
+  // Cache curto: abrir de novo a mesma licitação não volta ao portal do governo.
+  const cache = new Map();
+  const CACHE_MS = 10 * 60_000;
 
   async function consultar(licitacao, ler, oQue) {
     const compra = compraDaLicitacao(licitacao);
     if (!compra) {
       throw new ErroDetalhes('Esta licitação não tem identificação do PNCP.', { status: 404, codigo: 'sem_identificacao' });
     }
+    const chave = `${oQue}|${compra.cnpj}|${compra.ano}|${compra.sequencial}`;
+    const guardado = cache.get(chave);
+    if (guardado && Date.now() - guardado.em < CACHE_MS) return { compra, lista: guardado.lista };
+    // Quem pediu está esperando: fura a fila da sincronização, 20 s por tentativa e
+    // no máximo 40 s no total (antes: até 90 s x 2 tentativas, atrás da fila).
+    const limite = AbortSignal.timeout(LIMITE_TOTAL_MS);
     try {
-      return { compra, lista: await ler(compra, { tentativas: 2 }) };
+      const lista = await ler(compra, { tentativas: 2, timeoutMs: 20_000, maxRecusas: 1, prioritario: true, sinal: limite });
+      cache.set(chave, { em: Date.now(), lista });
+      if (cache.size > 500) cache.delete(cache.keys().next().value);
+      return { compra, lista };
     } catch (e) {
+      if (limite.aborted || /tempo esgotado|TimeoutError/i.test(`${e?.name} ${e?.message}`)) {
+        throw new ErroDetalhes(`O portal do governo (PNCP) está demorando demais para entregar ${oQue}. Tente de novo em alguns minutos ou abra a licitação no site oficial.`, { status: 504, codigo: 'pncp_lento', causa: e });
+      }
       const foraDoAr = [502, 503, 504].includes(e?.status);
       throw new ErroDetalhes(
         foraDoAr

@@ -255,11 +255,22 @@ window.LH = window.LH || {};
 
   /** Abre um modal que carrega o conteúdo em seguida. */
   function modalCarregando(titulo, l, carregar) {
-    LH.modal({ titulo, html: `<div data-corpo>${LH.carregando('Consultando o PNCP...')}</div>` });
+    LH.modal({ titulo, html: `<div data-corpo>${LH.carregando('Consultando o portal do governo (PNCP)...')}
+      <p class="fraco" data-espera aria-live="polite" style="margin-top:8px">O portal pode levar alguns segundos para responder.</p></div>` });
     const corpo = document.querySelector('.modal-fundo:last-of-type [data-corpo]');
+    // Contador para a tela não parecer travada enquanto o portal do governo responde.
+    const inicio = Date.now();
+    const relogio = setInterval(() => {
+      const aviso = corpo?.querySelector('[data-espera]');
+      if (!aviso) return clearInterval(relogio);
+      const s = Math.round((Date.now() - inicio) / 1000);
+      aviso.textContent = s < 10 ? 'O portal pode levar alguns segundos para responder.'
+        : `Ainda aguardando o PNCP (${s} s)... o portal do governo está lento agora, mas seguimos tentando.`;
+    }, 1000);
     carregar()
       .then((html) => { if (corpo?.isConnected) corpo.innerHTML = html; })
-      .catch((e) => { if (corpo?.isConnected) corpo.innerHTML = `${LH.erroHtml(e)}<div class="chips" style="margin-top:12px">${linkPncp(l)}</div>`; });
+      .catch((e) => { if (corpo?.isConnected) corpo.innerHTML = `${LH.erroHtml(e)}<div class="chips" style="margin-top:12px">${linkPncp(l)}</div>`; })
+      .finally(() => clearInterval(relogio));
   }
   const soNoReal = (l) => `<p class="nota">${icone('info')} Na demonstração não há arquivos do governo. Entre com a sua conta para ${l}.</p>`;
 
@@ -267,13 +278,13 @@ window.LH = window.LH || {};
     const l = LH.licitacaoEmCache(id);
     modalCarregando(`Editais · ${l?.numero ?? ''}`, l, async () => {
       if (LH.repo.modo === 'demo') return soNoReal('baixar o edital e os anexos publicados no PNCP');
-      const { arquivos } = await LH.nuvem.api(`/api/licitacoes/${Number(id)}/arquivos`);
+      const { arquivos } = await LH.nuvem.api(`/api/licitacoes/${Number(id)}/arquivos`, { limiteMs: 50_000 });
       if (!arquivos.length) return `<p class="fraco">O órgão ainda não publicou documentos desta licitação no PNCP.</p><div class="chips">${linkPncp(l)}</div>`;
       return `<ul class="lista">${arquivos.map((a, i) => `
         <li class="lista__item">
           <span class="lista__icone">${icone('arquivo')}</span>
           <div class="lista__texto"><strong>${esc(a.titulo)}</strong><span>${esc(a.tipo || 'Documento')}${a.data ? ` · ${fmt.data(String(a.data).slice(0, 10))}` : ''}</span></div>
-          <a class="btn btn--pequeno ${i === 0 ? 'btn--primario' : ''}" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" download>${icone('baixar')} Baixar</a>
+          <a class="btn btn--pequeno ${i === 0 ? 'btn--primario' : ''}" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" download data-baixar-edital>${icone('baixar')} Baixar</a>
         </li>`).join('')}</ul>`;
     });
   };
@@ -282,7 +293,7 @@ window.LH = window.LH || {};
     const l = LH.licitacaoEmCache(id);
     modalCarregando(`Itens · ${l?.numero ?? ''}`, l, async () => {
       if (LH.repo.modo === 'demo') return soNoReal('ver os itens, quantidades e valores publicados no PNCP');
-      const { itens } = await LH.nuvem.api(`/api/licitacoes/${Number(id)}/itens`);
+      const { itens } = await LH.nuvem.api(`/api/licitacoes/${Number(id)}/itens`, { limiteMs: 50_000 });
       if (!itens.length) return `<p class="fraco">O PNCP não tem itens publicados para esta licitação.</p><div class="chips">${linkPncp(l)}</div>`;
       // Ordem oficial do edital (o servidor já ordena; reforça aqui sem perder a posição).
       itens.sort((a, b) => (a.numero ?? Infinity) - (b.numero ?? Infinity) || (a.posicao ?? 0) - (b.posicao ?? 0));
@@ -315,6 +326,23 @@ window.LH = window.LH || {};
       return html;
     });
   };
+
+  // "Baixar": o arquivo vem direto do portal do governo e pode demorar a começar.
+  // O botão mostra "Baixando edital..." por alguns segundos para não parecer travado.
+  document.addEventListener('click', (e) => {
+    const botao = e.target.closest?.('[data-baixar-edital]');
+    if (!botao || botao.classList.contains('baixando')) return;
+    const original = botao.innerHTML;
+    botao.classList.add('baixando');
+    botao.setAttribute('aria-busy', 'true');
+    botao.innerHTML = `${icone('atualizar', 'girando')} Baixando edital...`;
+    LH.aviso('Baixando o edital do portal do governo. Pode levar alguns segundos para o download começar.', 'info');
+    setTimeout(() => {
+      botao.classList.remove('baixando');
+      botao.removeAttribute('aria-busy');
+      botao.innerHTML = original;
+    }, 15_000);
+  });
 
   // Filtro da janela de itens: só esconde linhas, nunca renumera (o "Item N" é o oficial).
   // Número puro ("12") acha exatamente o Item 12; texto procura na descrição.

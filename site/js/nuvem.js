@@ -188,15 +188,17 @@ window.LH = window.LH || {};
     },
 
     /** Chama a API do servidor (mesmo endereço do site) com o token de login. */
-    async api(caminho, { metodo = 'GET', corpo } = {}) {
+    async api(caminho, { metodo = 'GET', corpo, limiteMs } = {}) {
       let resposta;
       try {
         resposta = await fetch(caminho, {
           method: metodo,
           headers: { authorization: `Bearer ${await N.token()}`, ...(corpo ? { 'content-type': 'application/json' } : {}) },
           body: corpo ? JSON.stringify(corpo) : undefined,
+          signal: limiteMs ? AbortSignal.timeout(limiteMs) : undefined,
         });
-      } catch {
+      } catch (e) {
+        if (e?.name === 'TimeoutError') throw new Error('O portal do governo está demorando demais para responder. Tente de novo em alguns minutos.');
         throw new Error('Sem conexão com o servidor do Uso LicitaHub.');
       }
       const json = await resposta.json().catch(() => ({}));
