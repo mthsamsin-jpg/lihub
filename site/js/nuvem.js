@@ -168,6 +168,7 @@ window.LH = window.LH || {};
     },
 
     async sair() {
+      LH.roboAoVivo?.encerrar();
       await N.cliente.auth.signOut();
     },
 

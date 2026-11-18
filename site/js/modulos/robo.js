@@ -17,7 +17,6 @@ LH.vistas = LH.vistas || {};
     stopped_at_floor: ['Parado por segurança', 'robo-status--piso'],
   };
   const moeda = (v) => (v == null ? '—' : fmt.moeda(v));
-  const INTERVALO_SIMULACAO_MS = 1500; // na sala simulada o intervalo é acelerado
   // Portais onde o robô pode atuar: os mesmos da busca, mais a Petronect.
   const PORTAIS = () => [...LH.PLATAFORMAS.map(([k, n]) => [k, n]), ['petronect', 'Petronect'], LH.PLATAFORMA_OUTROS];
   const nomePortal = (k) => (PORTAIS().find(([c]) => c === k) || LH.PLATAFORMA_OUTROS)[1];
@@ -48,20 +47,22 @@ LH.vistas = LH.vistas || {};
     montar(raiz) {
       const caixa = raiz.querySelector('#robo-itens');
       const chat = raiz.querySelector('#robo-chat');
-      const disputas = new Map(); // id -> Disputa
-      let itens = [];
+      const vivo = LH.roboAoVivo; // estado global: as disputas seguem rodando fora desta tela
       let filtro = '';
+      let carregado = false;
+      const item = (id) => vivo.item(id);
 
-      const gravar = LH.atrasar((id, campos) => LH.repo.roboEstado(id, campos).catch((e) => LH.aviso(e.message, 'perigo')), 300);
-      const item = (id) => itens.find((i) => i.id === id);
-
-      const falar = (autor, texto, tipo = '') => {
+      const msgHtml = (m) => `<li class="robo-chat__msg ${m.tipo}"><b>${esc(m.autor)}</b><time>${m.hora}</time><p>${esc(m.texto)}</p></li>`;
+      const falarNaTela = (m) => {
         chat.querySelector('.robo-chat__vazio')?.remove();
-        const hora = new Date().toLocaleTimeString('pt-BR');
-        chat.insertAdjacentHTML('beforeend', `<li class="robo-chat__msg ${tipo}"><b>${esc(autor)}</b><time>${hora}</time><p>${esc(texto)}</p></li>`);
+        chat.insertAdjacentHTML('beforeend', msgHtml(m));
         while (chat.children.length > 200) chat.firstElementChild.remove();
         chat.scrollTop = chat.scrollHeight;
       };
+      if (vivo.mensagens().length) {
+        chat.innerHTML = vivo.mensagens().map(msgHtml).join('');
+        requestAnimationFrame(() => { chat.scrollTop = chat.scrollHeight; });
+      }
 
       // Barra teto -> piso: quanto da margem de descida o nosso lance já consumiu.
       const trilho = (i) => {
@@ -109,6 +110,7 @@ LH.vistas = LH.vistas || {};
       };
 
       const desenhar = () => {
+        const itens = vivo.lista();
         const visiveis = itens.filter((i) => !filtro || i.plataforma === filtro);
         if (itens.length && !visiveis.length) {
           caixa.innerHTML = `<div class="card">${LH.vazio('computador', `Nenhum item em ${nomePortal(filtro)}`, 'Escolha outro portal ou cadastre um item neste.', `<button class="btn btn--primario" data-novo>${icone('mais')} Novo item</button>`)}</div>`;
@@ -121,12 +123,6 @@ LH.vistas = LH.vistas || {};
         const el = caixa.querySelector(`[data-item="${CSS.escape(id)}"]`);
         if (el && item(id)) el.outerHTML = cartao(item(id));
       };
-      const mudar = (id, campos, salvar = true) => {
-        Object.assign(item(id), campos);
-        redesenhar(id);
-        if (salvar) gravar(id, { status: item(id).status, nossoLance: item(id).nossoLance, melhorLance: item(id).melhorLance });
-      };
-
       // --- Formulário (novo item e edição rápida dos limites) ---
       const campo = (nome, rotulo, valor, extra = '') => `<label class="campo"><span class="campo__rotulo">${rotulo}</span>
         <input name="${nome}" inputmode="decimal" value="${valor == null ? '' : esc(String(valor).replace('.', ','))}" ${extra}></label>`;
@@ -159,47 +155,16 @@ LH.vistas = LH.vistas || {};
               const caixaErro = janela.querySelector('[data-erro]');
               if (erros.length) { caixaErro.textContent = erros[0]; caixaErro.hidden = false; return; }
               try {
-                disputas.get(i?.id)?.atualizarLimites({ piso: dados.piso, teto: dados.teto });
+                if (i) vivo.atualizarLimites(i.id, { piso: dados.piso, teto: dados.teto });
                 const salvo = await LH.repo.salvarRoboItem(dados);
-                if (i) Object.assign(item(i.id), { teto: salvo.teto, custo: salvo.custo, piso: salvo.piso, descricao: salvo.descricao, decremento: salvo.decremento, intervaloSeg: salvo.intervaloSeg });
-                else itens.push(salvo);
+                if (i) vivo.atualizar(i.id, { teto: salvo.teto, custo: salvo.custo, piso: salvo.piso, descricao: salvo.descricao, decremento: salvo.decremento, intervaloSeg: salvo.intervaloSeg });
+                else vivo.adicionar(salvo);
                 fechar();
-                desenhar();
                 LH.aviso(soLimites ? 'Limites atualizados. O robô já usa os valores novos.' : 'Item salvo.', 'sucesso');
               } catch (e) { caixaErro.textContent = e.message; caixaErro.hidden = false; }
             } },
           ],
         });
-      };
-
-      // --- Disputa simulada de um item ---
-      const iniciar = (i) => {
-        const existente = disputas.get(i.id);
-        if (existente && existente.status === 'paused') return existente.retomar();
-        // Concorrentes da simulação: param entre ~95% do custo e ~5% acima do piso.
-        const custo = i.custo ?? i.piso * 0.9;
-        const minimo = custo * 0.95 + Math.random() * (i.piso * 1.05 - custo * 0.95);
-        const sala = new LH.robo.SalaSimulada({ inicial: i.teto * 1.03, minimoConcorrentes: Math.round(minimo * 100) / 100 });
-        const d = new LH.robo.Disputa({
-          sala, piso: i.piso, teto: i.teto, custo: i.custo, decremento: i.decremento,
-          intervaloMs: Math.min(i.intervaloSeg * 1000, INTERVALO_SIMULACAO_MS), nossoLance: null,
-          aoStatus: (status, motivo) => {
-            mudar(i.id, { status: status === 'idle' && motivo === 'encerrada' ? 'idle' : status });
-            if (motivo === 'encerrada') falar('Sistema', `Disputa encerrada · ${i.descricao}. ${item(i.id).nossoLance != null && item(i.id).nossoLance <= (item(i.id).melhorLance ?? Infinity) ? 'Terminamos na frente.' : 'Não ficamos com o melhor lance.'}`, 'robo-chat__msg--sistema');
-          },
-          aoLance: (v) => { mudar(i.id, { nossoLance: v }); falar('Robô (nós)', `Lance de ${moeda(v)} · ${i.descricao}`, 'robo-chat__msg--nos'); },
-          aoConcorrente: (v, autor) => { mudar(i.id, { melhorLance: v }); falar(autor, `Lance de ${moeda(v)} · ${i.descricao}`); },
-          aoMensagem: (m) => falar(m.autor, m.texto, 'robo-chat__msg--oficial'),
-          aoAlerta: (texto) => {
-            falar('Trava de segurança', texto, 'robo-chat__msg--alerta');
-            LH.aviso(texto, 'perigo');
-            LH.notificar?.('Robô parado por segurança', texto);
-          },
-        });
-        disputas.set(i.id, d);
-        mudar(i.id, { nossoLance: null, melhorLance: null });
-        falar('Sistema', `Robô ligado · ${curto(nomePortal(i.plataforma))} · ${i.descricao}. Piso ${moeda(i.piso)}, teto ${moeda(i.teto)}.`, 'robo-chat__msg--sistema');
-        d.iniciar().catch((e) => { LH.aviso(e.message, 'perigo'); mudar(i.id, { status: 'stopped_at_floor' }); });
       };
 
       LH.ao(raiz, 'click', '[data-novo]', () => abrirForm());
@@ -210,30 +175,32 @@ LH.vistas = LH.vistas || {};
       });
       LH.ao(caixa, 'click', '[data-acao]', async (e, botao) => {
         const i = item(botao.closest('[data-item]').dataset.item);
-        const d = disputas.get(i.id);
         switch (botao.dataset.acao) {
-          case 'iniciar': iniciar(i); break;
-          case 'pausar': d?.pausar(); falar('Sistema', `Robô pausado · ${i.descricao}`, 'robo-chat__msg--sistema'); break;
-          case 'parar': if (d) d.parar(); else mudar(i.id, { status: 'idle' }); disputas.delete(i.id); break;
+          case 'iniciar': vivo.iniciar(i.id, curto(nomePortal(i.plataforma))); break;
+          case 'pausar': vivo.pausar(i.id); break;
+          case 'parar': vivo.parar(i.id); break;
           case 'limites': abrirForm(i, true); break;
           case 'excluir':
             if (!(await LH.confirmar('Excluir item', `Excluir "${i.descricao}" do robô?`, 'Excluir', true))) return;
-            try { await LH.repo.excluirRoboItem(i.id); itens = itens.filter((x) => x.id !== i.id); desenhar(); } catch (erro) { LH.aviso(erro.message, 'perigo'); }
+            try { await vivo.remover(i.id); } catch (erro) { LH.aviso(erro.message, 'perigo'); }
             break;
           default:
         }
       });
 
-      LH.repo.roboItens()
-        .then((lista) => {
-          // Ao abrir a tela, nenhum robô está rodando: "ativo" de outra visita vira "pausado".
-          itens = lista.map((i) => (i.status === 'running' ? { ...i, status: 'paused' } : i));
-          desenhar();
-        })
+      // A tela só "ouve" o estado global. Ao sair, deixa de ouvir: os robôs continuam
+      // rodando e aparecem no mini player flutuante (js/robo-ao-vivo.js).
+      const deixarDeOuvir = vivo.ouvir((tipo, dado) => {
+        if (!carregado) return;
+        if (tipo === 'item') redesenhar(dado);
+        else if (tipo === 'lista') desenhar();
+        else if (tipo === 'chat') falarNaTela(dado);
+      });
+      vivo.carregar()
+        .then(() => { carregado = true; desenhar(); })
         .catch((e) => { caixa.innerHTML = LH.erroHtml(e); });
 
-      // Ao sair da tela, os robôs simulados param.
-      return () => disputas.forEach((d) => d.status !== 'idle' && d.parar());
+      return deixarDeOuvir;
     },
   };
 }());
