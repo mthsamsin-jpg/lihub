@@ -101,7 +101,8 @@ window.LH = window.LH || {};
     },
     atualizarLimites(id, limites) { disputas.get(id)?.atualizarLimites(limites); },
 
-    iniciar(id, portal = '') {
+    /** opcoes.pedido (modo real): { pregao, lote, modo } para conectar sem perguntar. */
+    iniciar(id, portal = '', opcoes = {}) {
       const i = item(id);
       if (!i) return;
       const existente = disputas.get(id);
@@ -112,7 +113,7 @@ window.LH = window.LH || {};
           mudar, falar,
           prender: (itemId, d) => disputas.set(itemId, d),
           soltar: (itemId, d) => { if (disputas.get(itemId) === d) disputas.delete(itemId); },
-        });
+        }, opcoes.pedido || null);
         return;
       }
       const nome = i.descricao;
@@ -121,11 +122,14 @@ window.LH = window.LH || {};
       const minimo = custo * 0.95 + Math.random() * (i.piso * 1.05 - custo * 0.95);
       const sala = new LH.robo.SalaSimulada({ inicial: i.teto * 1.03, minimoConcorrentes: Math.round(minimo * 100) / 100, abertaMs: 60000, prorrogacaoMs: 15000, ...PASSO_SIMULACAO });
       const qtd = i.quantidade || 1;
+      const monitorando = opcoes.pedido?.modo === 'monitorar' || (i.piso != null && i.piso === i.teto);
       const posicaoDe = (autor) => d.ranking().find((x) => x.autor === autor)?.posicao ?? null;
       const d = new LH.robo.Disputa({
         sala, piso: i.piso, teto: i.teto, custo: i.custo, decremento: i.decremento,
         intervaloMs: Math.min(i.intervaloSeg * 1000, INTERVALO_SIMULACAO_MS), nossoLance: null,
         nossoPorte: i.nossoPorte || 'demais', fugirEmpate: !!i.fugirEmpate,
+        // "Monitorar" (feed) ou piso = teto: a sala simulada roda, mas o robô não dá lances.
+        observar: monitorando,
         aoFase: (fase, ev) => {
           mudar(id, { fase, fimEm: ev.fimEm ?? null });
           if (fase === 'negociacao' && d.ranking()[0]?.autor === 'nos') {
@@ -161,7 +165,7 @@ window.LH = window.LH || {};
         },
       });
       disputas.set(id, d);
-      mudar(id, { nossoLance: null, melhorLance: null, fase: 'aberta', fimEm: null, alertaPiso: null });
+      mudar(id, { nossoLance: null, melhorLance: null, fase: 'aberta', fimEm: null, alertaPiso: null, monitorando });
       falar('Sistema', `Robô ligado · ${portal ? `${portal} · ` : ''}${nome}. Piso ${moeda(i.piso)}, teto ${moeda(i.teto)}.`, 'robo-chat__msg--sistema', { itemId: id });
       d.iniciar().catch((e) => { LH.aviso(e.message, 'perigo'); mudar(id, { status: 'stopped_at_floor' }); });
     },

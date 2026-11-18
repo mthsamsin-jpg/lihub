@@ -108,10 +108,11 @@
    *          aoAlerta(texto), aoMensagem({ autor, texto, hora })
    */
   class Disputa {
-    constructor({ sala, piso, teto, custo = null, decremento = 0.01, intervaloMs = 0, nossoLance = null, nossoPorte = 'demais', fugirEmpate = false, agora = () => Date.now(), esperar, ...eventos }) {
+    constructor({ sala, piso, teto, custo = null, decremento = 0.01, intervaloMs = 0, nossoLance = null, nossoPorte = 'demais', fugirEmpate = false, observar = false, agora = () => Date.now(), esperar, ...eventos }) {
       const erros = validarLimites({ teto, custo, piso, decremento });
       if (erros.length) throw new Error(erros[0]);
-      Object.assign(this, { sala, piso, teto, custo, decremento, intervaloMs, nossoLance, nossoPorte, fugirEmpate, agora, eventos });
+      // observar: só acompanha a sala (lances, fases, chat) e nunca decide nem envia lance.
+      Object.assign(this, { sala, piso, teto, custo, decremento, intervaloMs, nossoLance, nossoPorte, fugirEmpate, observar, agora, eventos });
       this.esperar = esperar || ((ms) => new Promise((ok) => setTimeout(ok, ms)));
       this.melhorConcorrente = null;
       this.melhorMeEpp = null;
@@ -148,7 +149,7 @@
     }
 
     async avaliar() {
-      if (this.status !== STATUS.ATIVO) return;
+      if (this.status !== STATUS.ATIVO || this.observar) return;
       const d = decidir(this);
       if (d.acao === 'parar') {
         this.mudarStatus(STATUS.PISO, d.motivo);

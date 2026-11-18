@@ -274,7 +274,7 @@ window.LH = window.LH || {};
    * Inicia um item no modo real. h = ganchos do estado ao vivo
    * { mudar(id, campos), falar(...), prender(id, disputa), soltar(id, disputa) }.
    */
-  async function iniciar(i, h) {
+  async function iniciar(i, h, pedidoPronto = null) {
     if (!logado()) { LH.aviso('O modo real precisa de login (não funciona no modo demonstração).', 'alerta', 6000); return; }
     if (i.plataforma === 'pncp') { LH.aviso('O PNCP só publica as compras: edite o item e escolha o portal onde a disputa acontece.', 'alerta', 7000); return; }
     let estado;
@@ -288,7 +288,10 @@ window.LH = window.LH || {};
       if (!salvou) return;
     }
     if (!estado.navegador) LH.aviso('Atenção: o servidor ainda não tem o navegador do robô (Playwright) instalado. A conexão vai falhar até ele ser instalado.', 'alerta', 8000);
-    const pedido = await pedirConexao(i, estado.portais?.[i.plataforma]);
+    if (pedidoPronto && !estado.portais?.[i.plataforma]?.validado) {
+      LH.aviso(`A sala do ${LH.portaisRobo.de(i.plataforma).nome} ainda não foi mapeada no robô: a conexão vai avisar o que falta (npm run mapear).`, 'alerta', 8000);
+    }
+    const pedido = pedidoPronto || await pedirConexao(i, estado.portais?.[i.plataforma]);
     if (!pedido) return;
     try {
       const { sessao } = await LH.nuvem.api('/api/robo/sessoes', { metodo: 'POST', corpo: { robo_item_id: i.id, ...pedido } });

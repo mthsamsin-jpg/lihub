@@ -63,6 +63,8 @@ LH.vistas = LH.vistas || {};
         <button type="button" class="chip-portal ativo" data-portal="">Todos</button>
         ${portais().lista().map((p) => `<button type="button" class="chip-portal" data-portal="${esc(p.chave)}" style="--matiz:${p.matiz}"><i aria-hidden="true"></i>${esc(p.nome)}</button>`).join('')}
       </div>
+      <section class="card feed-vivo" id="feed-vivo" aria-live="polite"></section>
+      <h2 class="robo-secao">${icone('alvo')} Itens no robô</h2>
       <div class="robo-grade">
         <section class="robo-itens" id="robo-itens" aria-live="polite">${LH.carregando('Carregando itens...')}</section>
         <aside class="card robo-chat" aria-label="Sala de pregão">
@@ -197,6 +199,7 @@ LH.vistas = LH.vistas || {};
       const cartao = (i) => {
         let [rotulo, classe] = ROTULO[i.status] || ROTULO.idle;
         if (i.status === 'running' && !emLances(i)) [rotulo, classe] = ['Acompanhando', 'robo-status--acompanha'];
+        else if (i.status === 'running' && (i.monitorando || i.real?.modo === 'monitorar')) [rotulo, classe] = ['Monitorando', 'robo-status--acompanha'];
         const vencendo = lidera(i);
         const qtd = i.quantidade || 1;
         const folga = i.nossoLance != null && i.piso ? i.nossoLance - i.piso : null;
@@ -227,6 +230,7 @@ LH.vistas = LH.vistas || {};
               <em>${i.nossoLance == null ? 'ainda sem lance' : `${vencendo ? 'estamos na frente' : 'fomos cobertos'} · total ${moeda(i.nossoLance * qtd)}`}</em></div>
           </div>
           ${i.status === 'stopped_at_floor' ? `<div class="robo-piso-alerta" role="alert">${icone('escudo')}<div><b>Preço mínimo atingido</b><span>${esc(i.alertaPiso || `Cobrir a praça exigiria ficar abaixo do mínimo de segurança de ${moeda(i.piso)}.`)} O robô parou e não dá mais lances neste item. Ajuste em "Piso e teto" ou pare o robô.</span></div></div>` : ''}
+          ${i.piso != null && i.piso === i.teto ? `<p class="robo-monitor-seguro">${icone('escudo')} <span><b>Monitoramento seguro:</b> piso igual ao teto, então o robô não desce de preço. Para disputar, ajuste em <b>Piso e teto</b> (ou <b>Item</b>) com o seu custo e o mínimo.</span></p>` : ''}
           ${alertaLC123(i)}
           ${trilho(i)}
           <dl class="robo-limites">
@@ -323,7 +327,7 @@ LH.vistas = LH.vistas || {};
           return p === 'me' || p === 'epp' ? p : 'demais';
         } catch { return 'demais'; }
       };
-      const abrirForm = async (i = null, soLimites = false) => {
+      const abrirForm = async (i = null, soLimites = false, { depois = null } = {}) => {
         const porte = i?.nossoPorte || (soLimites ? 'demais' : await porteDaEmpresa());
         const portalInicial = i?.plataforma || filtro || 'comprasnet';
         LH.modal({
@@ -372,6 +376,7 @@ LH.vistas = LH.vistas || {};
                 }
                 fechar();
                 LH.aviso(soLimites ? 'Limites atualizados. O robô já usa os valores novos.' : 'Item salvo.', 'sucesso');
+                depois?.(item(i?.id || salvo.id) || salvo);
               } catch (e) { caixaErro.textContent = e.message; caixaErro.hidden = false; }
             } },
           ],
@@ -406,6 +411,7 @@ LH.vistas = LH.vistas || {};
         filtro = b.dataset.portal;
         raiz.querySelectorAll('[data-portal]').forEach((x) => x.classList.toggle('ativo', x === b));
         desenhar();
+        feed?.desenhar();
       });
       LH.ao(raiz, 'click', '[data-painel]', (e, b) => {
         raiz.querySelectorAll('[data-painel]').forEach((x) => { x.classList.toggle('ativo', x === b); x.setAttribute('aria-selected', String(x === b)); });
@@ -454,6 +460,53 @@ LH.vistas = LH.vistas || {};
         }
       });
 
+      // --- Feed global de pregões ao vivo ---
+      const CHAVES_ROBO = new Set(portais().lista().map((p) => p.chave));
+      const itemDaLicitacao = (l) => vivo.lista().find((x) => x.licitacaoId != null && String(x.licitacaoId) === String(l.id)) || null;
+      const doFeed = (l, { comPiso }) => ({
+        descricao: `${l.edital ? `Pregão ${l.edital} · ` : ''}${l.objeto}`.slice(0, 300),
+        plataforma: CHAVES_ROBO.has(LH.roboFeed.chaveDoPortal(l)) ? LH.roboFeed.chaveDoPortal(l) : 'outros',
+        licitacaoId: l.id, pregaoRef: l.edital || l.numero, quantidade: 1, nossoPorte: 'demais',
+        teto: l.valor ?? null, piso: comPiso ? (l.valor ?? null) : null, custo: null, decremento: 0.01, intervaloSeg: 20,
+      });
+      const rolarAte = (id) => requestAnimationFrame(() => caixa.querySelector(`[data-item="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+      const comecar = (i, { monitorar }) => {
+        focar(i.id);
+        rolarAte(i.id);
+        if (['running', 'paused', 'stopped_at_floor'].includes(i.status) && i.status !== 'paused') return;
+        vivo.iniciar(i.id, nomePortal(i.plataforma), monitorar ? { pedido: { pregao: i.pregaoRef || String(i.licitacaoId), lote: i.loteRef || undefined, modo: 'monitorar' } } : {});
+      };
+      const monitorar = async (l) => {
+        const existente = itemDaLicitacao(l);
+        if (existente) { comecar(existente, { monitorar: true }); return; }
+        if (l.valor == null) {
+          LH.aviso('O valor estimado deste pregão é sigiloso: informe o teto para o robô acompanhar.', 'info', 6000);
+          abrirForm(doFeed(l, { comPiso: false }), false, { depois: (i) => comecar(i, { monitorar: true }) });
+          return;
+        }
+        try {
+          const salvo = await LH.repo.salvarRoboItem(doFeed(l, { comPiso: true }));
+          foco = salvo.id;
+          vivo.adicionar(salvo);
+          comecar(vivo.item(salvo.id) || salvo, { monitorar: true });
+        } catch (e) { LH.aviso(e.message, 'perigo'); }
+      };
+      const conectar = (l) => {
+        if (vivo.modo() !== 'real' && !vivo.mudarModo('real')) {
+          LH.aviso('Pare todos os robôs da sala simulada antes de conectar ao modo real.', 'alerta');
+          return;
+        }
+        const existente = itemDaLicitacao(l);
+        const seguir = (i) => comecar(i, { monitorar: false });
+        if (existente && existente.piso !== existente.teto) { seguir(existente); return; }
+        LH.aviso('Informe o seu custo e o preço mínimo de segurança. Ao salvar, o robô segue para o cofre e a conexão com o portal.', 'info', 7000);
+        abrirForm(existente || doFeed(l, { comPiso: false }), false, { depois: seguir });
+      };
+      let sinalFeed = '';
+      const feed = LH.roboFeed?.ligar(raiz.querySelector('#feed-vivo'), {
+        filtro: () => filtro, itemDe: itemDaLicitacao, aoMonitorar: monitorar, aoConectar: conectar,
+      });
+
       // A tela só "ouve" o estado global. Ao sair, deixa de ouvir: os robôs continuam
       // rodando e aparecem no mini player flutuante (js/robo-ao-vivo.js).
       const deixarDeOuvir = vivo.ouvir((tipo, dado) => {
@@ -465,6 +518,10 @@ LH.vistas = LH.vistas || {};
           redesenhar(dado);
         } else if (tipo === 'lista') desenhar();
         else if (tipo === 'modo') desenharModo();
+        if (tipo === 'item' || tipo === 'lista') {
+          const sinal = vivo.lista().filter((x) => x.licitacaoId != null).map((x) => `${x.id}:${x.status}`).join('|');
+          if (sinal !== sinalFeed) { sinalFeed = sinal; feed?.desenhar(); }
+        }
         else if (tipo === 'chat') falarNaTela(dado);
       });
       vivo.carregar()
@@ -481,7 +538,7 @@ LH.vistas = LH.vistas || {};
         })
         .catch((e) => { caixa.innerHTML = LH.erroHtml(e); });
 
-      return () => { deixarDeOuvir(); clearInterval(relogio); };
+      return () => { deixarDeOuvir(); clearInterval(relogio); feed?.parar(); };
     },
   };
 }());

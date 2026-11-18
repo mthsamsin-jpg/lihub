@@ -150,3 +150,15 @@ test('Disputa: sai da faixa de 5% da ME/EPP logo depois de cobrir, sem esperar a
   // -> F2 cobre (100) e nós já estamos abaixo: nada mais.
   assert.deepEqual(enviados, [110, 103.99, 99.04]);
 });
+
+test('Disputa (observar): acompanha a sala e nunca envia lance', async () => {
+  const enviados = []; const concorrentes = [];
+  const sala = new SalaSimulada({ inicial: 100, eventos: [{ tipo: 'fase', fase: 'aberta' }, { tipo: 'lance', valor: 95, autor: 'F2' }, { tipo: 'lance', valor: 80, autor: 'F5', porte: 'me' }] });
+  sala.enviarLance = async (v) => { enviados.push(v); };
+  const d = new Disputa({ sala, piso: 100, teto: 100, observar: true, aoConcorrente: (v) => concorrentes.push(v) });
+  await d.iniciar();
+  assert.deepEqual(enviados, []);
+  assert.deepEqual(concorrentes, [95, 80]);
+  assert.equal(d.status, STATUS.PARADO, 'sem alerta de piso: só terminou');
+  assert.equal(d.ranking()[0].autor, 'F5');
+});
