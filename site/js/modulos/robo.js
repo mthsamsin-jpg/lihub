@@ -447,41 +447,35 @@ LH.vistas = LH.vistas || {};
       LH.ao(raiz, 'click', '[data-cofre]', () => LH.roboReal?.abrirCofre());
       LH.ao(raiz, 'click', '[data-alertas]', () => abrirAlertas());
 
-      // Alertas preditivos por webhook (Slack, Discord, Teams, n8n, Zapier...): a cada
-      // mudança relevante da chance de vitória o robô do modo real manda a previsão para lá.
+      // Alertas preditivos por e-mail (o da conta). Cada pessoa liga para si;
+      // quem recebe é quem conectou o robô ao pregão.
       async function abrirAlertas() {
-        if (LH.repo.modo === 'demo') {
-          LH.modal({ titulo: 'Alertas preditivos', html: '<p>Na demonstração os alertas aparecem só no feed da sala. Entre com a sua conta para mandar também para o Slack, Discord, Teams ou WhatsApp (via n8n/Zapier).</p>', acoes: [{ rotulo: 'Fechar', classe: 'btn--fantasma' }] });
-          return;
-        }
-        const org = LH.nuvem.ctx?.organizacao?.id;
-        let atual = null;
-        try { atual = (await LH.nuvem.api(`/api/robo/alertas?organizacao_id=${encodeURIComponent(org)}`)).webhook_url; } catch (e) { LH.aviso(e.message, 'perigo'); return; }
-        const pedir = (caminho, metodo, url) => LH.nuvem.api(caminho, { metodo, corpo: { organizacao_id: org, webhook_url: url || null } });
+        let atual;
+        try { atual = await LH.repo.alertasRobo(); } catch (e) { LH.aviso(e.message, 'perigo'); return; }
         LH.modal({
-          titulo: 'Alertas preditivos',
+          titulo: 'Alertas do Robô Turbo 2.0',
           html: `<form class="form" onsubmit="return false">
-            <p>Durante a disputa no modo real, o robô calcula a <strong>chance de vitória</strong>, o <strong>fechamento previsto</strong> e a <strong>margem estimada</strong>. Quando isso muda de forma relevante, o alerta aparece no feed da sala e também é enviado para o endereço abaixo.</p>
-            <label class="campo"><span class="campo__rotulo">Webhook (https)</span>
-              <input name="url" type="url" maxlength="500" placeholder="https://hooks.slack.com/services/..." value="${esc(atual || '')}"></label>
-            <p class="fraco">Funciona com Slack, Discord, Microsoft Teams, n8n, Make e Zapier (de lá dá para mandar para o WhatsApp ou e-mail). Deixe em branco para desligar. Só o dono ou um admin da organização pode mudar.</p>
+            <p>Durante a disputa no modo real, o robô avisa quando a <strong>chance de vitória</strong> muda de forma relevante, com o <strong>fechamento previsto</strong> e a <strong>margem estimada</strong>.</p>
+            <label class="campo campo--check"><input type="checkbox" name="email" ${atual.email ? 'checked' : ''}>
+              <span><strong>Por e-mail</strong> · ${esc(atual.enderecoEmail || 'e-mail da sua conta')}</span></label>
+            <p class="fraco">Os alertas são uma estimativa estatística, não garantia de resultado. Chegam só as mudanças mais importantes, para não lotar a caixa de entrada.</p>
             <p class="texto-perigo" data-erro hidden></p>
           </form>`,
           acoes: [
             { rotulo: 'Cancelar', classe: 'btn--fantasma' },
-            { rotulo: 'Enviar teste', classe: 'btn--fantasma', acao: async (fechar, janela) => {
-              const url = janela.querySelector('[name=url]').value.trim();
-              try { await pedir('/api/robo/alertas/testar', 'POST', url); LH.aviso('Teste enviado. Confira se a mensagem chegou.', 'sucesso'); } catch (e) { const p = janela.querySelector('[data-erro]'); p.textContent = e.message; p.hidden = false; }
-              return false;
-            } },
             { rotulo: 'Salvar', classe: 'btn--primario', acao: async (fechar, janela) => {
-              const url = janela.querySelector('[name=url]').value.trim();
-              try { await pedir('/api/robo/alertas', 'PUT', url); LH.aviso(url ? 'Alertas ligados.' : 'Alertas por webhook desligados.', 'sucesso'); fechar(); } catch (e) { const p = janela.querySelector('[data-erro]'); p.textContent = e.message; p.hidden = false; }
-              return false;
+              const f = janela.querySelector('form');
+              const erro = janela.querySelector('[data-erro]');
+              try {
+                await LH.repo.salvarAlertasRobo({ email: f.email.checked });
+                LH.aviso(f.email.checked ? 'Alertas por e-mail ligados.' : 'Alertas por e-mail desligados.', 'sucesso');
+                fechar();
+              } catch (e) { erro.textContent = e.message; erro.hidden = false; }
             } },
           ],
         });
       }
+
       LH.ao(raiz, 'click', '[data-portal]', (e, b) => {
         filtro = b.dataset.portal;
         raiz.querySelectorAll('[data-portal]').forEach((x) => x.classList.toggle('ativo', x === b));

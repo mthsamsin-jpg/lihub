@@ -1510,7 +1510,7 @@ end $$;
 
 
 -- =============================================================================
--- Robô Turbo 2.0: camada preditiva (histórico, perfil de concorrentes, webhook)
+-- Robô Turbo 2.0: camada preditiva (histórico, perfil de concorrentes, alertas)
 -- =============================================================================
 -- Fechamentos: uma linha por item disputado (real) ou homologação importada.
 create table if not exists public.robo_historico (
@@ -1556,15 +1556,12 @@ create policy robo_concorrentes_membros_leem on public.robo_concorrentes for sel
   using (public.eh_membro(organizacao_id));
 revoke insert, update, delete, truncate on public.robo_concorrentes from anon, authenticated;
 
--- Webhook dos alertas (Slack, Discord, Teams, n8n, Zapier...). Só o servidor lê:
--- a URL funciona como senha de quem a recebe.
-create table if not exists public.robo_alertas (
-  organizacao_id  uuid primary key references public.organizacoes (id) on delete cascade,
-  webhook_url     text check (webhook_url is null or (webhook_url ~ '^https://' and char_length(webhook_url) <= 500)),
-  atualizado_em   timestamptz not null default now()
-);
-alter table public.robo_alertas enable row level security;
-revoke all on public.robo_alertas from anon, authenticated;
+-- Alertas do robô por e-mail (o da conta). Cada pessoa escolhe se quer receber
+-- (desligado até ela pedir).
+alter table public.perfis add column if not exists alerta_email boolean not null default false;
+alter table public.perfis drop column if exists alerta_whatsapp;
+drop table if exists public.robo_alertas;
+grant update (alerta_email) on public.perfis to authenticated;
 
 
 -- Fim do esquema.

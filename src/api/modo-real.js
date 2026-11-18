@@ -5,13 +5,9 @@
 //   DELETE /api/portais/credenciais/:portal      apaga a credencial
 //   POST   /api/robo/sessoes                     conecta um item a um pregão real (monitorar ou dar lances)
 //   POST   /api/robo/sessoes/:id/:acao           pausar | retomar | parar | limites
-//   GET    /api/robo/alertas?organizacao_id=     webhook dos alertas preditivos (dono/admin)
-//   PUT    /api/robo/alertas                     salva o webhook
-//   POST   /api/robo/alertas/testar              manda uma mensagem de teste
 import { bodyLimit } from 'hono/body-limit';
 import * as z from 'zod/v4';
 import { ErroCofre, mascararLogin, validarCertificado } from '../cofre.js';
-import { enviarWebhook, validarWebhook } from '../../worker/webhook.js';
 import { ErroModoReal } from '../../worker/gerenciador.js';
 
 const PORTAIS = ['comprasnet', 'licitacoes-e', 'bbmnet', 'bnc', 'pcp', 'bll', 'licitanet', 'licitar', 'licitamais', 'comprasbr', 'petronect', 'outros'];
@@ -111,48 +107,6 @@ export function ligarModoReal(app, { admin, cofre, gerenciador, navegadorDisponi
       portalValido(c.req.param('portal'));
       const { error } = await admin.from('portal_credentials').delete().eq('user_id', c.get('usuario').id).eq('portal', c.req.param('portal'));
       if (error) return c.json({ erro: `Falha ao apagar: ${error.message}` }, 500);
-      return c.json({ ok: true });
-    } catch (e) { return responderErro(c, e); }
-  });
-
-  // --- Alertas preditivos (webhook da organização; só dono/admin configuram) ---
-  const PedidoAlertas = z.object({
-    organizacao_id: z.uuid({ error: 'organizacao_id inválido.' }),
-    webhook_url: z.string().trim().max(500).nullable().optional().transform((v) => v || null),
-  });
-  async function exigirAdmin(c, org) {
-    if (!(await c.get('db').temPapel(org, ['dono', 'admin']))) throw new ErroModoReal('Só o dono ou um admin da organização configura os alertas.', 403, 'papel');
-  }
-  app.get('/api/robo/alertas', async (c) => {
-    try {
-      const org = PedidoAlertas.shape.organizacao_id.parse(c.req.query('organizacao_id'));
-      await exigirAdmin(c, org);
-      const { data, error } = await admin.from('robo_alertas').select('webhook_url, atualizado_em').eq('organizacao_id', org).maybeSingle();
-      if (error) return c.json({ erro: `Falha ao ler os alertas: ${error.message}` }, 500);
-      return c.json({ webhook_url: data?.webhook_url || null, atualizado_em: data?.atualizado_em || null });
-    } catch (e) { return responderErro(c, e); }
-  });
-  app.put('/api/robo/alertas', async (c) => {
-    try {
-      const p = await lerJson(c, PedidoAlertas);
-      await exigirAdmin(c, p.organizacao_id);
-      if (p.webhook_url) {
-        const erro = validarWebhook(p.webhook_url);
-        if (erro) throw new ErroModoReal(erro, 400, 'webhook');
-      }
-      const { error } = await admin.from('robo_alertas').upsert({ organizacao_id: p.organizacao_id, webhook_url: p.webhook_url, atualizado_em: new Date().toISOString() });
-      if (error) return c.json({ erro: `Falha ao salvar: ${error.message}` }, 500);
-      return c.json({ ok: true, webhook_url: p.webhook_url });
-    } catch (e) { return responderErro(c, e); }
-  });
-  app.post('/api/robo/alertas/testar', async (c) => {
-    try {
-      const p = await lerJson(c, PedidoAlertas);
-      await exigirAdmin(c, p.organizacao_id);
-      if (!p.webhook_url) throw new ErroModoReal('Informe o endereço do webhook.', 400, 'webhook');
-      try {
-        await enviarWebhook(p.webhook_url, { tipo: 'teste', texto: 'Robô Turbo 2.0 · teste de alerta: se você está lendo isto, os alertas preditivos vão chegar aqui.' });
-      } catch (e) { throw new ErroModoReal(`O teste não chegou: ${e.message}`, 400, 'webhook'); }
       return c.json({ ok: true });
     } catch (e) { return responderErro(c, e); }
   });

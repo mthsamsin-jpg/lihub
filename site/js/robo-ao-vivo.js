@@ -87,7 +87,7 @@ window.LH = window.LH || {};
     if (!m) return;
     const r = autor === AUTOR_NOS ? m.nosso(extra.valor) : m.concorrente(autor, extra.valor, extra.porte);
     if (r.previsao) mudar(id, { previsao: r.previsao }, false);
-    // No modo real o alerta vem do worker (feed + webhook); aqui só na sala simulada.
+    // No modo real o alerta vem do worker (feed e e-mail); aqui só na sala simulada.
     if (r.alerta && modo !== 'real') falar('Previsão do robô', r.alerta.texto, 'robo-chat__msg--previsao', { itemId: id });
   }
 

@@ -405,6 +405,16 @@ window.LH = window.LH || {};
         organizacao: c.organizacao, papel: c.papel, assinatura: c.assinatura,
       };
     },
+    /** Alerta por e-mail do Robô Turbo 2.0 desta pessoa (vai para o e-mail da conta). */
+    async alertasRobo() {
+      const { data, error } = await db().from('perfis').select('alerta_email').eq('id', LH.nuvem.usuario.id).single();
+      if (error) throw erroBanco(error, 'Não consegui ler os seus alertas');
+      return { email: !!data.alerta_email, enderecoEmail: LH.nuvem.usuario.email };
+    },
+    async salvarAlertasRobo({ email }) {
+      const { error } = await db().from('perfis').update({ alerta_email: !!email }).eq('id', LH.nuvem.usuario.id);
+      if (error) throw erroBanco(error, 'Não consegui salvar os alertas');
+    },
     async salvarConta({ nome, telefone }) {
       const { error } = await db().from('perfis').update({ nome: nome.trim(), telefone: telefone.trim() || null }).eq('id', LH.nuvem.usuario.id);
       if (error) throw erroBanco(error, 'Não consegui salvar os seus dados');
@@ -834,6 +844,8 @@ window.LH = window.LH || {};
     // Robô Turbo 2.0 (demonstração: neste navegador)
     roboItens: async () => LH.estado.obter('robo') || [],
     roboHistorico: async () => [],
+    alertasRobo: async () => ({ email: false, enderecoEmail: 'voce@empresa.com.br', ...(LH.estado.obter('alertasRobo') || {}) }),
+    salvarAlertasRobo: async (a) => { LH.estado.salvar('alertasRobo', a); },
     async salvarRoboItem(item) {
       const lista = LH.estado.obter('robo') || [];
       const salvo = { status: 'idle', nossoLance: null, melhorLance: null, ...item, id: item.id || LH.idNovo('r') };

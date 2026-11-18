@@ -16,7 +16,7 @@
 //   - auto-healing: queda da página, do navegador ou da sessão do portal faz a
 //     sessão pausar o motor, reconectar (com espera crescente) e retomar.
 //   - preditivo: cada lance alimenta o perfil dos concorrentes e a previsão do
-//     fechamento; mudanças relevantes viram alerta no feed e no webhook. No fim,
+//     fechamento; mudanças relevantes viram alerta no feed e por e-mail. No fim,
 //     o fechamento e os perfis vão para o histórico (base das próximas previsões).
 import { Disputa, centavos } from '../src/robo/motor.js';
 import { MonitorPreditivo } from '../src/robo/analise.js';
@@ -245,7 +245,7 @@ export class SessaoReal {
 
   pausar() { this.disputa?.pausar(); return this.atualizarSessao({ status: 'pausado' }); }
   async retomar() { await this.atualizarSessao({ status: 'conectado' }); await this.disputa?.retomar(); }
-  /** Alerta preditivo: vai para o feed (tela) e para o webhook da organização. */
+  /** Alerta preditivo: vai para o feed (tela) e, se a pessoa pediu, por e-mail. */
   tratarPrevisao({ alerta }) {
     if (!alerta || this.encerrada) return;
     this.avisar('alerta', { texto: alerta.texto });
@@ -255,7 +255,7 @@ export class SessaoReal {
       pregao: this.sessao.pregao_ref, lote: this.sessao.lote_ref, portal: this.adaptador.portal,
       probabilidadeVitoria: p.probabilidadeVitoria, margemEstimadaPct: p.margemEstimadaPct, fechamentoPrevisto: p.previsto,
       faixa: [p.minimo, p.maximo], confianca: p.confianca,
-    }).catch?.((e) => this.log.erro?.(`Webhook: ${e.message}`));
+    }).catch?.((e) => this.log.erro?.(`Alerta: ${e.message}`));
   }
 
   /** Fim da disputa: fechamento e perfis entram no histórico (base das próximas previsões). */

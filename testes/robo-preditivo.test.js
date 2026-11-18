@@ -1,10 +1,10 @@
 // Robô Turbo 2.0, camada preditiva: perfil dos concorrentes, estimativa do
-// fechamento, chance de vitória/margem, alertas e webhook. Sem rede.
+// fechamento, chance de vitória/margem e alertas por e-mail. Sem rede.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PerfilConcorrentes, MonitorPreditivo, estimarFechamento, ritmoDaPraca, analisar, phi, inversaPhi } from '../src/robo/analise.js';
 import { historicoParecido } from '../worker/gerenciador.js';
-import { validarWebhook, enviarWebhook } from '../worker/webhook.js';
+import { criarNotificador, canaisDoAmbiente, montarEmail } from '../worker/notificacoes.js';
 import { SessaoReal } from '../worker/sessao.js';
 
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -89,20 +89,48 @@ test('histórico parecido: casa pela descrição do produto', () => {
   assert.deepEqual(h.map((x) => x.desagioPct), [12, 9]);
 });
 
-test('webhook: só https público; envia texto para Slack e Discord', async () => {
-  assert.equal(validarWebhook('https://hooks.slack.com/services/T/B/x'), null);
-  assert.match(validarWebhook('http://hooks.slack.com/x'), /https/);
-  for (const ruim of ['https://127.0.0.1/x', 'https://localhost/x', 'https://10.0.0.5/x', 'https://192.168.0.1/x', 'https://[::1]/x', 'https://metadata.google.internal/x', 'https://user:senha@site.com/x']) {
-    assert.ok(validarWebhook(ruim), `recusa ${ruim}`);
-  }
-  let corpo = null;
-  await enviarWebhook('https://discord.com/api/webhooks/1/x', { texto: 'Chance de vitória: 64%' }, { fetch: async (_u, o) => { corpo = JSON.parse(o.body); return { ok: true }; } });
-  assert.equal(corpo.text, 'Chance de vitória: 64%');
-  assert.equal(corpo.content, 'Chance de vitória: 64%');
-  await assert.rejects(enviarWebhook('https://x.com/h', { texto: 'a' }, { fetch: async () => ({ ok: false, status: 404 }) }), /404/);
+test('canais: e-mail só liga com a chave do Resend no servidor', () => {
+  assert.equal(canaisDoAmbiente({}).email, null);
+  const c = canaisDoAmbiente({ RESEND_API_KEY: 're_x' });
+  assert.equal(c.email.remetente, 'nao-responda@usolicitahub.com.br');
+  assert.equal(canaisDoAmbiente({ RESEND_API_KEY: 're_x', EMAIL_REMETENTE: 'robo@usolicitahub.com.br' }).email.remetente, 'robo@usolicitahub.com.br');
 });
 
-test('sessão real: previsão vai para o feed e o webhook; fim grava fechamento e perfis', async () => {
+test('notificador: e-mail para quem pediu; urgente na hora, o resto com intervalo', async () => {
+  const enviados = [];
+  const fakeFetch = async (url, o) => { enviados.push({ url, corpo: JSON.parse(o.body), headers: o.headers }); return { ok: true }; };
+  const canais = canaisDoAmbiente({ RESEND_API_KEY: 're_x' });
+  let t = 0;
+  const n = criarNotificador({ email: 'ana@empresa.com.br', alertaEmail: true }, canais, { fetch: fakeFetch, agora: () => t, log: {} });
+  const alerta = { motivo: 'primeira', texto: 'Chance de vitória: 64%.', pregao: '90012/2026', probabilidadeVitoria: 64 };
+  await n(alerta);
+  assert.equal(enviados.length, 1);
+  assert.equal(enviados[0].url, 'https://api.resend.com/emails');
+  assert.equal(enviados[0].headers.authorization, 'Bearer re_x');
+  assert.deepEqual(enviados[0].corpo.to, ['ana@empresa.com.br']);
+  assert.equal(enviados[0].corpo.from, 'Uso LicitaHub <nao-responda@usolicitahub.com.br>');
+  assert.match(enviados[0].corpo.subject, /64% de chance · pregão 90012\/2026/);
+  t = 10_000;
+  await n({ ...alerta, motivo: 'caiu' });
+  assert.equal(enviados.length, 1, 'mudança comum dentro do intervalo espera');
+  await n({ ...alerta, motivo: 'sem_chance' });
+  assert.equal(enviados.length, 2, 'mudança urgente vai na hora');
+  t = 80_000;
+  await n({ ...alerta, motivo: 'subiu' });
+  assert.equal(enviados.length, 3, 'passado o intervalo, a comum também vai');
+  assert.equal(criarNotificador({ email: 'a@b.com', alertaEmail: false }, canais), null, 'quem não pediu não recebe');
+  assert.equal(criarNotificador({ email: 'a@b.com', alertaEmail: true }, canaisDoAmbiente({}), { log: {} }), null, 'sem chave no servidor, nada a enviar');
+  const falha = criarNotificador({ email: 'a@b.com', alertaEmail: true }, canais, { fetch: async () => ({ ok: false, status: 500 }), log: { erro() {} } });
+  await falha(alerta); // erro do Resend não derruba a sessão
+});
+
+test('e-mail do alerta: assunto com a chance e texto escapado', () => {
+  const m = montarEmail({ texto: 'Chance <b>alta</b>', pregao: '1/2026', probabilidadeVitoria: 71.25 });
+  assert.match(m.assunto, /71,3% de chance/);
+  assert.ok(m.html.includes('Chance &lt;b&gt;alta&lt;/b&gt;'));
+});
+
+test('sessão real: previsão vai para o feed e para os alertas; fim grava fechamento e perfis', async () => {
   const a = {
     portal: 'bll', callback: null,
     abrir: async () => {}, login: async () => {}, joinAuctionRoom: async () => {},
@@ -110,13 +138,13 @@ test('sessão real: previsão vai para o feed e o webhook; fim grava fechamento 
     watchBids(cb) { a.callback = cb; return () => {}; },
     placeBid: async () => {}, close: async () => {},
   };
-  const feed = []; const webhooks = []; let fechamento = null; let perfis = null;
+  const feed = []; const alertas = []; let fechamento = null; let perfis = null;
   const s = new SessaoReal({
     sessao: { id: 's1', modo: 'monitorar', pregao_ref: '90012/2026', lote_ref: null },
     item: { piso: 90, teto: 100, custo: 80, decremento: 0.01 },
     adaptador: a, gravar: async (e) => { feed.push(e); }, atualizarSessao: async () => {}, atualizarItem: async () => {},
     log: { erro() {} },
-    notificar: async (d) => { webhooks.push(d); },
+    notificar: async (d) => { alertas.push(d); },
     salvarFechamento: async (f) => { fechamento = f; },
     salvarPerfis: async (p) => { perfis = p; },
   });
@@ -124,9 +152,9 @@ test('sessão real: previsão vai para o feed e o webhook; fim grava fechamento 
   for (const [autor, valor] of [['F2', 99], ['F5', 98], ['F2', 96.5], ['F7', 95]]) a.callback({ tipo: 'lance', autor, valor, porte: 'demais', hora: String(valor) });
   await esperar(10);
   assert.ok(feed.some((e) => e.tipo === 'alerta' && /Chance de vitória/.test(e.texto)), 'alerta no feed');
-  assert.equal(webhooks.length, 1);
-  assert.match(webhooks[0].texto, /pregão 90012\/2026/);
-  assert.equal(typeof webhooks[0].probabilidadeVitoria, 'number');
+  assert.equal(alertas.length, 1);
+  assert.match(alertas[0].texto, /pregão 90012\/2026/);
+  assert.equal(typeof alertas[0].probabilidadeVitoria, 'number');
   a.callback({ tipo: 'fase', fase: 'encerrada' });
   await esperar(10);
   assert.deepEqual(fechamento, { preco: 95, vencemos: null, lances: 4 });
