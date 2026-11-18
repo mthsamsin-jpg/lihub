@@ -68,9 +68,12 @@ export const SELETORES = {
     login: {
       ...PENDENTE.login,
       url: 'https://bllcompras.com/Home/Login', // conferido: 200 em 18/11/2026
-      usuario: 'input[name*="login" i], input[name*="usuario" i], input[type="email"], input[name*="cpf" i]',
-      senha: 'input[type="password"]',
-      entrar: 'button[type="submit"], input[type="submit"]',
+      // Conferido na página pública em 18/11/2026: #Email, teclado virtual ("1 ou 5")
+      // e o botão "Entrar" (sem atributo type, por isso o seletor é pelo texto).
+      usuario: '#Email',
+      senha: '#Contador', // campo visível do teclado virtual; quem digita é o BllAdapter
+      tecladoVirtual: 'input[type="button"][name*=" ou "]',
+      entrar: 'button:has-text("Entrar")',
       logado: null, // a mapear: elemento que só existe logado (ex.: menu do fornecedor)
       erro: '.validation-summary-errors, .alert-danger, .text-danger',
     },

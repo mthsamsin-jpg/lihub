@@ -189,3 +189,11 @@ test('seletores com autocorreção: usa a alternativa quando o configurado some 
   await a.localizar('lance', 'enviar');
   assert.match(curas.at(-1)[2], /heurística/);
 });
+
+test('BLL: senha pelo teclado virtual (cada botão "a ou b", ordem muda a cada carga)', async () => {
+  const { teclasDaSenha } = await import('../worker/adaptadores/BllAdapter.js');
+  const teclas = ['0 ou 2', '8 ou 6', '3 ou 1', '9 ou 7', '5 ou 4'];
+  assert.deepEqual(teclasDaSenha('1234', teclas), [2, 0, 2, 4]);
+  assert.throws(() => teclasDaSenha('ab12', teclas), /numérica/);
+  assert.throws(() => teclasDaSenha('1', ['0 ou 2']), /não mostrou o dígito 1/);
+});
