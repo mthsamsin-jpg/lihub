@@ -863,3 +863,21 @@ body.sem-login .app { display: none; }
 /* Mini player: portal e fase */
 .robo-mini__portal { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.72rem; color: var(--texto-3); }
 @media (prefers-reduced-motion: reduce) { .robo-fase--atual i { animation: none !important; } }
+
+/* --- Robô de lances: item selecionado no painel lateral, feed por item, margem ---------- */
+.robo-chat { grid-template-rows: auto auto auto 1fr; }
+.robo-foco:empty { display: none; }
+.robo-foco { display: grid; gap: 8px; margin-bottom: 12px; padding: 12px; border-radius: 12px; background: rgba(4, 11, 22, 0.5); border: 1px solid rgba(56, 189, 248, 0.3); }
+.robo-foco__topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.robo-foco__topo .robo-status { padding: 3px 10px; font-size: 0.72rem; }
+.robo-foco__nome { font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.robo-foco__linha { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 0.76rem; color: var(--texto-3); }
+.robo-foco__linha strong { color: var(--texto); font-variant-numeric: tabular-nums; }
+.robo-foco__linha .btn { margin-left: auto; }
+.robo-feed { display: grid; grid-template-rows: auto 1fr; gap: 10px; min-height: 0; overflow: hidden; }
+.robo-feed[hidden] { display: none; }
+.robo-feed__filtro { display: flex; flex-wrap: wrap; gap: 6px; }
+.robo-feed__filtro .chip-portal { padding: 5px 11px; font-size: 0.72rem; }
+.robo-limites { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+.robo-limites__margem dd { color: var(--sucesso); }
+.robo-limites__margem--baixa dd { color: var(--alerta); }

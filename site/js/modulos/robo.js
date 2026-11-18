@@ -66,8 +66,15 @@ LH.vistas = LH.vistas || {};
             <button type="button" role="tab" class="robo-aba ativo" aria-selected="true" data-painel="ranking">${icone('grafico')} Ranking</button>
             <button type="button" role="tab" class="robo-aba" aria-selected="false" data-painel="feed">${icone('chat')} Lances ao vivo</button>
           </div>
+          <div class="robo-foco" id="robo-foco"></div>
           <div class="robo-painel" data-painel-corpo="ranking" id="robo-ranking"></div>
-          <ol class="robo-chat__lista robo-painel" data-painel-corpo="feed" id="robo-chat" hidden><li class="robo-chat__vazio">As mensagens oficiais e os lances aparecem aqui quando o robô estiver ativo.</li></ol>
+          <div class="robo-painel robo-feed" data-painel-corpo="feed" hidden>
+            <div class="robo-feed__filtro" role="group" aria-label="Quais lances mostrar">
+              <button type="button" class="chip-portal ativo" data-feed="foco">Só o item selecionado</button>
+              <button type="button" class="chip-portal" data-feed="todos">Todos os itens</button>
+            </div>
+            <ol class="robo-chat__lista" id="robo-chat"></ol>
+          </div>
         </aside>
       </div>`,
     montar(raiz) {
@@ -90,16 +97,38 @@ LH.vistas = LH.vistas || {};
           : `<p>${esc(m.texto)}</p>`;
         return `<li class="robo-chat__msg ${m.tipo}${lance ? ' robo-chat__msg--lance' : ''}"><b>${pos}${esc(m.autor)}${lance ? seloPorte(m.porte) : ''}</b><time>${m.hora}</time>${corpo}</li>`;
       };
+      let feedTodos = false;
+      const noFeed = (m) => feedTodos || !m.itemId || m.itemId === foco;
+      const feedVazio = () => `<li class="robo-chat__vazio">${feedTodos || !foco
+        ? 'As mensagens oficiais e os lances aparecem aqui quando um robô estiver ativo.'
+        : 'Os lances da praça deste item aparecem aqui assim que o robô for iniciado.'}</li>`;
+      const desenharFeed = () => {
+        const lista = vivo.mensagens().filter(noFeed);
+        chat.innerHTML = lista.length ? lista.map(msgHtml).join('') : feedVazio();
+        requestAnimationFrame(() => { chat.scrollTop = chat.scrollHeight; });
+      };
       const falarNaTela = (m) => {
+        if (!noFeed(m)) return;
         chat.querySelector('.robo-chat__vazio')?.remove();
         chat.insertAdjacentHTML('beforeend', msgHtml(m));
         while (chat.children.length > 200) chat.firstElementChild.remove();
         chat.scrollTop = chat.scrollHeight;
       };
-      if (vivo.mensagens().length) {
-        chat.innerHTML = vivo.mensagens().map(msgHtml).join('');
-        requestAnimationFrame(() => { chat.scrollTop = chat.scrollHeight; });
-      }
+
+      // Cabeçalho do painel: item selecionado, status e o botão para simular a praça dele.
+      const caixaFoco = raiz.querySelector('#robo-foco');
+      const desenharFoco = () => {
+        const i = foco && item(foco);
+        if (!i) { caixaFoco.innerHTML = ''; return; }
+        const [rotulo, classe] = ROTULO[i.status] || ROTULO.idle;
+        const acao = i.status === 'running'
+          ? `<button type="button" class="btn btn--pequeno" data-foco-acao="pausar">${icone('relogio')} Pausar</button>`
+          : `<button type="button" class="btn btn--pequeno btn--primario" data-foco-acao="iniciar">${icone('play')} ${i.status === 'paused' ? 'Retomar' : 'Simular praça'}</button>`;
+        caixaFoco.innerHTML = `
+          <div class="robo-foco__topo">${portais().selo(i.plataforma)}<span class="robo-status ${classe}"><i aria-hidden="true"></i>${rotulo}</span></div>
+          <b class="robo-foco__nome" title="${esc(i.descricao)}">${esc(i.descricao)}</b>
+          <div class="robo-foco__linha"><span>Praça <strong>${moeda(i.melhorLance)}</strong></span><span>Nós <strong>${moeda(i.nossoLance)}</strong></span>${acao}</div>`;
+      };
 
       // --- Ranking da praça (item em foco) ---
       const desenharRanking = () => {
@@ -118,8 +147,7 @@ LH.vistas = LH.vistas || {};
           </li>`;
         }).join('');
         painelRanking.innerHTML = `
-          <div class="robo-rank__cabeca">${portais().selo(i.plataforma)}<b title="${esc(i.descricao)}">${esc(i.descricao)}</b></div>
-          ${r.length ? `<ol class="robo-rank__lista">${linhas}</ol>` : '<p class="robo-chat__vazio">Inicie o robô neste item para ver a praça.</p>'}
+          ${r.length ? `<ol class="robo-rank__lista">${linhas}</ol>` : '<p class="robo-chat__vazio">Clique em <b>Simular praça</b> acima para os concorrentes começarem a dar lances.</p>'}
           <p class="robo-rank__nota">${icone('balanca')} <span><b>LC 123:</b> ME/EPP até ${LH.robo.MARGEM_LC123}% acima do 1º colocado (quando ele não é ME/EPP) pode cobrir o lance no desempate.${pref.empate ? ` Limite agora: <strong>${moeda(pref.limite)}</strong>.` : ''}</span></p>`;
       };
 
@@ -167,6 +195,9 @@ LH.vistas = LH.vistas || {};
         const vencendo = lidera(i);
         const qtd = i.quantidade || 1;
         const folga = i.nossoLance != null && i.piso ? i.nossoLance - i.piso : null;
+        // Margem do preço atual (nosso lance, ou o teto antes do 1º lance) sobre o custo.
+        const precoAtual = i.nossoLance ?? i.teto;
+        const margem = i.custo != null && precoAtual ? ((precoAtual - i.custo) / precoAtual) * 100 : null;
         const r = vivo.ranking(i.id);
         const nossa = r.find((x) => x.autor === 'nos');
         return `
@@ -195,6 +226,7 @@ LH.vistas = LH.vistas || {};
           <dl class="robo-limites">
             <div><dt>Preço teto</dt><dd>${moeda(i.teto)}</dd></div>
             <div><dt>Custo</dt><dd>${moeda(i.custo)}</dd></div>
+            <div class="robo-limites__margem${margem != null && margem < 5 ? ' robo-limites__margem--baixa' : ''}"><dt>Margem sobre o custo</dt><dd>${margem == null ? '—' : `${margem.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`}</dd></div>
             <div class="robo-limites__piso"><dt>Mínimo de segurança</dt><dd>${moeda(i.piso)}</dd></div>
             <div><dt>Folga até o piso</dt><dd>${folga == null ? '—' : moeda(folga)}</dd></div>
           </dl>
@@ -243,12 +275,23 @@ LH.vistas = LH.vistas || {};
             : `<div class="card">${LH.vazio('alvo', 'Nenhum item no robô', 'Cadastre um item com a quantidade, o preço teto, o seu custo e o preço mínimo de segurança.', `<button class="btn btn--primario" data-novo>${icone('mais')} Novo item</button>`)}</div>`;
         }
         desenharRanking();
+        desenharFoco();
+        desenharFeed();
+      };
+      const focar = (id) => {
+        if (!id || id === foco) return;
+        const antes = foco;
+        foco = id;
+        if (antes) redesenhar(antes);
+        redesenhar(foco);
+        desenharFoco();
+        desenharFeed();
       };
       const redesenhar = (id) => {
         const el = caixa.querySelector(`[data-item="${CSS.escape(id)}"]`);
         if (el && item(id)) el.outerHTML = cartao(item(id));
         ordenar();
-        if (id === foco) desenharRanking();
+        if (id === foco) { desenharRanking(); desenharFoco(); }
       };
 
       // Cronômetro da fase aberta / prorrogação.
@@ -316,7 +359,11 @@ LH.vistas = LH.vistas || {};
                 if (i) {
                   const { id, status, nossoLance, melhorLance, fase, ...campos } = salvo;
                   vivo.atualizar(i.id, campos);
-                } else vivo.adicionar(salvo);
+                } else {
+                  foco = salvo.id;
+                  vivo.adicionar(salvo);
+                  requestAnimationFrame(() => caixa.querySelector(`[data-item="${CSS.escape(salvo.id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+                }
                 fechar();
                 LH.aviso(soLimites ? 'Limites atualizados. O robô já usa os valores novos.' : 'Item salvo.', 'sucesso');
               } catch (e) { caixaErro.textContent = e.message; caixaErro.hidden = false; }
@@ -351,20 +398,27 @@ LH.vistas = LH.vistas || {};
       // Clicar no card põe o item em foco no ranking.
       caixa.addEventListener('click', (e) => {
         const card = e.target.closest('[data-item]');
-        if (!card || e.target.closest('button') || card.dataset.item === foco) return;
-        const antes = foco;
-        foco = card.dataset.item;
-        if (antes) redesenhar(antes);
-        redesenhar(foco);
+        if (!card || e.target.closest('button')) return;
+        focar(card.dataset.item);
+      });
+      LH.ao(raiz, 'click', '[data-feed]', (e, b) => {
+        feedTodos = b.dataset.feed === 'todos';
+        raiz.querySelectorAll('[data-feed]').forEach((x) => x.classList.toggle('ativo', x === b));
+        desenharFeed();
+      });
+      LH.ao(raiz, 'click', '[data-foco-acao]', (e, b) => {
+        const i = foco && item(foco);
+        if (!i) return;
+        if (b.dataset.focoAcao === 'pausar') vivo.pausar(i.id);
+        else { if (i.status !== 'paused') abaDe.delete(i.id); vivo.iniciar(i.id, nomePortal(i.plataforma)); }
       });
       LH.ao(caixa, 'click', '[data-acao]', async (e, botao) => {
         const i = item(botao.closest('[data-item]').dataset.item);
         switch (botao.dataset.acao) {
           case 'iniciar':
             if (i.status !== 'paused') abaDe.delete(i.id);
-            foco = i.id;
+            focar(i.id);
             vivo.iniciar(i.id, nomePortal(i.plataforma));
-            desenhar();
             break;
           case 'pausar': vivo.pausar(i.id); break;
           case 'parar': vivo.parar(i.id); break;

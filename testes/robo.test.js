@@ -135,3 +135,18 @@ test('SalaSimulada: percorre as fases e o robô nunca fura o piso', async () => 
   assert.ok(ranking.some((x) => x.autor === 'nos'));
   assert.ok(ranking.every((x, i) => i === 0 || x.valor >= ranking[i - 1].valor));
 });
+
+test('Disputa: sai da faixa de 5% da ME/EPP logo depois de cobrir, sem esperar a praça', async () => {
+  const enviados = [];
+  const sala = new SalaSimulada({ inicial: 120, eventos: [
+    { tipo: 'lance', valor: 104, autor: 'F5', porte: 'me' },
+    { tipo: 'lance', valor: 100, autor: 'F2', porte: 'demais' },
+  ] });
+  const original = sala.enviarLance.bind(sala);
+  sala.enviarLance = async (v) => { enviados.push(v); return original(v); };
+  const d = new Disputa({ sala, piso: 80, teto: 110, decremento: 0.01, fugirEmpate: true });
+  await d.iniciar();
+  // teto 110 -> cobre a ME (103,99) -> sai da faixa dela (104 / 1,05 = 99,04)
+  // -> F2 cobre (100) e nós já estamos abaixo: nada mais.
+  assert.deepEqual(enviados, [110, 103.99, 99.04]);
+});

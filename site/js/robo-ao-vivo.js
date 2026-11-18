@@ -114,7 +114,7 @@ window.LH = window.LH || {};
           if (motivo === 'encerrada') {
             const x = item(id);
             const venceu = x && x.nossoLance != null && x.nossoLance <= (x.melhorLance ?? Infinity);
-            falar('Sistema', `Disputa encerrada · ${nome}. ${venceu ? 'Terminamos na frente.' : 'Não ficamos com o melhor lance.'}`, 'robo-chat__msg--sistema');
+            falar('Sistema', `Disputa encerrada · ${nome}. ${venceu ? 'Terminamos na frente.' : 'Não ficamos com o melhor lance.'}`, 'robo-chat__msg--sistema', { itemId: id });
           }
         },
         aoLance: (v, motivo) => {
@@ -128,21 +128,21 @@ window.LH = window.LH || {};
         },
         aoMensagem: (m) => falar(m.autor, m.texto, m.autor === 'Sistema' ? 'robo-chat__msg--sistema' : 'robo-chat__msg--oficial', { itemId: id }),
         aoAlerta: (texto) => {
-          falar('Trava de segurança', texto, 'robo-chat__msg--alerta');
+          falar('Trava de segurança', texto, 'robo-chat__msg--alerta', { itemId: id });
           LH.aviso(texto, 'perigo');
           LH.notificar?.('Robô parado por segurança', texto);
         },
       });
       disputas.set(id, d);
       mudar(id, { nossoLance: null, melhorLance: null, fase: 'aberta', fimEm: null });
-      falar('Sistema', `Robô ligado · ${portal ? `${portal} · ` : ''}${nome}. Piso ${moeda(i.piso)}, teto ${moeda(i.teto)}.`, 'robo-chat__msg--sistema');
+      falar('Sistema', `Robô ligado · ${portal ? `${portal} · ` : ''}${nome}. Piso ${moeda(i.piso)}, teto ${moeda(i.teto)}.`, 'robo-chat__msg--sistema', { itemId: id });
       d.iniciar().catch((e) => { LH.aviso(e.message, 'perigo'); mudar(id, { status: 'stopped_at_floor' }); });
     },
     pausar(id) {
       const d = disputas.get(id);
       if (d?.status !== 'running') return;
       d.pausar();
-      falar('Sistema', `Robô pausado · ${item(id)?.descricao}`, 'robo-chat__msg--sistema');
+      falar('Sistema', `Robô pausado · ${item(id)?.descricao}`, 'robo-chat__msg--sistema', { itemId: id });
     },
     /** Pausa de emergência: pausa todos os robôs ativos. */
     pausarTodos() {

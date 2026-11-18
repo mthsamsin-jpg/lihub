@@ -174,6 +174,12 @@
       this.nossoLance = nova.valor;
       this.ultimoLanceEm = this.agora();
       this.eventos.aoLance?.(nova.valor, nova.motivo);
+      // Depois de cobrir, confere na hora se ficamos na faixa de 5% de uma ME/EPP
+      // (sem esperar o próximo lance da praça). O intervalo mínimo continua valendo.
+      if (this.fugirEmpate && nova.motivo !== 'fuga_empate') {
+        const prox = decidir(this);
+        if (prox.acao === 'lance' && prox.motivo === 'fuga_empate') await this.avaliar();
+      }
     }
 
     async iniciar() {
