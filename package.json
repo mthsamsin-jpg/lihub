@@ -18,6 +18,7 @@
     "stripe:verificar": "node --env-file=.env scripts/stripe-verificar.js",
     "test": "node --test \"testes/*.test.js\"",
     "mapear": "node worker/mapear-portal.js",
+    "capag": "node --env-file=.env scripts/importar-capag.js",
     "email:configurar": "node --env-file=.env scripts/configurar-email.js"
   },
   "dependencies": {

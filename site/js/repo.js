@@ -12,7 +12,7 @@ window.LH = window.LH || {};
   const sem = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const COLUNAS = 'id, fonte, numero_controle_pncp, objeto, orgao_razao_social, uf, municipio, modalidade_nome, '
     + 'valor_estimado, data_publicacao, data_encerramento_proposta, sistema_origem, link_sistema_origem, link_pncp, orgao_esfera, '
-    + 'unidade_codigo, numero_compra, ano_compra';
+    + 'unidade_codigo, numero_compra, ano_compra, municipio_ibge';
   const EXTRAS = ['ie', 'im', 'regime', 'endereco', 'cep', 'representante', 'cpfRepresentante', 'cargo', 'banco', 'agencia', 'conta'];
   const POR_PAGINA = 20;
 
@@ -43,9 +43,29 @@ window.LH = window.LH || {};
       edital: r.numero_compra ? [r.numero_compra, r.ano_compra].filter(Boolean).join('/') : null,
       uasg: r.unidade_codigo || null,
       me_epp: false,
+      // CAPAG: município pelo IBGE, estado/DF pela UF. Órgão federal/estatal não tem nota.
+      capagChave: r.orgao_esfera === 'M' && /^\d{7}$/.test(r.municipio_ibge || '') ? r.municipio_ibge
+        : ['E', 'D'].includes(r.orgao_esfera) && r.uf ? `UF-${r.uf}` : null,
+      capag: null,
     };
     cache.set(l.id, l);
     return l;
+  }
+
+  // Notas CAPAG (Tesouro) já consultadas nesta visita: chave -> nota ou null.
+  const capagVistas = new Map();
+  /** Preenche l.capag numa consulta só (tabela public.capag). Falha = sem selo, nunca quebra a lista. */
+  async function anexarCapag(lista) {
+    const faltam = [...new Set(lista.map((l) => l.capagChave).filter((c) => c && !capagVistas.has(c)))];
+    if (faltam.length) {
+      try {
+        const { data } = await db().from('capag').select('chave, nota').in('chave', faltam);
+        for (const c of faltam) capagVistas.set(c, null);
+        for (const r of data || []) capagVistas.set(r.chave, r.nota);
+      } catch { /* sem a tabela ou sem conexão: segue sem a nota */ }
+    }
+    for (const l of lista) l.capag = capagVistas.get(l.capagChave) ?? null;
+    return lista;
   }
 
   /** Erro do banco em português (sem detalhes técnicos para o usuário). */
@@ -127,7 +147,7 @@ window.LH = window.LH || {};
     const [coluna, opcoes] = ORDEM_TABELA[f.ordem] || ORDEM_TABELA.prazo;
     const { data, error, count } = await q.order(coluna, opcoes).order('id').range(offset, offset + POR_PAGINA - 1);
     if (error) throw erroBanco(error, 'A busca falhou');
-    return { lista: data.map(normalizar), total: count ?? data.length, porPagina: POR_PAGINA };
+    return { lista: await anexarCapag(data.map(normalizar)), total: count ?? data.length, porPagina: POR_PAGINA };
   }
 
   const real = {
@@ -162,10 +182,11 @@ window.LH = window.LH || {};
       // A função de busca não devolve a esfera do órgão: lê só essa coluna, de uma vez.
       const esferas = new Map();
       if (data?.length) {
-        const { data: extra } = await db().from('licitacoes').select('id, orgao_esfera, unidade_codigo, numero_compra, ano_compra').in('id', data.map((r) => r.id));
+        const { data: extra } = await db().from('licitacoes').select('id, orgao_esfera, unidade_codigo, numero_compra, ano_compra, municipio_ibge').in('id', data.map((r) => r.id));
         for (const e of extra || []) esferas.set(Number(e.id), e);
       }
       const lista = (data || []).map((r) => normalizar({ ...r, ...esferas.get(Number(r.id)), id: r.id }));
+      await anexarCapag(lista);
       return { lista, total: data?.length ? Number(data[0].total) : null, porPagina: POR_PAGINA };
     },
 
@@ -230,7 +251,7 @@ window.LH = window.LH || {};
       if (!lista.length) return [];
       const { data, error } = await db().from('licitacoes').select(COLUNAS).in('id', lista.slice(0, 200));
       if (error) throw erroBanco(error, 'Não consegui carregar as licitações');
-      return data.map(normalizar);
+      return anexarCapag(data.map(normalizar));
     },
 
     async favoritos() {

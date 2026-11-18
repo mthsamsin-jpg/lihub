@@ -10,6 +10,7 @@ import { maxBytesPdf, obterEditalDoPncp } from './ia/documento.js';
 import { clienteStripe, criarPagamentos, modoDaChave } from './pagamentos/stripe.js';
 import { criarDetalhes } from './pncp/detalhes.js';
 import { sincronizarPncp } from './pncp/sincronizar.js';
+import { atualizarCapag } from './capag/atualizar.js';
 import { criarClienteAdmin, criarClienteDoUsuario } from './supabase.js';
 import { criarLog } from './util.js';
 import { criarCofre } from './cofre.js';
@@ -117,6 +118,15 @@ setInterval(async () => {
     log.erro(e.message);
   }
 }, 10 * 60_000).unref();
+
+// CAPAG do Tesouro: confere 1x por dia; só baixa de novo se o cache tiver mais de 7 dias.
+async function capagAgora() {
+  try { await atualizarCapag({ supabase: admin, log: criarLog('capag') }); } catch (e) { log.erro(`CAPAG: ${e.message}`); }
+}
+if (config.servidor.syncIntervaloMin > 0) {
+  setTimeout(capagAgora, 60_000).unref();
+  setInterval(capagAgora, 24 * 60 * 60_000).unref();
+}
 
 // Sincronização automática (incremental) com o PNCP.
 const controleSync = new AbortController();

@@ -125,6 +125,14 @@ window.LH = window.LH || {};
   /** Site de origem: a plataforma onde a licitação é disputada; senão, a página no PNCP. */
   const siteOficial = (l) => l.linkDisputa || l.linkPncp || null;
 
+  /** Selo CAPAG (nota do Tesouro Nacional); vazio quando o órgão não tem nota. */
+  const seloCapag = (l) => {
+    const nota = /^[ABCD]\+?$/.test(l.capag || '') ? l.capag : null;
+    if (!nota) return '';
+    const ente = l.capagChave?.startsWith('UF-') ? `do estado (${l.uf})` : `do município (${l.municipio || l.uf})`;
+    return `<span class="capag capag--${nota[0].toLowerCase()}" title="CAPAG ${nota}: capacidade de pagamento ${ente}, segundo o Tesouro Nacional. A é a melhor, D a pior.">CAPAG ${nota}</span>`;
+  };
+
   /** favs: Set com os ids favoritados (vem do LH.repo). */
   // pos = { n, total }: posição do resultado na busca ("3 de 120"), opcional.
   LH.cartaoLicitacao = (l, favs = new Set(), pos = null) => {
@@ -150,8 +158,11 @@ window.LH = window.LH || {};
           <h3 class="licitacao__objeto" style="margin-top:10px">${esc(l.objeto)}</h3>
           <p class="licitacao__orgao">${esc(l.orgao)}</p>
         </div>
+        <div class="licitacao__acoes-topo">
+        ${seloCapag(l)}
         <button type="button" class="btn-icone btn-icone--pequeno ${fav ? 'ligado' : ''}" data-acao="favoritar" data-id="${l.id}"
           aria-pressed="${fav}" aria-label="${fav ? 'Tirar dos favoritos' : 'Favoritar'}">${icone('estrela')}</button>
+        </div>
       </div>
       <dl class="licitacao__ficha">
         <div><dt>Nº do edital</dt><dd>${esc(l.edital || l.numero)}</dd></div>

@@ -1069,3 +1069,14 @@ body.sem-login .app { display: none; }
 .robo-quadro--primario { color: #04121f; border-color: rgba(56, 189, 248, 0.7); background: linear-gradient(160deg, #67e8f9, #38bdf8 55%, #0284c7); }
 .robo-quadro--primario:hover, .robo-quadro--primario:focus-visible { color: #04121f; box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.18), 0 10px 24px rgba(56, 189, 248, 0.4); }
 @media (prefers-reduced-motion: reduce) { .robo-quadro { transition: none; } }
+
+/* --- CAPAG (Tesouro Nacional): pílula ao lado da estrela de favoritar --- */
+.licitacao__acoes-topo { display: flex; align-items: center; gap: 8px; flex: none; align-self: flex-start; }
+.capag {
+  display: inline-flex; align-items: center; white-space: nowrap; padding: 3px 10px; border-radius: 999px;
+  font-size: 0.74rem; font-weight: 800; letter-spacing: 0.02em; line-height: 1.4; cursor: help; border: 1px solid;
+}
+.capag--a { color: #6ee7b7; background: rgba(16, 185, 129, 0.16); border-color: rgba(16, 185, 129, 0.5); }
+.capag--b { color: #93c5fd; background: rgba(59, 130, 246, 0.16); border-color: rgba(59, 130, 246, 0.5); }
+.capag--c { color: #fcd34d; background: rgba(245, 158, 11, 0.16); border-color: rgba(245, 158, 11, 0.5); }
+.capag--d { color: #fca5a5; background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.55); }

@@ -1352,6 +1352,21 @@ grant execute on function public.buscar_licitacoes(text, text[], int[], numeric,
 grant execute on function public.radar_contagem(text, text[], text[], int[], date, date) to authenticated, service_role;
 grant execute on function public.exportar_meus_dados() to authenticated;
 
+-- 6.4b CAPAG (Capacidade de Pagamento - Tesouro Nacional): cache das notas oficiais.
+-- Chave: IBGE (7 dígitos) do município ou "UF-SP". Leitura pública; só o servidor grava.
+create table if not exists public.capag (
+  chave         text primary key check (chave ~ '^(\d{7}|UF-[A-Z]{2})$'),
+  nota          text not null check (nota ~ '^[ABCD]\+?$'),
+  fonte         text,
+  atualizado_em timestamptz not null default now()
+);
+alter table public.capag enable row level security;
+drop policy if exists capag_leitura on public.capag;
+create policy capag_leitura on public.capag for select to anon, authenticated using (true);
+revoke insert, update, delete, truncate on public.capag from anon, authenticated;
+grant select on public.capag to anon, authenticated;
+
+
 -- 6.5 Visões prontas para o front-end (respeitam o RLS de quem consulta).
 create or replace view public.vw_crm_cards with (security_invoker = true) as
 select
