@@ -547,7 +547,7 @@ create table if not exists public.monitoramentos (
 );
 
 
--- 3.x Robô de lances: itens em disputa, limites e status (políticas e permissões junto).
+-- 3.x Licita Lances: itens em disputa, limites e status (políticas e permissões junto).
 create table if not exists public.robo_itens (
   id               uuid primary key default gen_random_uuid(),
   organizacao_id   uuid not null references public.organizacoes (id) on delete cascade,
@@ -1397,7 +1397,7 @@ begin
 end $$;
 
 -- =============================================================================
--- Robô de Lances: MODO REAL (cofre de credenciais, sessões do worker, eventos ao vivo)
+-- Licita Lances: MODO REAL (cofre de credenciais, sessões do worker, eventos ao vivo)
 -- =============================================================================
 -- Cofre de credenciais ---------------------------------------------------------
 -- O segredo (senha ou certificado A1 + senha) chega aqui JÁ CIFRADO pelo servidor

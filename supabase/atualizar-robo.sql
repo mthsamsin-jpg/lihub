@@ -1,5 +1,5 @@
 -- =============================================================================
--- Uso LicitaHub · Robô de Lances (itens em disputa, limites e status)
+-- Uso LicitaHub · Licita Lances (itens em disputa, limites e status)
 -- Rode no Supabase: SQL Editor > New query > cole tudo > Run. Pode rodar de novo.
 -- (O schema.sql completo já inclui isto.)
 -- =============================================================================

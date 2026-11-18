@@ -107,7 +107,7 @@ LH.vistas = LH.vistas || {};
         <span class="acesso-rapido__icone">${icone('alvo')}</span>
         <span class="acesso-rapido__texto">
           <small>Acesso rápido</small>
-          <strong>Robô de Lances</strong>
+          <strong>Licita Lances</strong>
           <span>Cobre os concorrentes por centavos e para no seu preço mínimo. Escolha o portal e acompanhe a sala ao vivo.</span>
         </span>
         <span class="btn btn--primario acesso-rapido__botao">Abrir a sala de disputa ${icone('setaDir')}</span>

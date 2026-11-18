@@ -575,11 +575,11 @@ window.LH = window.LH || {};
       if (error) throw erroBanco(error, 'Não consegui salvar o monitoramento');
     },
 
-    // --- Robô de lances ---
+    // --- Licita Lances ---
     async roboItens() {
       const { data, error } = await db().from('robo_itens').select('*').eq('organizacao_id', ctx().organizacao.id).order('criado_em');
-      if (error?.code === '42P01' || error?.code === 'PGRST205') throw new Error('Falta a tabela do robô: rode o supabase/atualizar-robo.sql no Supabase.');
-      if (error) throw erroBanco(error, 'Não consegui carregar os itens do robô');
+      if (error?.code === '42P01' || error?.code === 'PGRST205') throw new Error('Falta a tabela do Licita Lances: rode o supabase/atualizar-robo.sql no Supabase.');
+      if (error) throw erroBanco(error, 'Não consegui carregar os itens do Licita Lances');
       return data.map(roboParaTela);
     },
     async salvarRoboItem(item) {
@@ -596,7 +596,7 @@ window.LH = window.LH || {};
       if (nossoLance !== undefined) campos.nosso_lance = nossoLance;
       if (melhorLance !== undefined) campos.melhor_lance = melhorLance;
       const { error } = await db().from('robo_itens').update(campos).eq('id', id);
-      if (error) throw erroBanco(error, 'Não consegui gravar o estado do robô');
+      if (error) throw erroBanco(error, 'Não consegui gravar o estado do Licita Lances');
     },
     async excluirRoboItem(id) {
       const { error } = await db().from('robo_itens').delete().eq('id', id);
@@ -822,7 +822,7 @@ window.LH = window.LH || {};
     monitoramento: async () => LH.estado.obter('comprasnet'),
     async salvarMonitoramento(cfg) { LH.estado.salvar('comprasnet', { ...LH.estado.obter('comprasnet'), ...cfg, cnpj: LH.cnpj.limpar(cfg.cnpj) }); },
 
-    // Robô de lances (demonstração: neste navegador)
+    // Licita Lances (demonstração: neste navegador)
     roboItens: async () => LH.estado.obter('robo') || [],
     async salvarRoboItem(item) {
       const lista = LH.estado.obter('robo') || [];

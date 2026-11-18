@@ -29,7 +29,7 @@ test('portalDaOrigem: pelo prefixo da descrição, pelo link e pelo sistema', ()
   assert.deepEqual(portalDaOrigem({ descricao: '[Sistema Próprio] - x', sistema: 'E & L PRODUCOES' }), { chave: 'outros', nome: 'Sistema Próprio' });
 });
 
-test('normalizarResultado: campos para a tela e para o "Importar para o Robô"', () => {
+test('normalizarResultado: campos para a tela e para o "Importar para o Licita Lances"', () => {
   const r = normalizarResultado(BRUTO);
   assert.equal(r.portal, 'pcp');
   assert.equal(r.objeto, 'Registro de preços para manutenção de notebooks');

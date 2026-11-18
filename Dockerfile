@@ -1,4 +1,4 @@
-# Uso LicitaHub: servidor (API + site) + worker do Robô de Lances (Playwright).
+# Uso LicitaHub: servidor (API + site) + worker do Licita Lances (Playwright).
 #
 # A imagem oficial do Playwright já traz o Chromium e TODAS as bibliotecas de
 # sistema que ele precisa (o que falta no Node "nativo" do Render).

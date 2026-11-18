@@ -1,5 +1,5 @@
 /* =============================================================================
-   Uso LicitaHub · Robô de Lances: MODO REAL (navegador)
+   Uso LicitaHub · Licita Lances: MODO REAL (navegador)
    - Cofre de credenciais: salva login/senha ou certificado A1 por portal. O
      segredo vai direto para o servidor, que cifra antes de gravar; a tela só
      volta a ver os metadados (login mascarado, nome do certificado).
@@ -148,7 +148,7 @@ window.LH = window.LH || {};
         titulo: 'Conectar ao pregão real',
         html: `<form class="form" onsubmit="return false">
           <div class="cofre__form-topo">${LH.portaisRobo.selo(i.plataforma)}<b>${esc(i.descricao)}</b></div>
-          ${naoMapeado ? `<p class="nota nota--alerta">${icone('alerta')} <span>A sala de disputa deste portal <b>ainda não foi mapeada</b> no robô (os seletores da página não foram conferidos numa sessão real). A conexão vai parar com o aviso do que falta mapear, e nenhum lance é enviado.</span></p>` : ''}
+          ${naoMapeado ? `<p class="nota nota--alerta">${icone('alerta')} <span>A sala de disputa deste portal <b>ainda não foi mapeada</b> no Licita Lances (os seletores da página não foram conferidos numa sessão real). A conexão vai parar com o aviso do que falta mapear, e nenhum lance é enviado.</span></p>` : ''}
           <div class="form__linha">
             <label class="campo"><span class="campo__rotulo">Nº do pregão / processo no portal</span><input name="pregao" required maxlength="120" value="${esc(i.pregaoRef || '')}" placeholder="ex.: 90012/2026"></label>
             <label class="campo"><span class="campo__rotulo">Lote / item</span><input name="lote" maxlength="40" value="${esc(i.loteRef || i.itemNumero || '')}"></label>
@@ -289,7 +289,7 @@ window.LH = window.LH || {};
     }
     if (!estado.navegador) LH.aviso('Atenção: o servidor ainda não tem o navegador do robô (Playwright) instalado. A conexão vai falhar até ele ser instalado.', 'alerta', 8000);
     if (pedidoPronto && !estado.portais?.[i.plataforma]?.validado) {
-      LH.aviso(`A sala do ${LH.portaisRobo.de(i.plataforma).nome} ainda não foi mapeada no robô: a conexão vai avisar o que falta (npm run mapear).`, 'alerta', 8000);
+      LH.aviso(`A sala do ${LH.portaisRobo.de(i.plataforma).nome} ainda não foi mapeada no Licita Lances: a conexão vai avisar o que falta (npm run mapear).`, 'alerta', 8000);
     }
     const pedido = pedidoPronto || await pedirConexao(i, estado.portais?.[i.plataforma]);
     if (!pedido) return;

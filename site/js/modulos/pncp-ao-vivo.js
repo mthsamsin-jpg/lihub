@@ -1,9 +1,9 @@
 /* =============================================================================
-   Uso LicitaHub · Busca AO VIVO no PNCP + "Importar para o Robô"
+   Uso LicitaHub · Busca AO VIVO no PNCP + "Importar para o Licita Lances"
    Consulta o PNCP na hora (pelo servidor: /api/pncp/busca) com a palavra da
    barra do topo ou do campo "Objeto". Cada resultado mostra o órgão, o objeto,
    o número, o valor estimado, o fim das propostas e o PORTAL da disputa. O botão
-   "Importar para o Robô" lista os itens da compra e abre o cadastro do robô já
+   "Importar para o Licita Lances" lista os itens da compra e abre o cadastro do robô já
    preenchido (descrição, quantidade, valor unitário estimado como teto, portal,
    nº do pregão e do item).
    ============================================================================= */
@@ -23,7 +23,7 @@ window.LH = window.LH || {};
 
   async function escolherItem(r) {
     LH.modal({
-      titulo: 'Importar para o Robô',
+      titulo: 'Importar para o Licita Lances',
       html: `<div class="pncp-importar">
         <div class="cofre__form-topo">${LH.portaisRobo.selo(r.portal)}<b>${esc(r.orgao || '')} · ${esc(r.numero || '')}</b></div>
         <p class="fraco">${esc(r.objeto || '')}</p>
@@ -83,7 +83,7 @@ window.LH = window.LH || {};
     caixa.innerHTML = `
       <div class="card__titulo"><h2>${icone('raio')} Direto do PNCP, agora</h2>
         <button type="button" class="btn btn--pequeno" data-pncp-buscar>${icone('busca')} Buscar no PNCP ao vivo</button></div>
-      <p class="fraco pncp-vivo__nota">Consulta o PNCP neste momento (pode levar até 30 s) e mostra o portal onde cada disputa acontece. Use <b>Importar para o Robô</b> para cadastrar o item com os dados oficiais.</p>
+      <p class="fraco pncp-vivo__nota">Consulta o PNCP neste momento (pode levar até 30 s) e mostra o portal onde cada disputa acontece. Use <b>Importar para o Licita Lances</b> para cadastrar o item com os dados oficiais.</p>
       <div class="pncp-vivo__lista" data-pncp-lista></div>
       <div class="mais-resultados" data-pncp-mais hidden><button class="btn" type="button">${icone('setaBaixo')} Mais resultados do PNCP</button></div>`;
     const lista = caixa.querySelector('[data-pncp-lista]');
@@ -103,7 +103,7 @@ window.LH = window.LH || {};
         <footer>
           ${r.linkPncp ? `<a class="btn btn--pequeno btn--fantasma" href="${esc(r.linkPncp)}" target="_blank" rel="noopener">${icone('externo')} PNCP</a>` : ''}
           ${r.linkOrigem ? `<a class="btn btn--pequeno btn--fantasma" href="${esc(r.linkOrigem)}" target="_blank" rel="noopener">${icone('externo')} Portal da disputa</a>` : ''}
-          <button type="button" class="btn btn--pequeno btn--primario" data-pncp-importar="${k}">${icone('alvo')} Importar para o Robô</button>
+          <button type="button" class="btn btn--pequeno btn--primario" data-pncp-importar="${k}">${icone('alvo')} Importar para o Licita Lances</button>
         </footer>
       </article>`;
 

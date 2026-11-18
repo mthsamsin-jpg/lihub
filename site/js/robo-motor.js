@@ -1,5 +1,5 @@
 /* =============================================================================
-   Uso LicitaHub · Motor do Robô de Lances
+   Uso LicitaHub · Motor do Licita Lances
    Um só arquivo para o navegador (LH.robo) e para o servidor (src/robo/motor.js).
 
    Regras (pregão com disputa aberta, menor preço):

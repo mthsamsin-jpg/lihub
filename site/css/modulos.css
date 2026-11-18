@@ -627,7 +627,7 @@ body.sem-login .app { display: none; }
 .licitacao__obs textarea { min-height: 40px; resize: vertical; font-size: 0.86rem; }
 .plataformas__nota { display: flex; gap: 6px; align-items: flex-start; }
 
-/* --- Robô de lances (mesma paleta: azul-marinho, vidro, bordas azul-claras, ciano) ----- */
+/* --- Licita Lances (mesma paleta: azul-marinho, vidro, bordas azul-claras, ciano) ----- */
 .robo-aviso { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px; }
 .robo-aviso svg { width: 18px; height: 18px; flex: none; color: var(--ciano); margin-top: 2px; }
 .robo-portais { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 18px; }
@@ -717,7 +717,7 @@ body.sem-login .app { display: none; }
 @keyframes robo-entra { from { opacity: 0; transform: translateY(6px); } }
 @media (prefers-reduced-motion: reduce) { .robo-chat__msg, .robo-trilho__barra i { animation: none; transition: none; } }
 
-/* Home: acesso rápido ao robô */
+/* Home: acesso rápido ao Licita Lances */
 .acesso-rapido {
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 18px; margin-top: 22px;
   background: radial-gradient(120% 160% at 0% 0%, rgba(56, 189, 248, 0.2), transparent 55%), var(--card);
@@ -733,7 +733,7 @@ body.sem-login .app { display: none; }
 .acesso-rapido__texto span { font-size: 0.86rem; color: var(--texto-2); }
 @media (max-width: 760px) { .acesso-rapido { grid-template-columns: auto minmax(0, 1fr); } .acesso-rapido__botao { grid-column: 1 / -1; justify-content: center; } }
 
-/* --- Robô de lances: mini player flutuante (segundo plano) ------------------------------ */
+/* --- Licita Lances: mini player flutuante (segundo plano) ------------------------------ */
 .robo-mini {
   position: fixed; right: 20px; bottom: 20px; z-index: 900; width: 320px; display: grid; gap: 10px; padding: 14px;
   border-radius: 18px; color: var(--texto);
@@ -774,7 +774,7 @@ body.sem-login .app { display: none; }
 @media (max-width: 600px) { .robo-mini { left: 12px; right: 12px; bottom: 12px; width: auto; } }
 @media (prefers-reduced-motion: reduce) { .robo-mini, .robo-mini__status i { animation: none !important; } }
 
-/* --- Robô de lances: sala de disputa (portais, fases, ranking, LC 123) ------------------- */
+/* --- Licita Lances: sala de disputa (portais, fases, ranking, LC 123) ------------------- */
 /* Selo do portal: sigla + nome, cor só pelo matiz (sem logo de terceiros). */
 .selo-portal {
   --matiz: 200; display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 3px; border-radius: 999px;
@@ -864,7 +864,7 @@ body.sem-login .app { display: none; }
 .robo-mini__portal { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.72rem; color: var(--texto-3); }
 @media (prefers-reduced-motion: reduce) { .robo-fase--atual i { animation: none !important; } }
 
-/* --- Robô de lances: item selecionado no painel lateral, feed por item, margem ---------- */
+/* --- Licita Lances: item selecionado no painel lateral, feed por item, margem ---------- */
 .robo-chat { grid-template-rows: auto auto auto 1fr; }
 .robo-foco:empty { display: none; }
 .robo-foco { display: grid; gap: 8px; margin-bottom: 12px; padding: 12px; border-radius: 12px; background: rgba(4, 11, 22, 0.5); border: 1px solid rgba(56, 189, 248, 0.3); }
@@ -882,7 +882,7 @@ body.sem-login .app { display: none; }
 .robo-limites__margem dd { color: var(--sucesso); }
 .robo-limites__margem--baixa dd { color: var(--alerta); }
 
-/* --- Robô de lances: switch Sala simulada / Modo real e alerta do preço mínimo ----------- */
+/* --- Licita Lances: switch Sala simulada / Modo real e alerta do preço mínimo ----------- */
 .robo-modo { display: inline-grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border-radius: 999px; background: rgba(4, 11, 22, 0.55); border: 1px solid var(--card-borda); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 .robo-modo__op { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 999px; border: 0; background: none; color: var(--texto-3); font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: background var(--transicao), color var(--transicao); }
 .robo-modo__op svg { width: 14px; height: 14px; }
@@ -905,7 +905,7 @@ body.sem-login .app { display: none; }
 .robo-item.robo-status--piso { box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.25), 0 12px 32px rgba(248, 113, 113, 0.14); }
 @media (prefers-reduced-motion: reduce) { .robo-piso-alerta { animation: none; } }
 
-/* --- Robô de lances: modo real (cofre de credenciais e conexão ao pregão) ---------------- */
+/* --- Licita Lances: modo real (cofre de credenciais e conexão ao pregão) ---------------- */
 .selo-real { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; color: #04121f; background: linear-gradient(90deg, #34f5a8, #22d3ee); box-shadow: 0 0 14px rgba(52, 245, 168, 0.35); }
 .selo-real svg { width: 12px; height: 12px; }
 .cofre { display: grid; gap: 14px; }
@@ -925,7 +925,7 @@ body.sem-login .app { display: none; }
 .robo-conectar__confirma[hidden] { display: none; }
 @media (max-width: 600px) { .cofre__linha { grid-template-columns: 1fr auto; } .cofre__estado { grid-column: 1 / -1; grid-row: 2; } }
 
-/* --- Busca ao vivo no PNCP + Importar para o Robô ---------------------------------------- */
+/* --- Busca ao vivo no PNCP + Importar para o Licita Lances ---------------------------------------- */
 .pncp-vivo { display: grid; gap: 12px; margin-bottom: 18px; border-color: rgba(56, 189, 248, 0.35);
   background: radial-gradient(120% 80% at 0% 0%, rgba(56, 189, 248, 0.12), transparent 60%), var(--card); }
 .pncp-vivo .card__titulo { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -948,7 +948,7 @@ body.sem-login .app { display: none; }
 .pncp-importar__item span { font-size: 0.76rem; }
 .pncp-importar__item .btn { flex: none; }
 
-/* --- Robô de lances: Feed Global de Pregões ao Vivo -------------------------------------- */
+/* --- Licita Lances: Feed Global de Pregões ao Vivo -------------------------------------- */
 .feed-vivo { display: grid; gap: 14px; margin-bottom: 22px; border-color: rgba(56, 189, 248, 0.35);
   background: radial-gradient(120% 90% at 100% 0%, rgba(52, 245, 168, 0.08), transparent 55%), radial-gradient(120% 90% at 0% 0%, rgba(56, 189, 248, 0.12), transparent 60%), var(--card); }
 .feed-vivo__topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }

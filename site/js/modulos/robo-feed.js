@@ -1,5 +1,5 @@
 /* =============================================================================
-   Uso LicitaHub · Feed Global de Pregões ao Vivo (tela do Robô de Lances)
+   Uso LicitaHub · Feed Global de Pregões ao Vivo (tela do Licita Lances)
    Ao abrir o robô, a tela já mostra os pregões eletrônicos reais com propostas
    abertas (base sincronizada com a API do PNCP, atualizada sozinha), sem precisar
    cadastrar nada. Cada card tem:
@@ -72,7 +72,7 @@ window.LH = window.LH || {};
       const item = itemDe(l);
       const ativo = item && ['running', 'paused', 'stopped_at_floor'].includes(item.status);
       const situacao = item
-        ? `<span class="feed-vivo__no-robo${ativo ? ' feed-vivo__no-robo--ativo' : ''}">${icone('alvo')} ${ativo ? (item.status === 'running' ? 'Monitorando agora' : item.status === 'paused' ? 'Pausado no robô' : 'Preço mínimo atingido') : 'Já está no robô'}</span>`
+        ? `<span class="feed-vivo__no-robo${ativo ? ' feed-vivo__no-robo--ativo' : ''}">${icone('alvo')} ${ativo ? (item.status === 'running' ? 'Monitorando agora' : item.status === 'paused' ? 'Pausado no Licita Lances' : 'Preço mínimo atingido') : 'Já está no Licita Lances'}</span>`
         : '';
       return `
       <article class="feed-vivo__card${ativo ? ' feed-vivo__card--ativo' : ''}" data-feed-id="${esc(l.id)}">

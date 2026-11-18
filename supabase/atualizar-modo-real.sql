@@ -1,5 +1,5 @@
 -- =============================================================================
--- Uso LicitaHub · Robô de Lances: MODO REAL
+-- Uso LicitaHub · Licita Lances: MODO REAL
 --   portal_credentials : cofre de credenciais dos portais (cifradas no servidor)
 --   robo_sessoes       : uma conexão do robô a um pregão real (worker Playwright)
 --   auction_live_bids  : eventos ao vivo da sala (lances, fases, mensagens),

@@ -102,7 +102,7 @@ export const config = {
     limparDias: inteiro('LIMPAR_DIAS', 90),
   },
 
-  // Robô de Lances no MODO REAL (portais de verdade, via Playwright).
+  // Licita Lances no MODO REAL (portais de verdade, via Playwright).
   roboReal: {
     // Chave do cofre de credenciais (32 bytes em base64). Sem ela, o cofre fica desligado.
     chaveCofre: texto('CREDENCIAIS_CHAVE'),
