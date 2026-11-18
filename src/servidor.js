@@ -7,7 +7,7 @@ import { ligarSite } from './api/site.js';
 import { config } from './config.js';
 import { analisarEdital, provedorDaIa } from './ia/analisar-edital.js';
 import { maxBytesPdf, obterEditalDoPncp } from './ia/documento.js';
-import { clienteStripe, criarPagamentos, modoDaChave } from './pagamentos/stripe.js';
+import { criarPagamentos, modoDoToken } from './pagamentos/mercadopago.js';
 import { criarDetalhes } from './pncp/detalhes.js';
 import { sincronizarPncp } from './pncp/sincronizar.js';
 import { atualizarCapag } from './capag/atualizar.js';
@@ -41,16 +41,27 @@ else log.aviso(`${ia.variavelChave} não definida: o servidor sobe, mas as anál
 const repositorio = criarRepositorio({ admin, criarClienteDoUsuario });
 
 let pagamentos = null;
-if (config.stripe.chaveSecreta) {
-  pagamentos = criarPagamentos({ stripe: clienteStripe(), repositorio, log: criarLog('pagamentos') });
-  const modo = modoDaChave();
-  log.info(`Assinaturas: Stripe em ${modo === 'real' ? 'MODO REAL (cobra de verdade)' : 'modo de teste (dinheiro de mentira)'}.`);
-  if (!config.stripe.segredoWebhook) {
-    log.aviso('STRIPE_WEBHOOK_SECRET não definida: os avisos de pagamento da Stripe vão ser recusados.');
-  }
+if (config.mercadoPago.token) {
+  pagamentos = criarPagamentos({
+    token: config.mercadoPago.token, segredoWebhook: config.mercadoPago.segredoWebhook,
+    urlSite: config.site.url, repositorio, log: criarLog('pagamentos'),
+  });
+  const modo = modoDoToken(config.mercadoPago.token);
+  log.info(`Assinaturas: Mercado Pago em ${modo === 'real' ? 'MODO REAL (cobra de verdade)' : 'modo de teste'}.`);
+  if (!config.mercadoPago.segredoWebhook) log.aviso('MP_WEBHOOK_SECRET não definida: a assinatura dos avisos não é conferida (os pagamentos continuam sendo reconsultados na API).');
 } else {
-  log.aviso('STRIPE_SECRET_KEY não definida: assinaturas desligadas.');
+  log.aviso('MP_ACCESS_TOKEN não definida: assinaturas desligadas.');
 }
+
+// Planos pagos vencidos (30 dias sem novo pagamento) voltam ao Free. Isentas nunca.
+async function expirarPlanos() {
+  try {
+    const n = await repositorio.expirarPlanos();
+    if (n) log.info(`Planos: ${n} organização(ões) voltaram ao Free (prazo pago terminou).`);
+  } catch (e) { log.erro(`Planos: ${e.message}`); }
+}
+setTimeout(expirarPlanos, 30_000).unref();
+setInterval(expirarPlanos, 60 * 60_000).unref();
 
 const app = criarApp({
   repositorio,
@@ -91,13 +102,13 @@ ligarSite(app, { publico: { supabaseUrl: config.supabase.url, supabaseChave: con
 
 // No Render (variável RENDER=true), localhost nos links é sempre engano.
 if (process.env.RENDER && /localhost|127\.0\.0\.1/.test(config.site.url)) {
-  log.erro(`SITE_URL está como ${config.site.url}. Os links de e-mail e da Stripe vão apontar para localhost. `
+  log.erro(`SITE_URL está como ${config.site.url}. Os links de e-mail e do Mercado Pago vão apontar para localhost. `
     + 'Defina SITE_URL=https://usolicitahub.com.br nas variáveis do Render.');
 }
 
 const servidor = serve({ fetch: app.fetch, port: config.servidor.porta }, (info) => {
   log.info(`Site do Uso LicitaHub em http://localhost:${info.port}  (API em /api, teste: /saude)`);
-  log.info(`Endereço público (SITE_URL), usado nos e-mails e na Stripe: ${config.site.url}`);
+  log.info(`Endereço público (SITE_URL), usado nos e-mails e no Mercado Pago: ${config.site.url}`);
   log.info(`Origens liberadas (CORS): ${config.servidor.origens.join(', ')}`);
 });
 servidor.on('error', (erro) => {

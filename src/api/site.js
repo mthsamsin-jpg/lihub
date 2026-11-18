@@ -1,12 +1,12 @@
 // Entrega o site (pasta site/) pelo mesmo servidor da API. Assim o navegador
-// fala com um endereço só: sem problemas de CORS e com a volta da Stripe
+// fala com um endereço só: sem problemas de CORS e com a volta do Mercado Pago
 // (/assinatura/sucesso, /precos, /painel) caindo no lugar certo.
 //
 //   GET /config.js           configuração PÚBLICA do site (URL do Supabase e chave publicável)
 //   GET /vendor/supabase.js  biblioteca do Supabase para o navegador (do node_modules)
 //   GET /assinatura/sucesso  volta da página de pagamento  -> /app.html#/perfil?assinatura=sucesso
 //   GET /precos              pagamento cancelado          -> /app.html#/perfil
-//   GET /painel              volta do portal da Stripe    -> /app.html#/home
+//   GET /painel              atalho para o painel        -> /app.html#/home
 //   GET /*                   arquivos do site (index.html = apresentação, app.html = painel)
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';

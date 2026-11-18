@@ -58,11 +58,11 @@ test('o servidor entrega o site, a configuração pública e a biblioteca do Sup
   assert.equal((await app.request('/saude')).status, 200);
 });
 
-test('as voltas da Stripe levam para a tela certa do site', async (t) => {
+test('as voltas do Mercado Pago levam para a tela certa do site', async (t) => {
   const { app, limpar } = await montar();
   t.after(limpar);
   for (const [de, para] of [
-    ['/assinatura/sucesso?sessao=cs_test_1', '/app.html#/perfil?assinatura=sucesso'],
+    ['/assinatura/sucesso?payment_id=123&status=approved', '/app.html#/perfil?assinatura=sucesso'],
     ['/precos', '/app.html#/perfil'],
     ['/painel', '/app.html#/home'],
   ]) {

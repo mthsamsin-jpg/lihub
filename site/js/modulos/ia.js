@@ -298,7 +298,7 @@ LH.vistas = LH.vistas || {};
             await acompanhar(id, l);
           }
         } catch (erro) {
-          saida.innerHTML = LH.erroHtml(erro.codigo === 'cota_esgotada' ? `${erro.message} Assine o plano Completo para ter 30 leituras por mês.` : erro);
+          saida.innerHTML = LH.erroHtml(erro.codigo === 'cota_esgotada' ? `${erro.message} Assine o plano Pro ou Max para ter 30 leituras por mês.` : erro);
         }
         botao.disabled = false;
       });

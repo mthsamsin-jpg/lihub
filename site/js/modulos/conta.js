@@ -2,7 +2,7 @@
    Uso LicitaHub · Conta
    Sua empresa, Meu Perfil (dados da conta e assinatura) e Ajuda
    (perguntas frequentes, tutoriais, suporte e textos legais).
-   No modo real: empresas e perfil no Supabase; assinatura pela Stripe.
+   No modo real: empresas e perfil no Supabase; assinatura pelo Mercado Pago.
    ============================================================================= */
 window.LH = window.LH || {};
 LH.vistas = LH.vistas || {};
@@ -11,7 +11,6 @@ LH.vistas = LH.vistas || {};
   const { esc, icone, fmt } = LH;
 
   const SUPORTE = LH.SUPORTE; // contatos e textos legais ficam em js/legal.js
-  const PLANO = { nome: 'Completo', preco: 97, diasTeste: 30 };
 
   const campo = (nome, rotulo, valor, extra = '') =>
     `<label class="campo"><span class="campo__rotulo">${rotulo}</span><input name="${nome}" value="${esc(valor || '')}" ${extra}></label>`;
@@ -114,16 +113,14 @@ LH.vistas = LH.vistas || {};
   };
 
   // --- Meu Perfil: dados da conta e assinatura -----------------------------------------
-  const NOMES_PLANO = { gratuito: 'Gratuito', starter: 'Completo', prime: 'Completo', pro: 'Completo' };
+  const NOMES_PLANO = { gratuito: 'Free', starter: 'Pro', prime: 'Pro', pro: 'Pro', max: 'Max' };
 
   function situacaoAssinatura(org, a) {
-    if (!a?.status || ['canceled', 'incomplete_expired'].includes(a.status)) return { texto: org.plano === 'gratuito' ? 'Plano gratuito' : 'Sem assinatura', classe: '' };
     const fim = (iso) => (iso ? fmt.data(LH.datas.paraIso(new Date(iso))) : '');
-    if (a.cancelar_no_fim) return { texto: `Cancela em ${fim(a.periodo_fim)}`, classe: 'selo--alerta' };
-    if (a.status === 'trialing') return { texto: `Teste grátis até ${fim(a.teste_fim) || fmt.data(a.teste_fim)}`, classe: 'selo--info' };
-    if (a.status === 'active') return { texto: `Ativa · renova em ${fim(a.periodo_fim)}`, classe: 'selo--sucesso' };
-    if (a.status === 'past_due') return { texto: 'Pagamento atrasado: atualize o cartão', classe: 'selo--perigo' };
-    return { texto: a.status, classe: '' };
+    if (org.plano === 'gratuito' || !org.plano_ate) return { texto: 'Plano Free', classe: '' };
+    if (new Date(org.plano_ate) <= new Date()) return { texto: 'Prazo pago terminou', classe: 'selo--alerta' };
+    if (a?.forma === 'recorrente' && a.status === 'authorized') return { texto: `Crédito mensal · renova em ${fim(org.plano_ate)}`, classe: 'selo--sucesso' };
+    return { texto: `Liberado até ${fim(org.plano_ate)}`, classe: 'selo--sucesso' };
   }
 
   LH.vistas.perfil = {
@@ -133,7 +130,9 @@ LH.vistas = LH.vistas || {};
       const c = LH.repo.conta();
       const org = c.organizacao;
       const sit = situacaoAssinatura(org, c.assinatura);
-      const pago = org.plano !== 'gratuito';
+      const isento = LH.plano.isento();
+      const nivel = LH.plano.nivel();
+      const pago = !isento && nivel !== 'free';
       const empresas = LH.repo.empresas().length;
       const podeGerenciar = ['dono', 'admin'].includes(c.papel);
       return `
@@ -165,10 +164,11 @@ LH.vistas = LH.vistas || {};
         </div>
         <aside class="card--vidro plano-atual" data-reveal style="align-self:start;padding:24px;border-radius:var(--raio)">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-            <strong style="font-size:1.1rem">Plano ${NOMES_PLANO[org.plano] || 'Gratuito'}</strong>
-            <span class="selo ${sit.classe}">${esc(sit.texto)}</span>
+            <strong style="font-size:1.1rem">Plano ${isento ? 'Isento' : NOMES_PLANO[org.plano] || 'Free'}</strong>
+            <span class="selo ${isento ? 'selo--sucesso' : sit.classe}">${esc(isento ? 'Acesso total, sem cobrança' : sit.texto)}</span>
           </div>
-          <div class="plano-atual__preco"><strong>R$ ${pago ? PLANO.preco : 0}</strong><span class="suave">/mês</span></div>
+          <div class="plano-atual__preco"><strong>R$ ${pago ? LH.plano.PRECOS[nivel] : 0}</strong><span class="suave">/mês</span></div>
+          ${isento ? '<p class="nota">Sua conta é isenta: todos os recursos liberados (Prospecção e Robô Turbo 2.0), para sempre e sem cobrança.</p>' : ''}
           <div class="uso">
             <div class="uso__linha"><span>Empresas</span><span>${empresas} de ${org.limite_empresas}</span></div>
             <div class="barra"><div class="barra__preenchimento" style="width:${Math.min(100, (empresas / Math.max(1, org.limite_empresas)) * 100)}%"></div></div>
@@ -177,22 +177,30 @@ LH.vistas = LH.vistas || {};
             <div class="uso__linha"><span>Leituras de edital por IA (este mês)</span><span id="uso-ia">…</span></div>
             <div class="barra"><div class="barra__preenchimento" id="barra-ia" style="width:0"></div></div>
           </div>
-          ${!pago ? `<button class="btn btn--primario btn--bloco btn--grande" type="button" data-acao="assinar">${icone('raio')} Assinar o Completo · ${PLANO.diasTeste} dias grátis</button>
-            <p class="fraco">R$ ${PLANO.preco}/mês depois do teste: até 10 empresas e 30 leituras de edital por IA por mês.</p>` : ''}
-          ${c.assinatura?.stripe_cliente_id || LH.repo.modo === 'demo' ? `<button class="btn btn--bloco" type="button" data-acao="portal">${icone('engrenagem')} Gerenciar assinatura</button>` : ''}
+          ${!isento && nivel !== 'max' ? ['starter', 'max'].filter((p) => !(nivel === 'pro' && p === 'starter')).map((p) => {
+            const max = p === 'max';
+            return `<div class="assinar-plano${max ? ' assinar-plano--destaque' : ''}" data-plano-bloco="${p}">
+              <strong>${max ? 'Max' : 'Pro'} · R$ ${LH.plano.PRECOS[max ? 'max' : 'pro']}/mês</strong>
+              <p class="fraco">${max ? 'Tudo do Pro + Robô Turbo 2.0, até 20 empresas e 60 leituras por IA por mês.' : 'Prospecção completa (Busca, Radar, Petronect, Favoritas), até 10 empresas e 30 leituras de edital por IA por mês.'}</p>
+              <button class="btn ${max ? 'btn--primario' : ''} btn--bloco" type="button" data-acao="assinar" data-plano="${p}" data-forma="avulso">${icone('raio')} Pix, crédito ou débito · 30 dias</button>
+              <button class="btn btn--fantasma btn--bloco btn--pequeno" type="button" data-acao="assinar" data-plano="${p}" data-forma="recorrente">${icone('moeda')} Crédito mensal automático</button>
+            </div>`;
+          }).join('') : ''}
+          ${pago && nivel === 'pro' ? '<p class="fraco">Ao assinar o Max, os 30 dias começam na hora do pagamento.</p>' : ''}
+          ${pago && c.assinatura?.forma === 'recorrente' && c.assinatura?.status === 'authorized' ? `<button class="btn btn--bloco" type="button" data-acao="cancelar">${icone('fechar')} Cancelar crédito mensal</button>` : ''}
           ${!podeGerenciar ? '<p class="nota">Só o dono ou um administrador da organização pode cuidar da assinatura.</p>' : ''}
-          <p class="fraco">Pagamento seguro pela Stripe. Cobrança mensal no cartão; cancele quando quiser e use até o fim do período pago.</p>
+          <p class="fraco">Pagamento seguro pelo Mercado Pago (Pix, crédito ou débito). Cada pagamento libera 30 dias; no crédito mensal, cancele quando quiser e use até o fim dos dias pagos.</p>
         </aside>
       </div>`;
     },
     async montar(raiz, params) {
       const form = raiz.querySelector('#form-perfil');
 
-      // Volta da página de pagamento: espera o aviso da Stripe liberar o plano.
+      // Volta da página de pagamento: espera o aviso do Mercado Pago liberar o plano (o Pix pode levar alguns segundos).
       if (params.assinatura === 'sucesso') {
         history.replaceState(null, '', '#/perfil');
         LH.aviso('Pagamento recebido! Liberando o seu plano...', 'sucesso', 6000);
-        for (let i = 0; i < 12 && LH.repo.conta().organizacao.plano === 'gratuito'; i++) {
+        for (let i = 0; i < 24 && LH.plano.nivel() === 'free'; i++) {
           await new Promise((r) => setTimeout(r, 2500));
           await LH.repo.recarregar().catch(() => {});
         }
@@ -200,17 +208,17 @@ LH.vistas = LH.vistas || {};
         return;
       }
 
-      // Veio da apresentação por "Garantir meus 30 dias grátis": destaca o botão de assinar.
+      // Veio da apresentação ou do convite de upgrade: destaca o plano escolhido.
       if (params.assinar) {
         history.replaceState(null, '', '#/perfil');
-        const botao = raiz.querySelector('[data-acao="assinar"]');
+        const botao = raiz.querySelector(`[data-acao="assinar"][data-plano="${params.assinar === 'max' ? 'max' : 'starter'}"][data-forma="avulso"]`) || raiz.querySelector('[data-acao="assinar"]');
         if (botao) {
           botao.classList.add('destacar');
           botao.focus({ preventScroll: true });
           botao.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          LH.aviso('Último passo: clique em "Assinar o Completo" para começar os seus 30 dias grátis.', 'info', 8000);
+          LH.aviso('Último passo: escolha Pix, crédito ou débito para liberar o plano.', 'info', 8000);
         } else {
-          LH.aviso('Você já tem o plano Completo.', 'sucesso');
+          LH.aviso(LH.plano.isento() ? 'Sua conta é isenta: tudo já está liberado.' : 'Você já tem o plano Max.', 'sucesso');
         }
       }
 
@@ -244,10 +252,17 @@ LH.vistas = LH.vistas || {};
             LH.acesso.novaSenha();
           }
           if (acao === 'sair') await LH.nuvem.sair();
-          if (acao === 'assinar' || acao === 'portal') {
+          if (acao === 'assinar') {
             b.disabled = true;
-            const url = acao === 'assinar' ? await LH.repo.assinar() : await LH.repo.portal();
-            window.location.href = url;
+            window.location.href = await LH.repo.assinar(b.dataset.plano || 'starter', b.dataset.forma || 'avulso');
+          }
+          if (acao === 'cancelar') {
+            const ok = await LH.confirmar('Cancelar crédito mensal', 'As próximas cobranças no cartão param. Você continua com acesso até o fim dos dias já pagos.', 'Cancelar cobrança', true);
+            if (!ok) return;
+            await LH.repo.cancelarAssinatura();
+            await LH.repo.recarregar().catch(() => {});
+            LH.aviso('Cobrança mensal cancelada.', 'sucesso');
+            LH.ir('perfil');
           }
           if (acao === 'exportar') {
             const dados = await LH.repo.exportar();
@@ -274,14 +289,14 @@ LH.vistas = LH.vistas || {};
 
   // --- Ajuda -------------------------------------------------------------------------
   const FAQ = [
-    ['Como funciona o teste grátis?', 'Ao assinar o plano Completo você usa 30 dias sem pagar nada. Se cancelar antes do fim do teste, não há cobrança.'],
+    ['Como funciona o pagamento?', 'Pelo Mercado Pago: Pix, cartão de crédito ou débito liberam o plano por 30 dias. No crédito mensal automático, a cobrança se repete todo mês até você cancelar.'],
     ['Como cancelo a assinatura?', 'Em Meu Perfil > Gerenciar assinatura. O cancelamento vale no fim do período já pago e não tem multa.'],
     ['A IA substitui a leitura do edital?', 'Não. Ela adianta o trabalho e aponta riscos e divergências, mas pode errar. Confira sempre o edital original antes de enviar a proposta.'],
     ['De onde vêm as licitações?', 'Do PNCP (Portal Nacional de Contratações Públicas), atualizadas automaticamente várias vezes ao dia.'],
-    ['Quantas empresas posso cadastrar?', 'No plano Completo, até 10 empresas. No gratuito, até 3.'],
+    ['Quantas empresas posso cadastrar?', 'No Free, até 3. No Pro, até 10. No Max, até 20.'],
     ['Vocês pedem a minha senha do gov.br?', 'Não. O monitoramento do chat usa só as informações públicas da sessão. Nunca peça nem passe a sua senha.'],
     ['Meus dados estão seguros?', 'Sim. Cada organização só vê os próprios dados, os acessos são protegidos e você pode baixar ou apagar seus dados a qualquer momento (LGPD).'],
-    ['Posso emitir nota fiscal pelo Uso LicitaHub?', 'Ainda não. A cobrança da assinatura é feita pela Stripe; a nota fiscal do serviço é emitida à parte.'],
+    ['Posso emitir nota fiscal pelo Uso LicitaHub?', 'Ainda não. A cobrança da assinatura é feita pelo Mercado Pago; a nota fiscal do serviço é emitida à parte.'],
   ];
   const TUTORIAIS = ['Primeiros passos no Uso LicitaHub', 'Lendo um edital com a IA', 'Montando a proposta em 5 minutos', 'Organizando o CRM do licitante'];
 

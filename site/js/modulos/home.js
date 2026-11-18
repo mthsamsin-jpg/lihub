@@ -27,13 +27,13 @@ LH.vistas = LH.vistas || {};
       </div>
 
       <aside class="destaque__preco card--vidro" data-reveal="escala" style="--atraso:120ms" aria-label="Plano Completo">
-        <span class="selo selo--beta">${assinante ? 'Seu plano' : '30 dias grátis'}</span>
-        <p>Plano <strong>Completo</strong></p>
+        <span class="selo selo--beta">${assinante ? 'Seu plano' : 'Pix, crédito ou débito'}</span>
+        <p>Plano <strong>Pro</strong></p>
         <div class="preco" aria-label="97 reais por mês">
           <span class="preco__moeda">R$</span><span class="preco__valor">97</span><span class="preco__periodo">/mês</span>
         </div>
         <p>Até 10 empresas e 30 leituras de edital por IA por mês.</p>
-        <a class="btn btn--primario btn--bloco btn--grande" href="#/perfil">${assinante ? 'Ver minha assinatura' : 'Começar 30 dias grátis'}</a>
+        <a class="btn btn--primario btn--bloco btn--grande" href="#/perfil">${assinante ? 'Ver minha assinatura' : 'Assinar o Pro'}</a>
         <p class="destaque__garantia">Cancele quando quiser, sem multa.</p>
       </aside>
 

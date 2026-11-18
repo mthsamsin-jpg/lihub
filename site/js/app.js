@@ -136,13 +136,16 @@ window.LH = window.LH || {};
     if (desmontarAtual) { desmontarAtual(); desmontarAtual = null; }
     const textoLocal = typeof vista.local === 'string' ? vista.local : 'Este módulo ainda está em demonstração: os dados ficam só neste navegador.';
     const aviso = real() && vista.local ? `<p class="nota" style="margin-bottom:18px">${icone('info')} ${esc(textoLocal)}</p>` : '';
-    conteudo.innerHTML = `<div class="vista">${aviso}${vista.render(params)}</div>`;
+    // Paywall: módulo fora do plano -> tela bloqueada + convite para o upgrade.
+    const liberado = LH.plano.permite(caminho);
+    conteudo.innerHTML = `<div class="vista">${liberado ? `${aviso}${vista.render(params)}` : LH.plano.telaBloqueada(caminho, vista.titulo)}</div>`;
     const raiz = conteudo.firstElementChild;
-    const limpeza = vista.montar?.(raiz, params);
+    const limpeza = liberado ? vista.montar?.(raiz, params) : LH.plano.pedirUpgrade(LH.plano.exigido(caminho));
     if (typeof limpeza === 'function') desmontarAtual = limpeza;
     LH.revelar(raiz);
 
     marcarAtivo(caminho);
+    LH.plano.marcarMenu();
     document.title = `${vista.titulo} · Uso LicitaHub`;
     document.getElementById('titulo-pagina').textContent = vista.titulo;
     document.getElementById('trilha').textContent = vista.trilha ? `Uso LicitaHub / ${vista.trilha}` : 'Uso LicitaHub';
@@ -161,6 +164,7 @@ window.LH = window.LH || {};
 
   // --- Usuário, plano e menu do usuário ----------------------------------------------
   LH.atualizarUsuario = () => {
+    setTimeout(() => LH.plano?.marcarMenu());
     let nome;
     let pessoa;
     if (real() && LH.nuvem.ctx) {
@@ -179,15 +183,16 @@ window.LH = window.LH || {};
     const plano = document.querySelector('.sidebar__plano');
     if (real() && LH.nuvem.ctx) {
       const org = LH.nuvem.ctx.organizacao;
-      const a = LH.nuvem.ctx.assinatura;
-      const pago = org.plano !== 'gratuito';
-      const status = a?.status === 'trialing' && a.teste_fim ? `Teste grátis até ${fmt.data(LH.datas.paraIso(new Date(a.teste_fim)))}` : pago ? 'Assinatura ativa' : 'Plano gratuito';
-      plano.innerHTML = `<span class="selo ${pago ? 'selo--sucesso' : 'selo--info'}">${esc(status)}</span>
-        <p>Plano <strong>${pago ? 'Completo' : 'Gratuito'}</strong>${pago ? ' · R$ 97/mês' : ''}</p>
-        <a class="btn btn--primario btn--bloco btn--pequeno" href="#/perfil">${pago ? 'Ver assinatura' : 'Assinar · 30 dias grátis'}</a>`;
+      const nivel = LH.plano.nivel();
+      const isento = LH.plano.isento();
+      const pago = !isento && nivel !== 'free';
+      const status = isento ? 'Conta isenta · acesso total' : pago && LH.nuvem.ctx.organizacao.plano_ate ? `Liberado até ${fmt.data(LH.datas.paraIso(new Date(LH.nuvem.ctx.organizacao.plano_ate)))}` : pago ? 'Assinatura ativa' : 'Plano Free';
+      plano.innerHTML = `<span class="selo ${isento || pago ? 'selo--sucesso' : 'selo--info'}">${esc(status)}</span>
+        <p>Plano <strong>${esc(LH.plano.nomeAtual())}</strong>${pago ? ` · R$ ${LH.plano.PRECOS[nivel]}/mês` : ''}</p>
+        ${isento ? '' : `<a class="btn btn--primario btn--bloco btn--pequeno" href="#/perfil">${nivel === 'max' ? 'Ver assinatura' : nivel === 'pro' ? 'Fazer upgrade para o Max' : 'Assinar · Pix, crédito ou débito'}</a>`}`;
     } else {
       plano.innerHTML = `<span class="selo">Modo demonstração</span>
-        <p>Dados de exemplo. Plano <strong>Completo</strong> · R$ 97/mês</p>
+        <p>Dados de exemplo. Plano <strong>Max</strong> · tudo liberado</p>
         <a class="btn btn--primario btn--bloco btn--pequeno" href="#/perfil">Ver assinatura</a>`;
     }
   };

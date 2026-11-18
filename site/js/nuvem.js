@@ -117,11 +117,11 @@ window.LH = window.LH || {};
       if (!orgId) throw new Error('A sua conta não tem organização. Fale com o suporte.');
 
       const [org, membro, empresas, etapas, assinatura] = await Promise.all([
-        db.from('organizacoes').select('id, nome, cnpj, plano, limite_empresas, limite_analises_ia_mes').eq('id', orgId).single(),
+        db.from('organizacoes').select('id, nome, cnpj, plano, isento, plano_ate, limite_empresas, limite_analises_ia_mes').eq('id', orgId).single(),
         db.from('membros').select('papel').eq('organizacao_id', orgId).eq('user_id', uid).maybeSingle(),
         db.from('empresas').select('*').eq('organizacao_id', orgId).eq('ativo', true).order('criado_em'),
         db.from('kanban_etapas').select('id, nome, cor, posicao, tipo').eq('organizacao_id', orgId).order('posicao'),
-        db.from('assinaturas').select('status, plano, ciclo, periodo_fim, teste_fim, cancelar_no_fim, stripe_cliente_id').eq('organizacao_id', orgId).maybeSingle(),
+        db.from('assinaturas').select('status, plano, ciclo, periodo_fim, cancelar_no_fim, forma, mp_assinatura_id').eq('organizacao_id', orgId).maybeSingle(),
       ]);
       for (const r of [org, empresas, etapas]) if (r.error) throw new Error(`Não consegui ler os dados da organização: ${r.error.message}`);
 
@@ -202,6 +202,8 @@ window.LH = window.LH || {};
         throw new Error('Sem conexão com o servidor do Uso LicitaHub.');
       }
       const json = await resposta.json().catch(() => ({}));
+      // Paywall: o servidor recusou por plano -> convite para o upgrade.
+      if (resposta.status === 402 && json.codigo === 'plano_insuficiente') LH.plano?.pedirUpgrade(json.exigido);
       if (!resposta.ok) throw Object.assign(new Error(json.erro || `O servidor respondeu ${resposta.status}.`), { status: resposta.status, codigo: json.codigo });
       return json;
     },

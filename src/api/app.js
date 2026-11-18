@@ -2,9 +2,9 @@
 //   GET  /saude                         verificação simples (sem login)
 //   POST /api/editais/analisar          inicia a leitura de um edital pela IA
 //   GET  /api/editais/analises/:id      consulta o andamento/resultado
-//   POST /api/assinaturas/checkout      página de pagamento da Stripe para assinar um plano
-//   POST /api/assinaturas/portal        portal da Stripe (cartão, faturas, trocar plano, cancelar)
-//   POST /stripe/webhook                avisos da Stripe (sem login; protegido pela assinatura digital)
+//   POST /api/assinaturas/checkout      página do Mercado Pago (Pix, crédito ou débito) para assinar um plano
+//   POST /api/assinaturas/cancelar      cancela a cobrança mensal no cartão (vale até o fim dos dias pagos)
+//   POST /mercadopago/webhook           avisos do Mercado Pago (sem login; tudo é reconsultado na API do MP)
 //   DELETE /api/conta                   exclui a conta de quem está logado (LGPD)
 //   GET  /api/licitacoes/:id/arquivos   documentos publicados no PNCP (edital e anexos)
 //   GET  /api/licitacoes/:id/itens      itens da licitação no PNCP (produtos, quantidades)
@@ -15,13 +15,14 @@
 // A análise roda em segundo plano (pode levar minutos). O POST responde 202 com
 // o id; o front-end acompanha pelo GET ou pelo tempo real do Supabase
 // (tabela analises_edital).
+import { middlewareDePlano } from '../pagamentos/acesso.js';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import * as z from 'zod/v4';
 import { sha256, verificarPdf } from '../ia/documento.js';
 import { ErroAnalise } from '../ia/erros.js';
-import { ErroPagamento } from '../pagamentos/stripe.js';
+import { ErroPagamento } from '../pagamentos/mercadopago.js';
 import { ErroDetalhes } from '../pncp/detalhes.js';
 import { criarLimitador, criarLog } from '../util.js';
 
@@ -29,7 +30,8 @@ const OrganizacaoId = z.uuid({ error: 'organizacao_id inválido.' });
 const PedidoCheckout = z.object({
   organizacao_id: OrganizacaoId,
   plano: z.string({ error: 'Informe o plano.' }).min(1).max(40),
-  ciclo: z.enum(['mensal', 'anual'], { error: 'ciclo deve ser "mensal" ou "anual".' }),
+  // avulso = Pix, crédito ou débito (30 dias); recorrente = cartão de crédito todo mês.
+  forma: z.enum(['avulso', 'recorrente'], { error: 'forma deve ser "avulso" ou "recorrente".' }).default('avulso'),
 });
 const PedidoPortal = z.object({ organizacao_id: OrganizacaoId });
 
@@ -52,7 +54,7 @@ const PedidoAnalise = z
  * @param {ReturnType<import('./repositorio.js').criarRepositorio>} deps.repositorio
  * @param {(entrada: object) => Promise<object>} deps.analisar   ver ia/analisar-edital.js
  * @param {(licitacao: object, opcoes: object) => Promise<{pdf: Buffer, nomeArquivo: string}>} deps.obterEdital
- * @param {ReturnType<import('../pagamentos/stripe.js').criarPagamentos>|null} [deps.pagamentos]  null = assinaturas desligadas
+ * @param {ReturnType<import('../pagamentos/mercadopago.js').criarPagamentos>|null} [deps.pagamentos]  null = assinaturas desligadas
  * @param {ReturnType<import('../pncp/detalhes.js').criarDetalhes>|null} [deps.detalhes]  documentos e itens do PNCP
  * @param {object} [deps.opcoes]
  */
@@ -86,18 +88,22 @@ export function criarApp({ repositorio, analisar, obterEdital, pagamentos = null
 
   app.get('/saude', (c) => c.json({ ok: true, servico: 'licitahub-api' }));
 
-  const semPagamentos = (c) => c.json({ erro: 'As assinaturas ainda não estão configuradas.', codigo: 'stripe_sem_chave' }, 503);
+  const semPagamentos = (c) => c.json({ erro: 'As assinaturas ainda não estão configuradas.', codigo: 'mp_sem_token' }, 503);
 
-  // Avisos da Stripe (pagou, atrasou, cancelou...). Fica fora de /api porque a
-  // Stripe não tem login: a prova de origem é a assinatura digital do aviso.
+  // Avisos do Mercado Pago (pagamento aprovado, assinatura criada/cancelada).
+  // Fica fora de /api porque o Mercado Pago não tem login. O aviso só traz o id:
+  // o servidor consulta o pagamento na API do MP antes de liberar qualquer coisa.
   app.post(
-    '/stripe/webhook',
-    bodyLimit({ maxSize: 1024 * 1024, onError: (c) => c.json({ erro: 'Aviso grande demais.' }, 413) }),
+    '/mercadopago/webhook',
+    bodyLimit({ maxSize: 256 * 1024, onError: (c) => c.json({ erro: 'Aviso grande demais.' }, 413) }),
     async (c) => {
       if (!pagamentos) return semPagamentos(c);
-      const evento = pagamentos.verificarEvento(await c.req.text(), c.req.header('stripe-signature'));
-      const r = await pagamentos.processarEvento(evento);
-      log.info(`Stripe: ${evento.type} -> ${r.ignorado ? `ignorado (${r.ignorado})` : `plano ${r.plano} (${r.status})`}`);
+      const corpo = await c.req.json().catch(() => ({}));
+      const tipo = corpo.type || corpo.topic || c.req.query('type') || c.req.query('topic');
+      const id = String(corpo.data?.id ?? c.req.query('data.id') ?? c.req.query('id') ?? '');
+      pagamentos.verificarAviso({ xSignature: c.req.header('x-signature'), xRequestId: c.req.header('x-request-id'), dataId: c.req.query('data.id') ?? id });
+      const r = await pagamentos.processarAviso({ tipo, id });
+      log.info(`Mercado Pago: ${tipo} ${id} -> ${r.ignorado ? `ignorado (${r.ignorado})` : r.plano ? `plano ${r.plano} até ${String(r.ate).slice(0, 10)}` : `status ${r.status}`}`);
       return c.json({ recebido: true });
     },
   );
@@ -112,6 +118,10 @@ export function criarApp({ repositorio, analisar, obterEdital, pagamentos = null
     c.set('db', repositorio.comoUsuario(token));
     await next();
   });
+
+  // Paywall: Prospecção (/api/licitacoes, /api/pncp) exige Pro; Robô Turbo 2.0
+  // (/api/robo, /api/portais) exige Max. Organização isenta passa sempre.
+  app.use('/api/*', middlewareDePlano());
 
   app.post(
     '/api/editais/analisar',
@@ -234,19 +244,23 @@ export function criarApp({ repositorio, analisar, obterEdital, pagamentos = null
     if (resposta) return resposta;
     const organizacao = await organizacaoGerenciavel(c, pedido.organizacao_id);
     if (!organizacao) return soDonoOuAdmin(c);
+    // Conta isenta nunca é cobrada: já tem acesso a tudo.
+    if (organizacao.isento === true) {
+      return c.json({ erro: 'Sua conta é isenta: você já tem acesso a todos os recursos, sem cobrança.', codigo: 'conta_isenta' }, 409);
+    }
     const r = await pagamentos.criarCheckout({
-      organizacao, usuario: c.get('usuario'), plano: pedido.plano, ciclo: pedido.ciclo,
+      organizacao, usuario: c.get('usuario'), plano: pedido.plano, forma: pedido.forma,
     });
     return c.json(r);
   });
 
-  app.post('/api/assinaturas/portal', async (c) => {
+  app.post('/api/assinaturas/cancelar', async (c) => {
     if (!pagamentos) return semPagamentos(c);
     const { pedido, resposta } = await lerPedido(c, PedidoPortal);
     if (resposta) return resposta;
     const organizacao = await organizacaoGerenciavel(c, pedido.organizacao_id);
     if (!organizacao) return soDonoOuAdmin(c);
-    return c.json(await pagamentos.criarPortal({ organizacao }));
+    return c.json(await pagamentos.cancelar({ organizacao }));
   });
 
   // --- Conta -----------------------------------------------------------------

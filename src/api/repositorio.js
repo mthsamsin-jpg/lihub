@@ -1,5 +1,7 @@
 // Acesso ao banco usado pela API. Fica separado para os testes poderem
 // trocar por uma versão em memória.
+import { nivelDoUsuario } from '../pagamentos/acesso.js';
+import { PLANOS } from '../pagamentos/planos.js';
 import { hojeBrasilia } from '../util.js';
 
 const falhar = (contexto, error) => {
@@ -56,8 +58,15 @@ export function criarRepositorio({ admin, criarClienteDoUsuario }) {
           return data === true;
         },
 
+        /** Nível de acesso (free | pro | max) pelo plano das organizações da pessoa; isenta = max. */
+        async nivelDeAcesso() {
+          const { data, error } = await db.from('organizacoes').select('plano, isento, plano_ate');
+          if (error) falhar('Falha ao verificar o plano', error);
+          return nivelDoUsuario(data ?? []);
+        },
+
         async organizacao(id) {
-          const { data, error } = await db.from('organizacoes').select('id, nome').eq('id', id).maybeSingle();
+          const { data, error } = await db.from('organizacoes').select('id, nome, isento').eq('id', id).maybeSingle();
           if (error) falhar('Falha ao buscar a organização', error);
           return data;
         },
@@ -150,7 +159,7 @@ export function criarRepositorio({ admin, criarClienteDoUsuario }) {
       return data;
     },
 
-    // --- Assinaturas (Stripe). Só o servidor grava; ver src/pagamentos/stripe.js ---
+    // --- Assinaturas (Mercado Pago). Só o servidor grava; ver src/pagamentos/mercadopago.js ---
 
     async assinatura(organizacaoId) {
       const { data, error } = await admin.from('assinaturas').select('*').eq('organizacao_id', organizacaoId).maybeSingle();
@@ -166,25 +175,28 @@ export function criarRepositorio({ admin, criarClienteDoUsuario }) {
       if (error) falhar('Falha ao gravar a assinatura', error);
     },
 
-    async organizacaoDoClienteStripe(clienteId) {
-      if (!clienteId) return null;
-      const { data, error } = await admin
-        .from('assinaturas').select('organizacao_id').eq('stripe_cliente_id', clienteId).maybeSingle();
-      if (error) falhar('Falha ao procurar o cliente da Stripe', error);
-      return data?.organizacao_id ?? null;
-    },
-
     async organizacaoExiste(organizacaoId) {
       const { data, error } = await admin.from('organizacoes').select('id').eq('id', organizacaoId).maybeSingle();
       if (error) falhar('Falha ao verificar a organização', error);
       return Boolean(data);
     },
 
+    /** Planos pagos com prazo vencido voltam ao Free (isentas nunca). Devolve quantas mudaram. */
+    async expirarPlanos() {
+      const { data, error } = await admin
+        .from('organizacoes')
+        .update({ plano: 'gratuito', plano_ate: null, limite_empresas: PLANOS.gratuito.limites.empresas, limite_analises_ia_mes: PLANOS.gratuito.limites.analisesMes })
+        .neq('plano', 'gratuito').eq('isento', false).lt('plano_ate', new Date().toISOString())
+        .select('id');
+      if (error) falhar('Falha ao expirar planos', error);
+      return data?.length ?? 0;
+    },
+
     /** Troca o plano e os limites da organização (o usuário não consegue fazer isso sozinho). */
-    async aplicarPlano(organizacaoId, plano, limites) {
+    async aplicarPlano(organizacaoId, plano, limites, ate = null) {
       const { error } = await admin
         .from('organizacoes')
-        .update({ plano, limite_empresas: limites.empresas, limite_analises_ia_mes: limites.analisesMes })
+        .update({ plano, plano_ate: ate, limite_empresas: limites.empresas, limite_analises_ia_mes: limites.analisesMes })
         .eq('id', organizacaoId);
       if (error) falhar('Falha ao aplicar o plano', error);
     },

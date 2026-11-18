@@ -459,13 +459,13 @@ window.LH = window.LH || {};
       await LH.nuvem.api('/api/conta', { metodo: 'DELETE' });
       await LH.nuvem.sair().catch(() => {});
     },
-    async assinar() {
-      const r = await LH.nuvem.api('/api/assinaturas/checkout', { metodo: 'POST', corpo: { organizacao_id: ctx().organizacao.id, plano: 'starter', ciclo: 'mensal' } });
+    /** forma: 'avulso' (Pix, crédito ou débito: 30 dias) | 'recorrente' (crédito todo mês). */
+    async assinar(plano = 'starter', forma = 'avulso') {
+      const r = await LH.nuvem.api('/api/assinaturas/checkout', { metodo: 'POST', corpo: { organizacao_id: ctx().organizacao.id, plano, forma } });
       return r.url;
     },
-    async portal() {
-      const r = await LH.nuvem.api('/api/assinaturas/portal', { metodo: 'POST', corpo: { organizacao_id: ctx().organizacao.id } });
-      return r.url;
+    async cancelarAssinatura() {
+      return LH.nuvem.api('/api/assinaturas/cancelar', { metodo: 'POST', corpo: { organizacao_id: ctx().organizacao.id } });
     },
     recarregar: () => LH.nuvem.carregarContexto(),
 
@@ -825,7 +825,7 @@ window.LH = window.LH || {};
     },
     async excluirConta() { LH.estado.limparTudo(); },
     assinar: async () => { throw new Error('Na demonstração o pagamento não é aberto. Rode o site pelo servidor (npm run servidor).'); },
-    portal: async () => { throw new Error('Na demonstração o portal da Stripe não é aberto.'); },
+    cancelarAssinatura: async () => { throw new Error('Na demonstração não há assinatura para cancelar.'); },
     recarregar: async () => {},
 
     // Documentos, propostas, radares, eventos e monitoramento no navegador

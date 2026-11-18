@@ -1083,3 +1083,22 @@ body.sem-login .app { display: none; }
 
 /* Botão "Baixar" do edital enquanto o portal do governo responde */
 [data-baixar-edital].baixando { opacity: 0.75; pointer-events: none; cursor: progress; }
+
+/* --- Paywall (planos Free / Pro / Max) --- */
+.paywall { text-align: center; padding: 40px 24px; display: grid; justify-items: center; gap: 12px; max-width: 640px; margin: 0 auto; }
+.paywall__icone { width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center; color: #e9d5ff;
+  background: linear-gradient(160deg, rgba(192, 132, 252, 0.3), rgba(56, 189, 248, 0.15)); border: 1px solid rgba(192, 132, 252, 0.45); }
+.paywall__icone svg { width: 30px; height: 30px; }
+.paywall__planos { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 14px 0; }
+.paywall__plano { display: grid; gap: 4px; padding: 14px; border-radius: 12px; border: 1px solid rgba(148, 197, 255, 0.25); background: rgba(255, 255, 255, 0.03); }
+.paywall__plano span { font-size: 1.15rem; font-weight: 800; color: #e0f2fe; }
+.paywall__plano small { color: #94a3b8; }
+.paywall__plano--destaque { border-color: rgba(192, 132, 252, 0.6); box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.12); }
+.menu__cadeado { margin-left: auto; display: inline-flex; opacity: 0.7; }
+.menu__cadeado svg { width: 14px; height: 14px; }
+.menu__link--bloqueado .menu__texto { opacity: 0.7; }
+
+/* Escolha de plano e forma de pagamento (Mercado Pago) */
+.assinar-plano { display: grid; gap: 8px; padding: 14px; margin: 12px 0; border-radius: 12px; border: 1px solid rgba(148, 197, 255, 0.22); background: rgba(255, 255, 255, 0.03); }
+.assinar-plano--destaque { border-color: rgba(192, 132, 252, 0.55); box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.1); }
+.assinar-plano p { margin: 0; }

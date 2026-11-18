@@ -21,6 +21,7 @@ function montar({ cota = { limite: 10, usadas: 0 }, analisar, detalhes = null } 
   const repositorio = {
     usuarioDoToken: async (token) => (token === 'token-valido' ? USUARIO : null),
     comoUsuario: () => ({
+      nivelDeAcesso: async () => 'pro',
       ehMembro: async (org) => org === ORG,
       licitacao: async (id) => ({
         1: { id: 1, fonte: 'pncp', numero_controle_pncp: '46395000000139-1-000010/2026', orgao_cnpj: '46395000000139',

@@ -135,7 +135,11 @@ create table if not exists public.organizacoes (
   nome                    text not null check (char_length(btrim(nome)) between 1 and 160),
   cnpj                    text check (cnpj is null or public.cnpj_valido(cnpj)),
   plano                   text not null default 'gratuito'
-                            check (plano in ('gratuito', 'starter', 'prime', 'pro')),
+                            check (plano in ('gratuito', 'starter', 'prime', 'pro', 'max')),
+  -- Isenta do paywall: acesso a tudo, sem cobrança, para sempre (contas antigas).
+  isento                  boolean not null default false,
+  -- Fim dos dias pagos no Mercado Pago (30 por pagamento). Vencido = Free.
+  plano_ate               timestamptz,
   limite_empresas         int  not null default 3   check (limite_empresas >= 0),
   limite_analises_ia_mes  int  not null default 10  check (limite_analises_ia_mes >= 0),
   criado_por              uuid references auth.users (id) on delete set null,
@@ -448,13 +452,16 @@ create table if not exists public.assinaturas (
   organizacao_id        uuid primary key references public.organizacoes (id) on delete cascade,
   stripe_cliente_id     text unique,
   stripe_assinatura_id  text unique,
-  plano                 text check (plano is null or plano in ('starter', 'prime', 'pro')),
+  plano                 text check (plano is null or plano in ('starter', 'prime', 'pro', 'max')),
   ciclo                 text check (ciclo is null or ciclo in ('mensal', 'anual')),
   status                text,          -- situação na Stripe: trialing, active, past_due, canceled, unpaid...
   periodo_fim           timestamptz,   -- fim do período pago (data da próxima cobrança)
   teste_fim             timestamptz,
   cancelar_no_fim       boolean not null default false,
   teste_usado           boolean not null default false,  -- teste grátis só uma vez por organização
+  mp_assinatura_id      text unique,   -- Mercado Pago: cobrança mensal no cartão (preapproval)
+  mp_pagamentos         text,          -- ids de pagamento já processados (evita liberar 2x)
+  forma                 text check (forma is null or forma in ('avulso', 'recorrente')),
   criado_em             timestamptz not null default now(),
   atualizado_em         timestamptz not null default now()
 );

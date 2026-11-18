@@ -17,7 +17,7 @@ function lista(nome, padrao = []) {
 
 // Endereço público do site (ex.: https://usolicitahub.com.br), sem barra no fim.
 // É a base de TODOS os links que saem do sistema: confirmação de cadastro,
-// redefinição de senha e volta da Stripe. No computador, cai em localhost.
+// redefinição de senha e volta do Mercado Pago. No computador, cai em localhost.
 const URL_SITE = texto('SITE_URL', `http://localhost:${inteiro('PORTA', 8787)}`).replace(/\/+$/, '');
 
 export const config = {
@@ -68,18 +68,11 @@ export const config = {
     },
   },
 
-  stripe: {
-    // Chave secreta (sk_test_... no modo de teste, sk_live_... no real). SÓ no servidor.
-    chaveSecreta: texto('STRIPE_SECRET_KEY'),
-    // Segredo do webhook (whsec_...): prova que o aviso veio mesmo da Stripe.
-    segredoWebhook: texto('STRIPE_WEBHOOK_SECRET'),
-    // Endereço do site: para onde o cliente volta depois de pagar. O servidor
-    // entrega o site no mesmo endereço da API (src/api/site.js).
-    urlSite: URL_SITE,
-    // Dias de teste grátis nos planos pagos (0 = sem teste). Uma vez por organização.
-    diasTeste: inteiro('STRIPE_DIAS_TESTE', 30),
-    // Formas de pagamento no checkout (ex.: card,boleto). Vazio = as ativadas no painel.
-    formasPagamento: lista('STRIPE_FORMAS_PAGAMENTO', []),
+  mercadoPago: {
+    // Access Token (TEST-... no teste, APP_USR-... no real). SÓ no servidor.
+    token: texto('MP_ACCESS_TOKEN'),
+    // Assinatura secreta dos webhooks (Suas integrações > Webhooks): confere o x-signature.
+    segredoWebhook: texto('MP_WEBHOOK_SECRET'),
   },
 
   pncp: {

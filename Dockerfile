@@ -38,6 +38,6 @@ RUN chown -R pwuser:pwuser /app
 USER pwuser
 
 # O Render informa a porta em PORT; o servidor lê PORTA. As demais variáveis
-# (SUPABASE_*, CREDENCIAIS_CHAVE, STRIPE_*, SITE_URL...) vêm do painel do Render.
+# (SUPABASE_*, CREDENCIAIS_CHAVE, MP_*, SITE_URL...) vêm do painel do Render.
 EXPOSE 8787
 CMD ["sh", "-c", "PORTA=${PORTA:-${PORT:-8787}} exec node src/servidor.js"]
