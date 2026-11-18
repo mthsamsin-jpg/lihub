@@ -43,6 +43,7 @@ window.LH = window.LH || {};
     { etapa: 6, rotulo: 'Disputa', icone: 'chat', filhos: [
       { id: 'comprasnet', rotulo: 'Cadastro Comprasnet' },
       { id: 'chat', rotulo: 'Monitoramento de Chat' },
+      { id: 'robo', rotulo: 'Robô de lances' },
     ] },
     { rotulo: 'Meu Perfil', icone: 'usuario', filhos: [
       { id: 'perfil', rotulo: 'Dados da conta e assinatura' },

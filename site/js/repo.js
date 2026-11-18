@@ -574,7 +574,51 @@ window.LH = window.LH || {};
       }, { onConflict: 'organizacao_id' });
       if (error) throw erroBanco(error, 'Não consegui salvar o monitoramento');
     },
+
+    // --- Robô de lances ---
+    async roboItens() {
+      const { data, error } = await db().from('robo_itens').select('*').eq('organizacao_id', ctx().organizacao.id).order('criado_em');
+      if (error?.code === '42P01' || error?.code === 'PGRST205') throw new Error('Falta a tabela do robô: rode o supabase/atualizar-robo.sql no Supabase.');
+      if (error) throw erroBanco(error, 'Não consegui carregar os itens do robô');
+      return data.map(roboParaTela);
+    },
+    async salvarRoboItem(item) {
+      const linha = roboParaBanco(item);
+      const { data, error } = await (item.id
+        ? db().from('robo_itens').update(linha).eq('id', item.id).select('*').single()
+        : db().from('robo_itens').insert({ ...linha, organizacao_id: ctx().organizacao.id }).select('*').single());
+      if (error) throw erroBanco(error, 'Não consegui salvar o item');
+      return roboParaTela(data);
+    },
+    async roboEstado(id, { status, nossoLance, melhorLance }) {
+      const campos = { bid_status: status };
+      if (nossoLance !== undefined) campos.nosso_lance = nossoLance;
+      if (melhorLance !== undefined) campos.melhor_lance = melhorLance;
+      const { error } = await db().from('robo_itens').update(campos).eq('id', id);
+      if (error) throw erroBanco(error, 'Não consegui gravar o estado do robô');
+    },
+    async excluirRoboItem(id) {
+      const { error } = await db().from('robo_itens').delete().eq('id', id);
+      if (error) throw erroBanco(error, 'Não consegui excluir o item');
+    },
   };
+
+  const numOuNulo = (v) => (v == null || v === '' ? null : Number(v));
+  function roboParaTela(r) {
+    return {
+      id: r.id, descricao: r.descricao, itemNumero: r.item_numero, licitacaoId: r.licitacao_id,
+      teto: numOuNulo(r.max_price), custo: numOuNulo(r.supplier_cost), piso: numOuNulo(r.min_floor_price),
+      decremento: numOuNulo(r.decremento) ?? 0.01, intervaloSeg: r.intervalo_seg ?? 20, status: r.bid_status || 'idle',
+      nossoLance: numOuNulo(r.nosso_lance), melhorLance: numOuNulo(r.melhor_lance),
+    };
+  }
+  function roboParaBanco(i) {
+    return {
+      descricao: i.descricao, item_numero: i.itemNumero || null, licitacao_id: i.licitacaoId || null,
+      max_price: i.teto, supplier_cost: i.custo ?? null, min_floor_price: i.piso,
+      decremento: i.decremento || 0.01, intervalo_seg: i.intervaloSeg ?? 20,
+    };
+  }
 
   /** Proposta do banco -> formato da tela. */
   function propostaParaTela(r) {
@@ -771,6 +815,20 @@ window.LH = window.LH || {};
 
     monitoramento: async () => LH.estado.obter('comprasnet'),
     async salvarMonitoramento(cfg) { LH.estado.salvar('comprasnet', { ...LH.estado.obter('comprasnet'), ...cfg, cnpj: LH.cnpj.limpar(cfg.cnpj) }); },
+
+    // Robô de lances (demonstração: neste navegador)
+    roboItens: async () => LH.estado.obter('robo') || [],
+    async salvarRoboItem(item) {
+      const lista = LH.estado.obter('robo') || [];
+      const salvo = { status: 'idle', nossoLance: null, melhorLance: null, ...item, id: item.id || LH.idNovo('r') };
+      LH.estado.salvar('robo', item.id ? lista.map((i) => (i.id === item.id ? { ...i, ...salvo } : i)) : [...lista, salvo]);
+      return salvo;
+    },
+    async roboEstado(id, campos) {
+      const limpos = Object.fromEntries(Object.entries(campos).filter(([, v]) => v !== undefined));
+      LH.estado.salvar('robo', (LH.estado.obter('robo') || []).map((i) => (i.id === id ? { ...i, ...limpos } : i)));
+    },
+    async excluirRoboItem(id) { LH.estado.salvar('robo', (LH.estado.obter('robo') || []).filter((i) => i.id !== id)); },
   };
 
   LH.repos = { real, demo };

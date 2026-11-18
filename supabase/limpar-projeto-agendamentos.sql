@@ -55,7 +55,7 @@ begin
   -- 3. Visões e tabelas do LicitaHub (as do agendamentos não estão na lista)
   drop view if exists public.vw_crm_cards, public.vw_consentimentos_atuais;
   drop table if exists
-    public.documentos, public.propostas, public.radares, public.eventos, public.monitoramentos,
+    public.robo_itens, public.documentos, public.propostas, public.radares, public.eventos, public.monitoramentos,
     public.crm_cards, public.favoritos, public.licitacao_observacoes, public.analises_edital, public.licitacao_itens,
     public.kanban_etapas, public.empresas, public.consentimentos, public.assinaturas,
     public.sync_execucoes, public.membros, public.perfis, public.licitacoes, public.organizacoes;
@@ -69,7 +69,7 @@ begin
     'public.limpar_licitacoes_antigas(int)', 'public.validar_card()', 'public.verificar_limite_empresas()',
     'public.proteger_ultimo_dono()', 'public.ao_excluir_usuario()', 'public.ao_criar_usuario()',
     'public.ao_criar_organizacao()', 'public.normalizar_cnpj()', 'public.compartilha_organizacao(uuid)',
-    'public.tem_papel(uuid, text[])', 'public.eh_membro(uuid)', 'public.tocar_atualizado_em()',
+    'public.tem_papel(uuid, text[])', 'public.eh_membro(uuid)', 'public.tocar_atualizado_em()', 'public.robo_conferir_lance()',
     'public.uuid_ou_nulo(text)', 'public.cnpj_valido(text)', 'public.cnpj_limpo(text)'
   ] loop
     begin

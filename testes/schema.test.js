@@ -242,6 +242,25 @@ test('Storage: PDF só entra na pasta da própria organização', async () => {
     /row-level security/);
 });
 
+test('robô de lances: travas do piso no banco e itens só da própria organização', async () => {
+  const r = await como(ids.a, `insert into public.robo_itens (organizacao_id, descricao, max_price, supplier_cost, min_floor_price)
+    values ($1, 'Item 1 - Notebook', 5000, 3800, 4200) returning id`, [ids.orgA]);
+  const id = r.rows[0].id;
+  await como(ids.a, `update public.robo_itens set nosso_lance = 4200, bid_status = 'running' where id = $1`, [id]);
+  await assert.rejects(como(ids.a, `update public.robo_itens set nosso_lance = 4199.99 where id = $1`, [id]), /Lance de 4199.99 bloqueado/);
+  await assert.rejects(como(ids.a, `update public.robo_itens set nosso_lance = 5000.01 where id = $1`, [id]), /bloqueado/);
+  // subir o piso depois de um lance é permitido (o lance antigo não muda)
+  await como(ids.a, `update public.robo_itens set min_floor_price = 4500 where id = $1`, [id]);
+  await assert.rejects(como(ids.a, `update public.robo_itens set min_floor_price = 3700 where id = $1`, [id]), /robo_itens_piso_custo/);
+  await assert.rejects(como(ids.a, `update public.robo_itens set min_floor_price = 5100 where id = $1`, [id]), /robo_itens_piso_teto/);
+  await assert.rejects(como(ids.a, `update public.robo_itens set bid_status = 'xx' where id = $1`, [id]), /check constraint/);
+  const doBeto = await como(ids.b, `select id from public.robo_itens`);
+  assert.equal(doBeto.rows.length, 0, 'outra organização não vê o item');
+  await assert.rejects(
+    como(ids.b, `insert into public.robo_itens (organizacao_id, descricao, max_price, min_floor_price) values ($1, 'x', 10, 5)`, [ids.orgA]),
+    /row-level security/);
+});
+
 test('observações: cada usuário vê e edita só as próprias', async () => {
   const salvar = (u, texto) => como(u, `insert into public.licitacao_observacoes (licitacao_id, texto) values ($1, $2)
     on conflict (user_id, licitacao_id) do update set texto = excluded.texto`, [ids.licPncp, texto]);

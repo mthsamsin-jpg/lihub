@@ -13,6 +13,7 @@ const TABELAS = [
   'organizacoes', 'perfis', 'membros', 'empresas', 'licitacoes', 'licitacao_itens',
   'favoritos', 'kanban_etapas', 'crm_cards', 'analises_edital', 'consentimentos', 'sync_execucoes',
   'assinaturas', 'documentos', 'propostas', 'radares', 'eventos', 'monitoramentos',
+  'licitacao_observacoes', 'robo_itens',
 ];
 const TABELA_INEXISTENTE = new Set(['PGRST205', '42P01']);
 const SEM_PERMISSAO = '42501';

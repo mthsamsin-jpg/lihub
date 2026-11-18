@@ -185,6 +185,10 @@ window.LH = window.LH || {};
   // --- Padrões do que o usuário pode editar (ficam salvos no navegador) -------------
   const padroes = {
     favoritos: [1001, 1004, 1009, 1011, 1017],
+    robo: [
+      { id: 'r1', descricao: 'Item 1 · Notebook 15,6" i5, 16 GB, SSD 512 GB', itemNumero: 1, teto: 4890, custo: 3720, piso: 4150, decremento: 0.01, intervaloSeg: 20, status: 'idle', nossoLance: null, melhorLance: null },
+      { id: 'r2', descricao: 'Item 3 · Monitor 24" Full HD', itemNumero: 3, teto: 1180, custo: 860, piso: 990, decremento: 0.05, intervaloSeg: 20, status: 'idle', nossoLance: null, melhorLance: null },
+    ],
     crm: crmPadrao,
     documentos: documentosPadrao,
     eventos: [],
