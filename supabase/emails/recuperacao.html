@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Criar uma senha nova no Uso LicitaHub</title></head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;">
+        <tr><td style="padding:28px 28px 8px;">
+          <p style="margin:0 0 4px;font-size:13px;color:#0284c7;font-weight:bold;">Uso LicitaHub</p>
+          <h1 style="margin:0 0 16px;font-size:20px;line-height:1.3;color:#111827;">Criar uma senha nova</h1>
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">Olá,</p>
+          <p style="margin:0 0 20px;font-size:15px;line-height:1.6;">Recebemos um pedido para trocar a senha da conta <strong>{{ .Email }}</strong> no Uso LicitaHub. Para criar a senha nova, use o botão abaixo:</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;"><tr><td style="border-radius:8px;background:#0284c7;">
+            <a href="{{ .SiteURL }}/app.html?token_hash={{ .TokenHash }}&amp;type=recovery" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:8px;">Criar senha nova</a>
+          </td></tr></table>
+          <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#4b5563;">Se o botão não abrir, copie e cole este endereço no navegador:</p>
+          <p style="margin:0 0 20px;font-size:12px;line-height:1.5;word-break:break-all;color:#0369a1;">{{ .SiteURL }}/app.html?token_hash={{ .TokenHash }}&amp;type=recovery</p>
+          <p style="margin:0 0 20px;font-size:13px;line-height:1.6;color:#4b5563;">Se não foi você que pediu, ignore esta mensagem: a senha atual continua valendo.</p>
+        </td></tr>
+        <tr><td style="padding:16px 28px 24px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;font-size:12px;line-height:1.6;color:#6b7280;">Uso LicitaHub · licitações públicas num lugar só · <a href="{{ .SiteURL }}" style="color:#6b7280;">usolicitahub.com.br</a><br>Esta é uma mensagem automática enviada a pedido de quem usa esta conta.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

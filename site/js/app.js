@@ -326,6 +326,9 @@ window.LH = window.LH || {};
     document.body.classList.toggle('modo-demo', !ligado);
     if (ligado && !LH.nuvem.usuario) LH.acesso.mostrar('', pedido.aba);
     else LH.iniciarApp();
+    // Volta do link do e-mail (confirmação de cadastro ou senha nova).
+    if (LH.nuvem.erroLink) LH.aviso(LH.nuvem.erroLink, 'perigo', 9000);
+    else if (LH.nuvem.linkConfirmado) LH.aviso('E-mail confirmado. Bem-vindo ao Uso LicitaHub!', 'sucesso', 6000);
   }
 
   iniciar();

@@ -59,8 +59,12 @@ Ainda com dados de exemplo, porque dependem de uma fonte externa (próxima etapa
    Sem isso, o link de confirmação do cadastro e o de recuperar a senha levam para um endereço
    errado. No ar (Render), use `https://usolicitahub.com.br` em **Site URL**, adicione
    `https://usolicitahub.com.br/**` em **Redirect URLs** e defina `SITE_URL=https://usolicitahub.com.br`
-   nas variáveis do Render: o site monta os links de cadastro, senha e Stripe a partir dela. O e-mail embutido do Supabase envia poucas
-   mensagens por hora; para clientes, configure um SMTP próprio em Authentication > Emails.
+   nas variáveis do Render: o site monta os links de cadastro, senha e Stripe a partir dela.
+3. **E-mails fora do spam:** o e-mail embutido do Supabase usa um remetente genérico e cai no spam.
+   O domínio já tem SPF, DKIM e DMARC do Resend no DNS. Ponha `RESEND_API_KEY` e
+   `SUPABASE_ACCESS_TOKEN` no `.env` e rode `npm run email:configurar -- --aplicar`: o Supabase
+   passa a enviar pelo Resend como `Uso LicitaHub <nao-responda@usolicitahub.com.br>`, com os
+   modelos em português de `supabase/emails/`.
 
 O site tem as 17 categorias do menu e as subcategorias:
 

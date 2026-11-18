@@ -17,7 +17,8 @@
     "stripe:configurar": "node --env-file=.env scripts/stripe-configurar.js",
     "stripe:verificar": "node --env-file=.env scripts/stripe-verificar.js",
     "test": "node --test \"testes/*.test.js\"",
-    "mapear": "node worker/mapear-portal.js"
+    "mapear": "node worker/mapear-portal.js",
+    "email:configurar": "node --env-file=.env scripts/configurar-email.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",

@@ -64,6 +64,19 @@ window.LH = window.LH || {};
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
       });
       N.ativa = true;
+      // Link dos e-mails (confirmação e senha nova): aponta para o próprio domínio do site
+      // (/app.html?token_hash=...&type=...), e não para o supabase.co, o que ajuda a não cair
+      // no spam. Aqui o site confirma o código e limpa o endereço.
+      const pedidoLink = new URLSearchParams(location.search);
+      const tokenHash = pedidoLink.get('token_hash');
+      const tipoLink = pedidoLink.get('type');
+      if (tokenHash && ['email', 'signup', 'recovery', 'email_change', 'invite', 'magiclink'].includes(tipoLink)) {
+        const { error } = await N.cliente.auth.verifyOtp({ token_hash: tokenHash, type: tipoLink });
+        history.replaceState(null, '', location.pathname + location.hash);
+        if (error) N.erroLink = /expired|invalid/i.test(error.message) ? 'Este link já foi usado ou expirou. Peça um novo.' : `Não consegui confirmar o link: ${error.message}`;
+        else if (tipoLink === 'recovery') setTimeout(() => LH.acesso?.novaSenha(), 0);
+        else N.linkConfirmado = true;
+      }
       const { data } = await N.cliente.auth.getSession();
       N.usuario = data.session?.user ?? null;
       if (N.usuario) await N.carregarContexto();
