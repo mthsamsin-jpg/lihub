@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · Funções com IA
+   Uso LicitaHub · Funções com IA
    Leitor de Edital IA (no modo real: POST /api/editais/analisar e acompanhamento
    até concluir), Dossiê Jurídico IA e Cotação Online IA (Beta).
    O resultado do Leitor segue o formato da análise real do servidor (src/ia).

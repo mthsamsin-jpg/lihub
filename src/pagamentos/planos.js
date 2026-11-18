@@ -1,4 +1,4 @@
-// Planos do LicitaHub: nomes, limites e preços.
+// Planos do Uso LicitaHub: nomes, limites e preços.
 //
 // Decisão do dono (15/11/2026): UM plano pago, de R$ 97 por mês.
 // Os limites ainda são provisórios. Depois de mudar um preço aqui, rode

@@ -1,4 +1,4 @@
-// API HTTP do LicitaHub (Hono). Rotas:
+// API HTTP do Uso LicitaHub (Hono). Rotas:
 //   GET  /saude                         verificação simples (sem login)
 //   POST /api/editais/analisar          inicia a leitura de um edital pela IA
 //   GET  /api/editais/analises/:id      consulta o andamento/resultado

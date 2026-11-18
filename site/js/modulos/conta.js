@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · Conta
+   Uso LicitaHub · Conta
    Sua empresa, Meu Perfil (dados da conta e assinatura) e Ajuda
    (perguntas frequentes, tutoriais, suporte e textos legais).
    No modo real: empresas e perfil no Supabase; assinatura pela Stripe.
@@ -281,9 +281,9 @@ LH.vistas = LH.vistas || {};
     ['Quantas empresas posso cadastrar?', 'No plano Completo, até 10 empresas. No gratuito, até 3.'],
     ['Vocês pedem a minha senha do gov.br?', 'Não. O monitoramento do chat usa só as informações públicas da sessão. Nunca peça nem passe a sua senha.'],
     ['Meus dados estão seguros?', 'Sim. Cada organização só vê os próprios dados, os acessos são protegidos e você pode baixar ou apagar seus dados a qualquer momento (LGPD).'],
-    ['Posso emitir nota fiscal pelo LicitaHub?', 'Ainda não. A cobrança da assinatura é feita pela Stripe; a nota fiscal do serviço é emitida à parte.'],
+    ['Posso emitir nota fiscal pelo Uso LicitaHub?', 'Ainda não. A cobrança da assinatura é feita pela Stripe; a nota fiscal do serviço é emitida à parte.'],
   ];
-  const TUTORIAIS = ['Primeiros passos no LicitaHub', 'Lendo um edital com a IA', 'Montando a proposta em 5 minutos', 'Organizando o CRM do licitante'];
+  const TUTORIAIS = ['Primeiros passos no Uso LicitaHub', 'Lendo um edital com a IA', 'Montando a proposta em 5 minutos', 'Organizando o CRM do licitante'];
 
   LH.vistas.ajuda = {
     titulo: 'Ajuda',

@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · landing.js
+   Uso LicitaHub · landing.js
    Página de apresentação (index.html): ícones, animações ao rolar, brilho que
    segue o mouse (de nucleo.js), menu do celular, textos legais e o atalho
    "Ir para o painel" para quem já entrou. Os botões de ação levam ao painel

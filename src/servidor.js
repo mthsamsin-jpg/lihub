@@ -1,4 +1,4 @@
-// Servidor do LicitaHub: API de análise de editais (Claude) + sincronização
+// Servidor do Uso LicitaHub: API de análise de editais (Claude) + sincronização
 // automática com o PNCP. Rode com: npm run servidor
 import { serve } from '@hono/node-server';
 import { criarApp } from './api/app.js';
@@ -72,13 +72,13 @@ if (process.env.RENDER && /localhost|127\.0\.0\.1/.test(config.site.url)) {
 }
 
 const servidor = serve({ fetch: app.fetch, port: config.servidor.porta }, (info) => {
-  log.info(`Site do LicitaHub em http://localhost:${info.port}  (API em /api, teste: /saude)`);
+  log.info(`Site do Uso LicitaHub em http://localhost:${info.port}  (API em /api, teste: /saude)`);
   log.info(`Endereço público (SITE_URL), usado nos e-mails e na Stripe: ${config.site.url}`);
   log.info(`Origens liberadas (CORS): ${config.servidor.origens.join(', ')}`);
 });
 servidor.on('error', (erro) => {
   if (erro.code === 'EADDRINUSE') {
-    log.erro(`A porta ${config.servidor.porta} já está em uso: o LicitaHub provavelmente já está aberto em outra janela. `
+    log.erro(`A porta ${config.servidor.porta} já está em uso: o Uso LicitaHub provavelmente já está aberto em outra janela. `
       + 'Use a janela que já está aberta (http://localhost:' + config.servidor.porta + ') ou feche-a antes de abrir de novo.');
     process.exit(1);
   }

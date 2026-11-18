@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · Agenda
+   Uso LicitaHub · Agenda
    Calendário (mensal, com eventos por dia) e Gestor de documentos
    (certidões, vencimentos e arquivos). No modo real, tudo fica no banco
    (tabelas eventos e documentos, pasta privada "documentos").

@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · dados.js
+   Uso LicitaHub · dados.js
    DADOS DE EXEMPLO para a demonstração do front-end, mais o armazenamento local
    (o que o usuário cadastra fica salvo no navegador).
    Na versão ligada ao sistema, estas listas vêm do Supabase e da API.

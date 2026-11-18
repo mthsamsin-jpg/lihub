@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · Propostas e declarações
+   Uso LicitaHub · Propostas e declarações
    Gerador de proposta (Criar proposta / Minhas propostas; no modo real, tabela
    propostas) e Gerador de declarações (modelos da Lei nº 14.133/2021).
    ============================================================================= */
@@ -9,7 +9,7 @@ LH.vistas = LH.vistas || {};
 (function () {
   const { esc, icone, fmt } = LH;
   const STATUS = ['Rascunho', 'Enviada', 'Em análise', 'Aceita', 'Recusada'];
-  const AVISO_RESPONSABILIDADE = `<p class="nota nota--alerta nao-imprimir">${icone('alerta')} Revise a proposta e o edital antes de enviar. O LicitaHub ajuda a montar o documento, mas a responsabilidade final pela proposta é sua.</p>`;
+  const AVISO_RESPONSABILIDADE = `<p class="nota nota--alerta nao-imprimir">${icone('alerta')} Revise a proposta e o edital antes de enviar. O Uso LicitaHub ajuda a montar o documento, mas a responsabilidade final pela proposta é sua.</p>`;
 
   const empresa = () => LH.repo.empresaPerfil();
   const numeroCurto = (n) => String(n ?? '').split(' ').pop();

@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · acesso.js
+   Uso LicitaHub · acesso.js
    Telas de Entrar, Criar conta e Recuperar senha (Supabase Auth).
    Só aparecem quando o site está ligado ao servidor (LH.nuvem.ativa).
    ============================================================================= */
@@ -9,7 +9,7 @@ window.LH = window.LH || {};
   const { esc, icone } = LH;
   let caixa = null;
 
-  const LOGO = `<span class="logo"><span class="logo__marca" aria-hidden="true"><svg viewBox="0 0 32 32" width="34" height="34"><defs><linearGradient id="logo-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0284c7"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#logo-a)"/><path d="M9 22V10h3v9h6v3z" fill="#040b16"/><circle cx="22" cy="11" r="3" fill="#040b16"/></svg></span><span class="logo__nome">Licita<b>Hub</b></span></span>`;
+  const LOGO = `<span class="logo"><span class="logo__marca" aria-hidden="true"><svg viewBox="0 0 32 32" width="34" height="34"><defs><linearGradient id="logo-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0284c7"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#logo-a)"/><path d="M6 9h3.2v8.5a2.8 2.8 0 0 0 5.6 0V9H18v8.5a6 6 0 0 1-12 0z" fill="#040b16"/><path d="M20 9h3.2v11.3H27V23h-7z" fill="#040b16"/></svg></span><span class="logo__nome">Uso Licita<b>Hub</b></span></span>`;
 
   const formularios = {
     entrar: () => `
@@ -80,7 +80,7 @@ window.LH = window.LH || {};
           return;
         }
         LH.acesso.esconder();
-        LH.aviso('Conta criada. Bem-vindo ao LicitaHub!', 'sucesso');
+        LH.aviso('Conta criada. Bem-vindo ao Uso LicitaHub!', 'sucesso');
         return;
       }
       if (form.dataset.form === 'recuperar') {

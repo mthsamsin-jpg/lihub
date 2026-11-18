@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · Home (visão geral)
+   Uso LicitaHub · Home (visão geral)
    Banner com o plano (card minimalista + vidro sobreposto), 4 indicadores,
    calendário de licitações e vencimentos de documentos.
    No modo real, indicadores e calendário vêm do banco (LH.repo).
@@ -17,7 +17,7 @@ LH.vistas = LH.vistas || {};
       <div class="destaque__card spot" data-reveal="escala">
         <span class="destaque__rotulo">${icone('brilho')} Inteligência artificial para editais</span>
         <h1 id="destaque-titulo">Leia editais em minutos, <span class="destaque-texto">não em horas</span>.</h1>
-        <p>O LicitaHub encontra as licitações certas para a sua empresa, lê o edital com IA e organiza prazos, documentos e propostas num só lugar.</p>
+        <p>O Uso LicitaHub encontra as licitações certas para a sua empresa, lê o edital com IA e organiza prazos, documentos e propostas num só lugar.</p>
         <ul class="destaque__beneficios">
           <li>${icone('check')} Resumo, prazos e exigências de habilitação</li>
           <li>${icone('check')} Riscos e divergências apontados no edital</li>

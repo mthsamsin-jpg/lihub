@@ -1,4 +1,4 @@
-# LicitaHub — Etapa 1: base do back-end
+# Uso LicitaHub — Etapa 1: base do back-end
 
 SaaS de gestão e inteligência em licitações públicas. Esta etapa entrega a fundação
 que o site vai usar:
@@ -47,7 +47,7 @@ Ainda com dados de exemplo, porque dependem de uma fonte externa (próxima etapa
 - Pesquisa de Preço: precisa dos preços praticados em compras públicas;
 - Cotação Online: precisa de fornecedores.
 
-**Dois ajustes no Supabase (painel do projeto LicitaHub):**
+**Dois ajustes no Supabase (painel do projeto Uso LicitaHub):**
 1. Rode o `supabase/schema.sql` de novo. Ele cria a coluna `dados` da tabela `empresas`, e
    `npm run verificar` avisa se ela faltar.
    Desde a busca regional do Radar (nov/2026), ele também cria a coluna `municipios` dos radares
@@ -126,13 +126,13 @@ Prévias prontas, sem precisar rodar nada:
 
 ## Passo a passo para colocar no ar
 
-1. **Supabase** — crie um projeto em https://supabase.com **só para o LicitaHub** (não
+1. **Supabase** — crie um projeto em https://supabase.com **só para o Uso LicitaHub** (não
    reaproveite o projeto de outro sistema: os dois dividiriam usuários e limites).
    Escolha a região **South America (São Paulo)**, para manter os dados no Brasil.
 2. No painel do projeto, abra **SQL Editor**, cole todo o conteúdo de
    `supabase/schema.sql` e clique em **Run**. Se aparecer um aviso de "destructive operation",
    confirme em **Run this query**: são comandos `drop ... if exists` que só recriam as regras do
-   próprio LicitaHub. Pode rodar de novo depois: o script não apaga dados.
+   próprio Uso LicitaHub. Pode rodar de novo depois: o script não apaga dados.
 3. Em **Project Settings > API Keys**, copie a URL, a chave *publishable* e a chave *secret*.
 4. **Gemini** — em https://aistudio.google.com clique em **Get API key** e crie a chave (grátis).
 5. Preencha as chaves no arquivo `.env`. Ele já existe; o modelo é o `.env.exemplo`.
@@ -349,7 +349,7 @@ Antes de lançar, confirme com um advogado:
 ## Assinaturas (Stripe)
 
 O cliente paga numa página da própria Stripe: o número do cartão nunca passa pelo
-LicitaHub. O dinheiro cai na conta Stripe de quem a abriu (CPF ou CNPJ) e vai para a
+Uso LicitaHub. O dinheiro cai na conta Stripe de quem a abriu (CPF ou CNPJ) e vai para a
 conta bancária do mesmo CPF/CNPJ.
 
 **Como funciona**

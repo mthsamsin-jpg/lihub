@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · Licitações
+   Uso LicitaHub · Licitações
    Buscar Licitações, Radar de Licitações, Petronect (Beta) e Licitações favoritas.
    No modo real, a busca usa a função buscar_licitacoes do banco (PNCP).
    ============================================================================= */
@@ -56,7 +56,7 @@ LH.vistas = LH.vistas || {};
             ${plataformasTodas().map(([chave, nome]) => `
             <label class="plataforma"><input type="checkbox" name="plataformas" value="${esc(chave)}" checked><span>${esc(nome)}</span></label>`).join('')}
           </div>
-          <p class="fraco plataformas__nota">${icone('info')} Todos são portais oficiais. Cada um publica no PNCP (Lei 14.133/2021), e o LicitaHub reúne tudo pela API do PNCP.</p>
+          <p class="fraco plataformas__nota">${icone('info')} Todos são portais oficiais. Cada um publica no PNCP (Lei 14.133/2021), e o Uso LicitaHub reúne tudo pela API do PNCP.</p>
         </fieldset>
 
         <div class="busca-avancada__linha busca-avancada__linha--fim">
@@ -629,7 +629,7 @@ LH.vistas = LH.vistas || {};
         if (acao === 'computador') {
           if (!('Notification' in window)) return LH.aviso('Este navegador não mostra alertas no computador.', 'alerta');
           const ok = (await Notification.requestPermission()) === 'granted';
-          if (ok) LH.notificar('LicitaHub', 'Pronto! Os alertas do Radar vão aparecer assim no seu computador.');
+          if (ok) LH.notificar('Uso LicitaHub', 'Pronto! Os alertas do Radar vão aparecer assim no seu computador.');
           LH.aviso(ok ? 'Alertas no computador ligados.' : 'O navegador não deu permissão para alertas.', ok ? 'sucesso' : 'alerta');
         }
       });

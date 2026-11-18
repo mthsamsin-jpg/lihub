@@ -1,4 +1,4 @@
-// Confere se o Supabase está pronto para o LicitaHub e mostra o que falta.
+// Confere se o Supabase está pronto para o Uso LicitaHub e mostra o que falta.
 //
 //   npm run verificar                -> chaves, conexão, tabelas, segurança e catálogo
 //   npm run verificar -- --completo  -> também cria um usuário de teste temporário
@@ -135,13 +135,13 @@ async function verificarEstrutura(admin, visitante) {
     else falha(`Tabela ${tabela}: ${error.message}`);
   }
   if (faltam.length === TABELAS.length) {
-    falha('O banco ainda não tem as tabelas do LicitaHub.');
+    falha('O banco ainda não tem as tabelas do Uso LicitaHub.');
     nota('Rode o arquivo supabase/schema.sql no SQL Editor do Supabase e depois: npm run verificar');
     encerrar();
   }
   if (faltam.length) falha(`Faltam tabelas: ${faltam.join(', ')}. Rode o supabase/schema.sql de novo.`);
   if (semPermissao.length) falha(`O sistema não tem permissão em: ${semPermissao.join(', ')}. Rode o supabase/schema.sql de novo.`);
-  if (!faltam.length && !semPermissao.length) ok(`As ${TABELAS.length} tabelas do LicitaHub`);
+  if (!faltam.length && !semPermissao.length) ok(`As ${TABELAS.length} tabelas do Uso LicitaHub`);
 
   // Colunas adicionadas depois da primeira versão do schema.sql
   if (!faltam.includes('empresas')) {
@@ -175,7 +175,7 @@ async function verificarCadastro(admin) {
     password: senha,
     email_confirm: true,
     user_metadata: {
-      nome: 'Verificação LicitaHub', empresa: 'Organização de teste',
+      nome: 'Verificação Uso LicitaHub', empresa: 'Organização de teste',
       versao_termos: 'verificacao', versao_privacidade: 'verificacao', aceita_marketing: false,
     },
   });
@@ -245,7 +245,7 @@ async function mostrarCatalogo(admin) {
   }
 }
 
-console.log('\nVerificando o Supabase do LicitaHub...\n');
+console.log('\nVerificando o Supabase do Uso LicitaHub...\n');
 await verificarChaves();
 const admin = createClient(config.supabase.url, config.supabase.chaveSecreta, semSessao);
 const visitante = createClient(config.supabase.url, config.supabase.chavePublica, semSessao);

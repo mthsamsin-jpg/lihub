@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · componentes.js
+   Uso LicitaHub · componentes.js
    Peças de interface usadas por vários módulos: cabeçalho de página, estado
    vazio, card de licitação (com favoritar / IA / CRM), situação de documentos
    e o calendário interativo.

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Cria ou atualiza na Stripe os produtos e preços dos planos do LicitaHub
+// Cria ou atualiza na Stripe os produtos e preços dos planos do Uso LicitaHub
 // (src/pagamentos/planos.js) e o portal do assinante. Pode rodar quantas vezes
 // quiser: só cria o que falta ou o que mudou.
 //
@@ -32,7 +32,7 @@ try {
     console.log('  ! A conta ainda não pode receber pagamentos de verdade: termine a ativação no painel da Stripe.\n');
   }
 
-  // Produtos do LicitaHub já existentes (marcados pelo metadado licitahub_plano).
+  // Produtos do Uso LicitaHub já existentes (marcados pelo metadado licitahub_plano).
   const produtos = new Map();
   for await (const produto of stripe.products.list({ limit: 100 })) {
     if (produto.metadata?.licitahub_plano) produtos.set(produto.metadata.licitahub_plano, produto);
@@ -41,7 +41,7 @@ try {
   const paraOPortal = [];
   for (const id of planosPagos()) {
     const plano = PLANOS[id];
-    const nome = `LicitaHub ${plano.nome}`;
+    const nome = `Uso LicitaHub ${plano.nome}`;
     const descricao = `Até ${plano.limites.empresas} empresas e ${plano.limites.analisesMes} leituras de edital por IA por mês.`;
 
     let produto = produtos.get(id);

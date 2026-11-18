@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Confere a integração com a Stripe de verdade, no MODO DE TESTE (dinheiro de
-// mentira), fazendo o caminho de um cliente pela API do LicitaHub:
+// mentira), fazendo o caminho de um cliente pela API do Uso LicitaHub:
 //   preço do plano -> página de pagamento -> portal do assinante -> assinatura paga
 //   -> aviso da Stripe (webhook) chega ao servidor -> plano liberado
 //   -> cancelamento -> plano volta ao gratuito
@@ -124,7 +124,7 @@ async function esperar(condicao, ms = ESPERA_AVISO_MS, intervalo = 1000) {
 // gravados pelo servidor) e a limpeza do que o teste criou.
 
 function ambienteNaMemoria() {
-  const organizacao = { id: randomUUID(), nome: 'Teste automático do LicitaHub' };
+  const organizacao = { id: randomUUID(), nome: 'Teste automático do Uso LicitaHub' };
   const usuario = { id: randomUUID(), email: 'teste.automatico@example.com' };
   const token = randomBytes(16).toString('hex');
   let assinatura = null;
@@ -217,7 +217,7 @@ async function ambienteNoSupabase() {
   }
 }
 
-/** Chama a API do LicitaHub logado como o usuário de teste. */
+/** Chama a API do Uso LicitaHub logado como o usuário de teste. */
 async function chamarApi(porta, caminho, token, corpo) {
   const r = await fetch(`http://127.0.0.1:${porta}${caminho}`, {
     method: 'POST',
@@ -236,15 +236,15 @@ function paginasProvisorias() {
   const textos = {
     '/assinatura/sucesso': ['Pagamento de teste concluído ✔', 'Pode voltar ao chat: o teste confere o resto sozinho.'],
     '/precos': ['Pagamento cancelado', 'Você saiu da página de pagamento sem pagar.'],
-    '/painel': ['Painel do LicitaHub', 'Você voltou do portal do assinante.'],
+    '/painel': ['Painel do Uso LicitaHub', 'Você voltou do portal do assinante.'],
   };
   const paginas = createServer((pedido, resposta) => {
-    const [titulo, texto] = textos[new URL(pedido.url, site).pathname] ?? ['LicitaHub', ''];
+    const [titulo, texto] = textos[new URL(pedido.url, site).pathname] ?? ['Uso LicitaHub', ''];
     resposta.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     resposta.end(`<!doctype html><meta charset="utf-8"><title>${titulo}</title>`
       + '<body style="font-family:system-ui,sans-serif;max-width:560px;margin:15vh auto;padding:0 16px">'
       + `<h1>${titulo}</h1><p>${texto}</p>`
-      + '<p style="color:#777">Página provisória: o site do LicitaHub ainda vai ser feito.</p></body>');
+      + '<p style="color:#777">Página provisória: o site do Uso LicitaHub ainda vai ser feito.</p></body>');
   });
   return new Promise((resolve) => {
     paginas.once('error', () => resolve(null)); // porta ocupada: segue sem as páginas
@@ -258,7 +258,7 @@ const stripe = clienteStripe();
 const [planoTeste] = planosPagos();
 const [cicloTeste] = Object.keys(PLANOS[planoTeste].precos);
 const nomePlano = PLANOS[planoTeste].nome;
-console.log(`\nVerificando a Stripe do LicitaHub (modo de teste, dinheiro de mentira${comSupabase ? ', com o Supabase de verdade' : ''})...\n`);
+console.log(`\nVerificando a Stripe do Uso LicitaHub (modo de teste, dinheiro de mentira${comSupabase ? ', com o Supabase de verdade' : ''})...\n`);
 
 const precos = new Map();
 try {
@@ -272,7 +272,7 @@ try {
       if (!preco) {
         falha(`${nome}: não está na Stripe. Rode: npm run stripe:configurar`);
       } else if (preco.unit_amount !== valor || preco.currency !== 'brl') {
-        falha(`${nome}: na Stripe está ${reais(preco.unit_amount)}, o LicitaHub espera ${reais(valor)}. Rode: npm run stripe:configurar`);
+        falha(`${nome}: na Stripe está ${reais(preco.unit_amount)}, o Uso LicitaHub espera ${reais(valor)}. Rode: npm run stripe:configurar`);
       } else {
         ok(`${nome}: ${reais(valor)}`);
         precos.set(chavePreco(id, ciclo), preco);

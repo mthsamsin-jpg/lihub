@@ -29,7 +29,7 @@ export class ErroPagamento extends Error {
 const LIBERAM_PLANO = new Set(['trialing', 'active', 'past_due']);
 const EM_ANDAMENTO = new Set([...LIBERAM_PLANO, 'incomplete']);
 
-/** Avisos (webhooks) que o LicitaHub trata. No painel da Stripe, cadastre exatamente estes. */
+/** Avisos (webhooks) que o Uso LicitaHub trata. No painel da Stripe, cadastre exatamente estes. */
 export const EVENTOS_STRIPE = [
   'checkout.session.completed', 'checkout.session.async_payment_succeeded',
   'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted',
@@ -46,7 +46,7 @@ export function clienteStripe(chave = config.stripe.chaveSecreta) {
       status: 503, codigo: 'stripe_sem_chave',
     });
   }
-  return new Stripe(chave, { maxNetworkRetries: 2, appInfo: { name: 'LicitaHub' } });
+  return new Stripe(chave, { maxNetworkRetries: 2, appInfo: { name: 'Uso LicitaHub' } });
 }
 
 /** "teste" (dinheiro de mentira), "real" ou null, conforme o início da chave. */
@@ -204,7 +204,7 @@ export function criarPagamentos({ stripe, repositorio, opcoes = {}, log }) {
       organizacaoId ??= sub.metadata?.organizacao_id
         ?? (await repositorio.organizacaoDoClienteStripe(resumo.stripe_cliente_id));
       if (!organizacaoId || !(await repositorio.organizacaoExiste(organizacaoId))) {
-        log?.aviso(`Stripe: assinatura ${sub.id} sem organização no LicitaHub (${evento.type}).`);
+        log?.aviso(`Stripe: assinatura ${sub.id} sem organização no Uso LicitaHub (${evento.type}).`);
         return { ignorado: 'sem_organizacao' };
       }
 

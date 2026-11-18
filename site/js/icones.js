@@ -1,6 +1,6 @@
 /* =============================================================================
-   LicitaHub · icones.js
-   Ícones SVG de linha (24x24), desenhados para o LicitaHub.
+   Uso LicitaHub · icones.js
+   Ícones SVG de linha (24x24), desenhados para o Uso LicitaHub.
    Uso: LH.icone('busca')  ->  '<svg ...>...</svg>'
    ============================================================================= */
 window.LH = window.LH || {};

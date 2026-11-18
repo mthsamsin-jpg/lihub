@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · Pesquisa de Preço
+   Uso LicitaHub · Pesquisa de Preço
    Preços praticados em compras públicas para um item do catálogo, com
    estatísticas, gráfico por período e a tabela de registros.
    Nesta demonstração os registros são simulados (na versão real: PNCP).

@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · nuvem.js
+   Uso LicitaHub · nuvem.js
    Ligação com o back-end: login (Supabase Auth), contexto do usuário
    (perfil, organização, empresas, etapas do CRM, assinatura) e chamadas à API
    do servidor com o token de login.
@@ -181,7 +181,7 @@ window.LH = window.LH || {};
           body: corpo ? JSON.stringify(corpo) : undefined,
         });
       } catch {
-        throw new Error('Sem conexão com o servidor do LicitaHub.');
+        throw new Error('Sem conexão com o servidor do Uso LicitaHub.');
       }
       const json = await resposta.json().catch(() => ({}));
       if (!resposta.ok) throw Object.assign(new Error(json.erro || `O servidor respondeu ${resposta.status}.`), { status: resposta.status, codigo: json.codigo });

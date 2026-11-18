@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · Monitoramento
+   Uso LicitaHub · Monitoramento
    Monitoramento de Chat (mensagens do pregoeiro, com alertas) e
    Cadastro Comprasnet (o que monitorar, sem guardar senha do gov.br).
    No modo real, a configuração fica no banco (tabela monitoramentos).
@@ -10,7 +10,7 @@ LH.vistas = LH.vistas || {};
 
 (function () {
   const { esc, icone } = LH;
-  const AVISO_PUBLICO = 'O LicitaHub acompanha só as mensagens públicas da sessão. Não pedimos nem guardamos a sua senha do gov.br.';
+  const AVISO_PUBLICO = 'O Uso LicitaHub acompanha só as mensagens públicas da sessão. Não pedimos nem guardamos a sua senha do gov.br.';
   const normalizar = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
   // --- Monitoramento de Chat ----------------------------------------------------------
@@ -147,7 +147,7 @@ LH.vistas = LH.vistas || {};
           if (!('Notification' in window)) { pc.checked = false; return LH.aviso('Este navegador não mostra notificações.', 'alerta'); }
           pc.checked = (await Notification.requestPermission()) === 'granted';
           if (!pc.checked) LH.aviso('O navegador não deu permissão para notificações.', 'alerta');
-          else LH.notificar('LicitaHub', 'Alertas do chat ligados neste computador.');
+          else LH.notificar('Uso LicitaHub', 'Alertas do chat ligados neste computador.');
         }
         LH.estado.salvar('alertasChat', { ...LH.estado.obter('alertasChat'), computador: pc.checked });
       });
@@ -156,7 +156,7 @@ LH.vistas = LH.vistas || {};
         if (tg.checked) {
           LH.modal({
             titulo: 'Alertas no Telegram',
-            html: '<p>Na versão final você conecta o Telegram em dois passos: abre o robô do LicitaHub pelo link do painel e envia o código que aparece aqui. A partir daí os alertas chegam no seu celular.</p><p class="fraco">Ainda não está ativo.</p>',
+            html: '<p>Na versão final você conecta o Telegram em dois passos: abre o robô do Uso LicitaHub pelo link do painel e envia o código que aparece aqui. A partir daí os alertas chegam no seu celular.</p><p class="fraco">Ainda não está ativo.</p>',
           });
         }
       });
@@ -177,7 +177,7 @@ LH.vistas = LH.vistas || {};
     render: () => `
       ${LH.cabecalho({
         titulo: 'Cadastro Comprasnet',
-        texto: 'Diga quais pregões do Compras.gov.br (antigo Comprasnet) o LicitaHub deve acompanhar para você.',
+        texto: 'Diga quais pregões do Compras.gov.br (antigo Comprasnet) o Uso LicitaHub deve acompanhar para você.',
       })}
       <p class="nota" data-reveal style="margin-bottom:18px">${icone('cadeado')} ${AVISO_PUBLICO} A integração usa o CNPJ e o número de cada pregão, que são informações públicas.</p>
       <div class="grade grade--lateral">
@@ -202,7 +202,7 @@ LH.vistas = LH.vistas || {};
           <h2 style="font-size:1rem;margin-bottom:10px">Como funciona</h2>
           <ol class="suave" style="margin-left:18px;display:grid;gap:8px">
             <li>Você informa o CNPJ e os pregões.</li>
-            <li>O LicitaHub acompanha as mensagens públicas da sessão.</li>
+            <li>O Uso LicitaHub acompanha as mensagens públicas da sessão.</li>
             <li>Quando o pregoeiro citar a sua empresa ou pedir anexo, você recebe o alerta.</li>
           </ol>
           <a class="btn btn--bloco" href="#/chat" style="margin-top:16px">${icone('chat')} Abrir o monitoramento</a>

@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · CRM - Licitante
+   Uso LicitaHub · CRM - Licitante
    CRM do Licitante (quadro Kanban com as etapas do banco) e Cadastrar Empresa.
    No modo real, tudo é gravado no Supabase (crm_cards, empresas).
    ============================================================================= */

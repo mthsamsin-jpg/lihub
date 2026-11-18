@@ -125,7 +125,7 @@ function iniciar(porta, tentativasRestantes = 10) {
   });
   servidor.listen(porta, '127.0.0.1', () => {
     const endereco = `http://localhost:${porta}`;
-    console.log(`\nDemonstração do LicitaHub aberta em ${endereco}`);
+    console.log(`\nDemonstração do Uso LicitaHub aberta em ${endereco}`);
     console.log('Para encerrar, feche esta janela (ou aperte Ctrl+C).\n');
     if (abrirNavegador) {
       const comando = process.platform === 'win32' ? `start "" "${endereco}"`

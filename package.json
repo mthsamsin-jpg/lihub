@@ -2,7 +2,7 @@
   "name": "licitahub",
   "version": "0.1.0",
   "private": true,
-  "description": "LicitaHub: gestão e inteligência em licitações públicas (PNCP + Supabase + Claude).",
+  "description": "Uso LicitaHub: gestão e inteligência em licitações públicas (PNCP + Supabase + Claude).",
   "type": "module",
   "engines": {
     "node": ">=22"

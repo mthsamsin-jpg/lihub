@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · repo.js
+   Uso LicitaHub · repo.js
    Um só jeito de as telas pedirem dados (todas as funções são assíncronas):
      - modo real: Supabase (com o login e o RLS do usuário) e a API do servidor;
      - modo demonstração: os dados de exemplo e o armazenamento do navegador.

@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · nucleo.js
+   Uso LicitaHub · nucleo.js
    Funções comuns: formatação, avisos, janela (modal), efeitos visuais
    (revelar ao rolar, brilho que segue o mouse, contagem dos números),
    validação de CNPJ e valor por extenso.

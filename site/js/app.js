@@ -1,5 +1,5 @@
 /* =============================================================================
-   LicitaHub · app.js
+   Uso LicitaHub · app.js
    Menu lateral (com acordeão), navegação entre os módulos (SPA por #rota),
    menu de celular, busca rápida, notificações, menu do usuário e inicialização
    (modo real com login, ou modo demonstração).
@@ -139,9 +139,9 @@ window.LH = window.LH || {};
     LH.revelar(raiz);
 
     marcarAtivo(caminho);
-    document.title = `${vista.titulo} · LicitaHub`;
+    document.title = `${vista.titulo} · Uso LicitaHub`;
     document.getElementById('titulo-pagina').textContent = vista.titulo;
-    document.getElementById('trilha').textContent = vista.trilha ? `LicitaHub / ${vista.trilha}` : 'LicitaHub';
+    document.getElementById('trilha').textContent = vista.trilha ? `Uso LicitaHub / ${vista.trilha}` : 'Uso LicitaHub';
     fecharMenu();
     window.scrollTo({ top: 0, behavior: 'instant' });
     if (!primeiraVez) conteudo.focus({ preventScroll: true });
