@@ -139,9 +139,9 @@ window.LH = window.LH || {};
       <div class="licitacao__topo">
         <div>
           <div class="chips">
+            ${pos ? `<span class="licitacao__ordem" title="Licitação ${pos.n} de ${fmt.numero(pos.total)} nesta busca">N°${pos.n}</span>` : ''}
             <span class="selo ${status[1]} licitacao__status"><i aria-hidden="true"></i>${status[0]}</span>
             <span class="selo selo--info">${esc(l.modalidade)}</span>
-            ${pos ? `<span class="selo" title="Posição nesta busca">${fmt.numero(pos.n)} de ${fmt.numero(pos.total)}</span>` : ''}
             <span class="selo" title="Número oficial da compra no PNCP">Nº ${esc(l.numero)}</span>
             ${l.me_epp ? '<span class="selo selo--sucesso">Exclusiva ME/EPP</span>' : ''}
             ${dias >= 0 && dias <= 3 ? `<span class="selo selo--alerta">${icone('relogio')} Encerra ${fmt.relativo(l.abertura)}</span>` : ''}

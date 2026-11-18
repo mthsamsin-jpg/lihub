@@ -997,3 +997,7 @@ body.sem-login .app { display: none; }
 .robo-mini--recolhido .robo-mini__item { font-size: 0.8rem; }
 .robo-mini__abrir { display: none; }
 .robo-mini--recolhido .robo-mini__abrir { display: grid; }
+
+/* Busca de Licitações: numeração sequencial N°1, N°2... antes de cada licitação */
+.licitacao__ordem { display: inline-flex; align-items: center; justify-content: center; min-width: 3.2em; padding: 3px 10px; border-radius: 8px;
+  font-weight: 800; font-size: 0.85rem; font-variant-numeric: tabular-nums; color: #04121f; background: linear-gradient(135deg, #22d3ee, #38bdf8); }
