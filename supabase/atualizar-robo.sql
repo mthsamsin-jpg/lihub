@@ -48,6 +48,11 @@ $$;
 drop trigger if exists robo_conferir_lance on public.robo_itens;
 create trigger robo_conferir_lance before insert or update on public.robo_itens
   for each row execute function public.robo_conferir_lance();
+-- Portal onde o robô atua (o mesmo do filtro da tela).
+alter table public.robo_itens add column if not exists plataforma text not null default 'comprasnet';
+alter table public.robo_itens drop constraint if exists robo_itens_plataforma;
+alter table public.robo_itens add constraint robo_itens_plataforma check (plataforma in (
+  'comprasnet', 'licitacoes-e', 'bbmnet', 'bnc', 'pcp', 'bll', 'licitar', 'licitamais', 'petronect', 'outros'));
 create index if not exists robo_itens_organizacao_idx on public.robo_itens (organizacao_id);
 
 alter table public.robo_itens enable row level security;

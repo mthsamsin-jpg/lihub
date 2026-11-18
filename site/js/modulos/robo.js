@@ -18,6 +18,10 @@ LH.vistas = LH.vistas || {};
   };
   const moeda = (v) => (v == null ? '—' : fmt.moeda(v));
   const INTERVALO_SIMULACAO_MS = 1500; // na sala simulada o intervalo é acelerado
+  // Portais onde o robô pode atuar: os mesmos da busca, mais a Petronect.
+  const PORTAIS = () => [...LH.PLATAFORMAS.map(([k, n]) => [k, n]), ['petronect', 'Petronect'], LH.PLATAFORMA_OUTROS];
+  const nomePortal = (k) => (PORTAIS().find(([c]) => c === k) || LH.PLATAFORMA_OUTROS)[1];
+  const curto = (nome) => nome.replace(/\s*\(.*\)$/, '');
 
   LH.vistas.robo = {
     titulo: 'Robô de lances',
@@ -29,6 +33,11 @@ LH.vistas = LH.vistas || {};
                 <button class="btn btn--primario" type="button" data-novo>${icone('mais')} Novo item</button>`,
       })}
       <p class="nota robo-aviso">${icone('escudo')} <span><strong>Trava de segurança:</strong> o robô nunca dá lance abaixo do preço mínimo nem acima do teto. A regra é conferida no motor e de novo no banco de dados. Os portais oficiais (Compras.gov.br e outros) ainda não têm API pública de lances, então a sala abaixo é uma <strong>simulação</strong> para testar a estratégia.</span></p>
+      <div class="robo-portais" role="group" aria-label="Filtrar por portal">
+        <span class="robo-portais__rotulo">${icone('computador')} Portal</span>
+        <button type="button" class="chip-portal ativo" data-portal="">Todos</button>
+        ${PORTAIS().map(([k, n]) => `<button type="button" class="chip-portal" data-portal="${esc(k)}">${esc(curto(n))}</button>`).join('')}
+      </div>
       <div class="robo-grade">
         <section class="robo-itens" id="robo-itens" aria-live="polite">${LH.carregando('Carregando itens...')}</section>
         <aside class="card robo-chat" aria-label="Chat da sala de pregão">
@@ -41,6 +50,7 @@ LH.vistas = LH.vistas || {};
       const chat = raiz.querySelector('#robo-chat');
       const disputas = new Map(); // id -> Disputa
       let itens = [];
+      let filtro = '';
 
       const gravar = LH.atrasar((id, campos) => LH.repo.roboEstado(id, campos).catch((e) => LH.aviso(e.message, 'perigo')), 300);
       const item = (id) => itens.find((i) => i.id === id);
@@ -60,7 +70,8 @@ LH.vistas = LH.vistas || {};
         return `
         <article class="card robo-item ${classe}" data-item="${esc(i.id)}">
           <header class="robo-item__topo">
-            <h3>${esc(i.descricao)}</h3>
+            <div><span class="selo robo-portal">${icone('computador')} ${esc(curto(nomePortal(i.plataforma)))}</span>
+            <h3>${esc(i.descricao)}</h3></div>
             <span class="robo-status ${classe}"><i aria-hidden="true"></i>${rotulo}</span>
           </header>
           <div class="robo-placar">
@@ -86,12 +97,17 @@ LH.vistas = LH.vistas || {};
       };
 
       const desenhar = () => {
-        caixa.innerHTML = itens.length ? itens.map(cartao).join('')
+        const visiveis = itens.filter((i) => !filtro || i.plataforma === filtro);
+        if (itens.length && !visiveis.length) {
+          caixa.innerHTML = `<div class="card">${LH.vazio('computador', `Nenhum item em ${nomePortal(filtro)}`, 'Escolha outro portal ou cadastre um item neste.', `<button class="btn btn--primario" data-novo>${icone('mais')} Novo item</button>`)}</div>`;
+          return;
+        }
+        caixa.innerHTML = itens.length ? visiveis.map(cartao).join('')
           : `<div class="card">${LH.vazio('alvo', 'Nenhum item no robô', 'Cadastre um item com o preço teto, o seu custo e o preço mínimo de segurança.', `<button class="btn btn--primario" data-novo>${icone('mais')} Novo item</button>`)}</div>`;
       };
       const redesenhar = (id) => {
         const el = caixa.querySelector(`[data-item="${CSS.escape(id)}"]`);
-        if (el) el.outerHTML = cartao(item(id));
+        if (el && item(id)) el.outerHTML = cartao(item(id));
       };
       const mudar = (id, campos, salvar = true) => {
         Object.assign(item(id), campos);
@@ -105,14 +121,16 @@ LH.vistas = LH.vistas || {};
       const lerForm = (janela) => {
         const f = janela.querySelector('form');
         const n = (k) => (f[k] && f[k].value.trim() !== '' ? fmt.lerNumero(f[k].value) : null);
-        return { descricao: f.descricao?.value.trim(), teto: n('teto'), custo: n('custo'), piso: n('piso'), decremento: n('decremento') ?? 0.01, intervaloSeg: n('intervalo') ?? 20 };
+        return { descricao: f.descricao?.value.trim(), plataforma: f.plataforma?.value, teto: n('teto'), custo: n('custo'), piso: n('piso'), decremento: n('decremento') ?? 0.01, intervaloSeg: n('intervalo') ?? 20 };
       };
       const abrirForm = (i = null, soLimites = false) => {
         LH.modal({
           titulo: soLimites ? 'Piso e teto (vale na hora)' : (i ? 'Editar item' : 'Novo item no robô'),
           html: `<form class="form" onsubmit="return false">
             ${soLimites ? `<p class="fraco">${esc(i.descricao)}</p>` : `<label class="campo"><span class="campo__rotulo">Descrição do item</span>
-              <input name="descricao" maxlength="300" required value="${esc(i?.descricao || '')}" placeholder="ex.: Item 1 · Notebook i5 16 GB"></label>`}
+              <input name="descricao" maxlength="300" required value="${esc(i?.descricao || '')}" placeholder="ex.: Item 1 · Notebook i5 16 GB"></label>
+              <label class="campo"><span class="campo__rotulo">Portal da disputa</span>
+                <select name="plataforma">${LH.opcoes(PORTAIS(), i?.plataforma || filtro || 'comprasnet')}</select></label>`}
             <div class="form__linha">${campo('teto', 'Preço teto (R$)', i?.teto, 'required')}${soLimites ? '' : campo('custo', 'Custo do fornecedor (R$)', i?.custo)}</div>
             ${campo('piso', 'Preço mínimo de segurança (R$)', i?.piso, 'required')}
             ${soLimites ? '' : `<div class="form__linha">${campo('decremento', 'Cobrir por (R$)', i?.decremento ?? 0.01)}${campo('intervalo', 'Intervalo entre lances (s)', i?.intervaloSeg ?? 20)}</div>
@@ -168,11 +186,16 @@ LH.vistas = LH.vistas || {};
         });
         disputas.set(i.id, d);
         mudar(i.id, { nossoLance: null, melhorLance: null });
-        falar('Sistema', `Robô ligado · ${i.descricao}. Piso ${moeda(i.piso)}, teto ${moeda(i.teto)}.`, 'robo-chat__msg--sistema');
+        falar('Sistema', `Robô ligado · ${curto(nomePortal(i.plataforma))} · ${i.descricao}. Piso ${moeda(i.piso)}, teto ${moeda(i.teto)}.`, 'robo-chat__msg--sistema');
         d.iniciar().catch((e) => { LH.aviso(e.message, 'perigo'); mudar(i.id, { status: 'stopped_at_floor' }); });
       };
 
       LH.ao(raiz, 'click', '[data-novo]', () => abrirForm());
+      LH.ao(raiz, 'click', '[data-portal]', (e, b) => {
+        filtro = b.dataset.portal;
+        raiz.querySelectorAll('[data-portal]').forEach((x) => x.classList.toggle('ativo', x === b));
+        desenhar();
+      });
       LH.ao(caixa, 'click', '[data-acao]', async (e, botao) => {
         const i = item(botao.closest('[data-item]').dataset.item);
         const d = disputas.get(i.id);

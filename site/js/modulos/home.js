@@ -103,6 +103,15 @@ LH.vistas = LH.vistas || {};
     titulo: 'Home',
     render: () => `
       ${banner()}
+      <a class="card acesso-rapido" href="#/robo" data-reveal>
+        <span class="acesso-rapido__icone">${icone('alvo')}</span>
+        <span class="acesso-rapido__texto">
+          <small>Acesso rápido</small>
+          <strong>Robô de Lances</strong>
+          <span>Cobre os concorrentes por centavos e para no seu preço mínimo. Escolha o portal e acompanhe a sala ao vivo.</span>
+        </span>
+        <span class="btn btn--primario acesso-rapido__botao">Abrir a sala de disputa ${icone('setaDir')}</span>
+      </a>
       ${kpis()}
       <section class="grade grade--2" style="margin-top:22px">
         <article class="card spot" data-reveal>

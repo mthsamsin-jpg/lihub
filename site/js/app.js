@@ -20,30 +20,30 @@ window.LH = window.LH || {};
       { id: 'petronect', rotulo: 'Petronect', tag: 'Beta' },
       { id: 'favoritas', rotulo: 'Licitações favoritas' },
     ] },
-    { etapa: 2, rotulo: 'Análise do edital', icone: 'brilho', filhos: [
+    { etapa: 2, id: 'robo', rotulo: 'Robô de Lances', icone: 'alvo' },
+    { etapa: 3, rotulo: 'Análise do edital', icone: 'brilho', filhos: [
       { id: 'ia/leitor', rotulo: 'Leitor de Edital IA' },
       { id: 'ia/dossie', rotulo: 'Dossiê Jurídico IA' },
     ] },
-    { etapa: 3, rotulo: 'Acompanhamento', icone: 'kanban', filhos: [
+    { etapa: 4, rotulo: 'Acompanhamento', icone: 'kanban', filhos: [
       { id: 'crm', rotulo: 'CRM do Licitante' },
       { id: 'calendario', rotulo: 'Calendário' },
     ] },
-    { etapa: 4, rotulo: 'Documentos e habilitação', icone: 'pasta', filhos: [
+    { etapa: 5, rotulo: 'Documentos e habilitação', icone: 'pasta', filhos: [
       { id: 'empresa', rotulo: 'Sua empresa' },
       { id: 'crm/empresa', rotulo: 'Cadastrar Empresa' },
       { id: 'documentos', rotulo: 'Gestor de documentos' },
       { id: 'declaracoes', rotulo: 'Gerador de declarações' },
     ] },
-    { etapa: 5, rotulo: 'Preço e proposta', icone: 'arquivo', filhos: [
+    { etapa: 6, rotulo: 'Preço e proposta', icone: 'arquivo', filhos: [
       { id: 'pesquisa-precos', rotulo: 'Pesquisa de Preço' },
       { id: 'ia/cotacao', rotulo: 'Cotação Online IA', tag: 'Beta' },
       { id: 'proposta/criar', rotulo: 'Criar proposta' },
       { id: 'proposta/minhas', rotulo: 'Minhas propostas' },
     ] },
-    { etapa: 6, rotulo: 'Disputa', icone: 'chat', filhos: [
+    { etapa: 7, rotulo: 'Disputa', icone: 'chat', filhos: [
       { id: 'comprasnet', rotulo: 'Cadastro Comprasnet' },
       { id: 'chat', rotulo: 'Monitoramento de Chat' },
-      { id: 'robo', rotulo: 'Robô de lances' },
     ] },
     { rotulo: 'Meu Perfil', icone: 'usuario', filhos: [
       { id: 'perfil', rotulo: 'Dados da conta e assinatura' },
@@ -61,8 +61,11 @@ window.LH = window.LH || {};
     const tag = (t) => (t ? `<span class="menu__tag">${esc(t)}</span>` : '');
     menu.innerHTML = `<ul>${LH.menu.map((item, i) => {
       if (!item.filhos) {
-        return `<li class="menu__item"><a class="menu__link" href="#/${item.id}" data-rota="${item.id}">
-          ${icone(item.icone)}<span class="menu__texto">${esc(item.rotulo)}</span>${tag(item.tag)}</a></li>`;
+        // Etapa com acesso direto (ex.: "2 Robô de Lances"): número da etapa, sem submenu.
+        const marcaDireta = item.etapa ? `<span class="menu__num" aria-hidden="true">${item.etapa}</span>` : icone(item.icone);
+        const rotuloDireto = item.etapa ? `<span class="sr-only">Etapa ${item.etapa}: </span>${esc(item.rotulo)}` : esc(item.rotulo);
+        return `<li class="menu__item${item.etapa ? ' menu__item--etapa' : ''}"><a class="menu__link" href="#/${item.id}" data-rota="${item.id}">
+          ${marcaDireta}<span class="menu__texto">${rotuloDireto}</span>${tag(item.tag)}</a></li>`;
       }
       const marca = item.etapa ? `<span class="menu__num" aria-hidden="true">${item.etapa}</span>` : icone(item.icone);
       const rotulo = item.etapa ? `<span class="sr-only">Etapa ${item.etapa}: </span>${esc(item.rotulo)}` : esc(item.rotulo);
