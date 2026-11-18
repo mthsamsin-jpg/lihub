@@ -18,6 +18,7 @@ const itemDoBanco = (r) => ({
   id: r.id, organizacaoId: r.organizacao_id, plataforma: r.plataforma, descricao: r.descricao,
   teto: num(r.max_price), custo: num(r.supplier_cost), piso: num(r.min_floor_price), decremento: num(r.decremento) ?? 0.01,
   intervaloSeg: r.intervalo_seg ?? 20, nossoPorte: r.nosso_porte || 'demais', fugirEmpate: !!r.fugir_empate,
+  sniperSeg: r.sniper_seg ?? 0, margemMinPct: num(r.margem_min_pct),
 });
 
 /**

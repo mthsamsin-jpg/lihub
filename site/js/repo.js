@@ -612,6 +612,7 @@ window.LH = window.LH || {};
       decremento: numOuNulo(r.decremento) ?? 0.01, intervaloSeg: r.intervalo_seg ?? 20, status: r.bid_status || 'idle',
       plataforma: r.plataforma || 'comprasnet', quantidade: r.quantidade || 1,
       nossoPorte: r.nosso_porte || 'demais', fugirEmpate: !!r.fugir_empate, fase: r.fase || null,
+      sniperSeg: r.sniper_seg ?? 0, margemMinPct: numOuNulo(r.margem_min_pct),
       pregaoRef: r.pregao_ref || null, loteRef: r.lote_ref || null,
       nossoLance: numOuNulo(r.nosso_lance), melhorLance: numOuNulo(r.melhor_lance),
     };
@@ -622,6 +623,7 @@ window.LH = window.LH || {};
       max_price: i.teto, supplier_cost: i.custo ?? null, min_floor_price: i.piso,
       decremento: i.decremento || 0.01, intervalo_seg: i.intervaloSeg ?? 20, plataforma: i.plataforma || 'comprasnet',
       quantidade: i.quantidade || 1, nosso_porte: i.nossoPorte || 'demais', fugir_empate: !!i.fugirEmpate,
+      sniper_seg: Math.max(0, Math.min(300, Math.round(i.sniperSeg ?? 0))), margem_min_pct: i.margemMinPct ?? null,
       pregao_ref: i.pregaoRef || null, lote_ref: i.loteRef || null,
     };
   }

@@ -128,6 +128,7 @@ window.LH = window.LH || {};
         sala, piso: i.piso, teto: i.teto, custo: i.custo, decremento: i.decremento,
         intervaloMs: Math.min(i.intervaloSeg * 1000, INTERVALO_SIMULACAO_MS), nossoLance: null,
         nossoPorte: i.nossoPorte || 'demais', fugirEmpate: !!i.fugirEmpate,
+        sniperMs: (i.sniperSeg || 0) * 1000, margemMinPct: i.margemMinPct ?? null,
         // "Monitorar" (feed) ou piso = teto: a sala simulada roda, mas o robô não dá lances.
         observar: monitorando,
         aoFase: (fase, ev) => {

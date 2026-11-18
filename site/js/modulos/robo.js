@@ -323,6 +323,7 @@ LH.vistas = LH.vistas || {};
           descricao: f.descricao?.value.trim(), plataforma: f.plataforma?.value, itemNumero: n('itemNumero'),
           quantidade: Math.max(1, Math.round(n('quantidade') ?? 1)), nossoPorte: f.nossoPorte?.value || 'demais', fugirEmpate: !!f.fugirEmpate?.checked,
           teto: n('teto'), custo: n('custo'), piso: n('piso'), decremento: n('decremento') ?? 0.01, intervaloSeg: n('intervalo') ?? 20,
+          sniperSeg: n('sniperSeg') ?? 0, margemMinPct: n('margemMinPct'),
         };
       };
       const porteDaEmpresa = async () => {
@@ -353,6 +354,8 @@ LH.vistas = LH.vistas || {};
             <div class="form__linha">${campo('teto', 'Preço teto unitário (R$)', i?.teto, 'required')}${soLimites ? '' : campo('custo', 'Custo unitário (R$)', i?.custo)}</div>
             ${campo('piso', 'Preço mínimo de segurança, unitário (R$)', i?.piso, 'required')}
             ${soLimites ? '' : `<div class="form__linha">${campo('decremento', 'Cobrir por (R$)', i?.decremento ?? 0.01)}${campo('intervalo', 'Intervalo entre lances (s)', i?.intervaloSeg ?? 20)}</div>
+            <div class="form__linha">${campo('sniperSeg', 'Sniper: lance nos últimos (s)', i?.sniperSeg || '', 'placeholder="0 = desligado"')}${campo('margemMinPct', 'Margem mínima sobre o custo (%)', i?.margemMinPct ?? '', 'placeholder="opcional"')}</div>
+            <p class="fraco">Sniper: o robô segura o lance e dispara só nos segundos finais da etapa (descontando o tempo de resposta do portal). Em modo aberto, lance no fim pode prorrogar a disputa. A margem mínima cria um piso automático (custo + margem) que o robô nunca fura.</p>
             <label class="campo campo--check"><input type="checkbox" name="fugirEmpate" ${i?.fugirEmpate ? 'checked' : ''}>
               <span>Fugir do empate ficto: se uma ME/EPP ficar até 5% acima do nosso lance, descer só o necessário para sair da faixa (nunca abaixo do piso). Só vale quando a nossa empresa não é ME/EPP.</span></label>
             <p class="fraco">O mínimo de segurança deve cobrir o custo, os impostos, o frete e a sua margem. O intervalo e o valor mínimo de cobertura seguem o edital.</p>`}

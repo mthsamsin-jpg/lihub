@@ -108,11 +108,18 @@
    *          aoAlerta(texto), aoMensagem({ autor, texto, hora })
    */
   class Disputa {
-    constructor({ sala, piso, teto, custo = null, decremento = 0.01, intervaloMs = 0, nossoLance = null, nossoPorte = 'demais', fugirEmpate = false, observar = false, agora = () => Date.now(), esperar, ...eventos }) {
+    constructor({ sala, piso, teto, custo = null, decremento = 0.01, intervaloMs = 0, nossoLance = null, nossoPorte = 'demais', fugirEmpate = false, observar = false, sniperMs = 0, margemMinPct = null, agora = () => Date.now(), esperar, ...eventos }) {
       const erros = validarLimites({ teto, custo, piso, decremento });
       if (erros.length) throw new Error(erros[0]);
       // observar: só acompanha a sala (lances, fases, chat) e nunca decide nem envia lance.
-      Object.assign(this, { sala, piso, teto, custo, decremento, intervaloMs, nossoLance, nossoPorte, fugirEmpate, observar, agora, eventos });
+      // sniperMs: com o fim da etapa conhecido (fimEm), segura o lance até faltar sniperMs
+      //   (descontada a latência medida do envio) e dispara nos segundos finais.
+      // margemMinPct: margem de lucro mínima sobre o custo; vira um piso efetivo
+      //   (o maior entre o piso e custo × (1 + margem)) que nenhum lance fura.
+      Object.assign(this, { sala, piso, teto, custo, decremento, intervaloMs, nossoLance, nossoPorte, fugirEmpate, observar, sniperMs: Math.max(0, Number(sniperMs) || 0), margemMinPct, agora, eventos });
+      this.fimEm = null;
+      this.timerSniper = null;
+      this.cadeia = Promise.resolve();
       this.esperar = esperar || ((ms) => new Promise((ok) => setTimeout(ok, ms)));
       this.melhorConcorrente = null;
       this.melhorMeEpp = null;
@@ -148,13 +155,38 @@
       if (ehMeEpp(porte) && (this.melhorMeEpp == null || valor < this.melhorMeEpp)) this.melhorMeEpp = valor;
     }
 
+    /** Piso que vale de verdade: o piso informado ou o custo + margem mínima, o que for maior. */
+    pisoEfetivo() {
+      const m = Number(this.margemMinPct);
+      if (this.custo == null || !Number.isFinite(m) || m <= 0) return this.piso;
+      const comMargem = Math.ceil(centavos(this.custo) * (100 + m) / 100);
+      return reais(Math.max(centavos(this.piso), comMargem));
+    }
+
+    decisao() { return decidir({ ...this, piso: this.pisoEfetivo() }); }
+
+    /** Avaliações uma por vez (laço da sala e disparo do sniper nunca correm juntos). */
+    serial() {
+      const p = this.cadeia.then(() => this.avaliar());
+      this.cadeia = p.catch(() => {});
+      return p;
+    }
+
+    desarmarSniper() { clearTimeout(this.timerSniper); this.timerSniper = null; }
+
+    /** Quanto falta para o fim da etapa, descontado o tempo que o portal leva para aceitar um lance. */
+    restanteMs() {
+      if (this.fimEm == null) return null;
+      return this.fimEm - this.agora() - (Number(this.sala?.latenciaMs) || 0);
+    }
+
     async avaliar() {
       if (this.status !== STATUS.ATIVO || this.observar) return;
-      const d = decidir(this);
+      const d = this.decisao();
       if (d.acao === 'parar') {
         this.mudarStatus(STATUS.PISO, d.motivo);
         this.eventos.aoAlerta?.(d.motivo === 'piso'
-          ? `Robô parado por segurança: cobrir o lance de ${moeda(this.melhorConcorrente)} exigiria ficar abaixo do piso de ${moeda(this.piso)}.`
+          ? `Robô parado por segurança: cobrir o lance de ${moeda(this.melhorConcorrente)} exigiria ficar abaixo do piso de ${moeda(this.pisoEfetivo())}.`
           : 'Robô parado: confira o preço teto e o preço mínimo.');
         return;
       }
@@ -165,12 +197,23 @@
         }
         return;
       }
+      // Sniper: com o cronômetro conhecido, só dispara dentro da janela final.
+      if (this.sniperMs > 0 && ehFaseDeLance(this.fase)) {
+        const resta = this.restanteMs();
+        if (resta != null && resta > this.sniperMs) {
+          const ms = resta - this.sniperMs;
+          this.desarmarSniper();
+          this.timerSniper = setTimeout(() => { this.timerSniper = null; this.serial().catch((e) => this.eventos.aoErro?.(e)); }, ms);
+          this.eventos.aoSniper?.(ms, d.valor);
+          return;
+        }
+      }
       const falta = this.ultimoLanceEm + this.intervaloMs - this.agora();
       if (falta > 0) await this.esperar(falta);
       if (this.status !== STATUS.ATIVO) return;
-      const nova = decidir(this); // a praça pode ter mudado durante a espera
+      const nova = this.decisao(); // a praça pode ter mudado durante a espera
       if (nova.acao !== 'lance') return this.avaliar();
-      if (centavos(nova.valor) < centavos(this.piso)) throw new Error('Trava: lance abaixo do piso bloqueado.');
+      if (centavos(nova.valor) < centavos(this.pisoEfetivo())) throw new Error('Trava: lance abaixo do piso bloqueado.');
       try {
         await this.sala.enviarLance(nova.valor);
       } catch (e) {
@@ -187,7 +230,7 @@
       // Depois de cobrir, confere na hora se ficamos na faixa de 5% de uma ME/EPP
       // (sem esperar o próximo lance da praça). O intervalo mínimo continua valendo.
       if (this.fugirEmpate && nova.motivo !== 'fuga_empate') {
-        const prox = decidir(this);
+        const prox = this.decisao();
         if (prox.acao === 'lance' && prox.motivo === 'fuga_empate') await this.avaliar();
       }
     }
@@ -195,7 +238,7 @@
     async iniciar() {
       if (this.status === STATUS.ATIVO) return;
       this.mudarStatus(STATUS.ATIVO);
-      await this.avaliar();
+      await this.serial();
       if (this.rodando) return;
       this.rodando = true;
       try {
@@ -209,27 +252,36 @@
             break;
           }
           if (ev.tipo === 'mensagem') { this.eventos.aoMensagem?.(ev); continue; }
+          if (ev.tipo === 'tempo') {
+            // Cronômetro mudou (prorrogação, ajuste do pregoeiro): reprograma o sniper.
+            this.fimEm = ev.fimEm ?? null;
+            if (this.timerSniper) await this.serial();
+            continue;
+          }
           if (ev.tipo === 'fase') {
             this.fase = ev.fase;
+            if (ev.fimEm != null) this.fimEm = ev.fimEm;
+            if (!ehFaseDeLance(ev.fase)) this.desarmarSniper();
             this.eventos.aoFase?.(ev.fase, ev);
-            if (ehFaseDeLance(ev.fase)) await this.avaliar();
+            if (ehFaseDeLance(ev.fase)) await this.serial();
             continue;
           }
           if (ev.tipo === 'lance') {
             if (ev.autor === 'nos') continue;
             this.registrarConcorrente(ev.autor, ev.valor, ev.porte);
             this.eventos.aoConcorrente?.(ev.valor, ev.autor, ev.porte);
-            await this.avaliar();
+            await this.serial();
           }
         }
       } finally {
         this.rodando = false;
+        this.desarmarSniper();
       }
     }
 
-    pausar() { if (this.status === STATUS.ATIVO) this.mudarStatus(STATUS.PAUSADO); }
-    async retomar() { if (this.status === STATUS.PAUSADO) { this.mudarStatus(STATUS.ATIVO); await this.avaliar(); } }
-    parar() { this.mudarStatus(STATUS.PARADO, 'usuario'); this.sala.fechar?.(); }
+    pausar() { this.desarmarSniper(); if (this.status === STATUS.ATIVO) this.mudarStatus(STATUS.PAUSADO); }
+    async retomar() { if (this.status === STATUS.PAUSADO) { this.mudarStatus(STATUS.ATIVO); await this.serial(); } }
+    parar() { this.desarmarSniper(); this.mudarStatus(STATUS.PARADO, 'usuario'); this.sala.fechar?.(); }
   }
 
   const moeda = (v) => (v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));

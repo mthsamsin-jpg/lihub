@@ -604,6 +604,13 @@ alter table public.robo_itens add column if not exists quantidade int not null d
 alter table public.robo_itens add column if not exists nosso_porte text not null default 'demais';
 alter table public.robo_itens add column if not exists fugir_empate boolean not null default false;
 alter table public.robo_itens add column if not exists fase text;
+-- Sniper (segundos finais da etapa de lances) e margem mínima de lucro sobre o custo.
+alter table public.robo_itens add column if not exists sniper_seg int not null default 0;
+alter table public.robo_itens add column if not exists margem_min_pct numeric(6, 2);
+alter table public.robo_itens drop constraint if exists robo_itens_sniper;
+alter table public.robo_itens add constraint robo_itens_sniper check (sniper_seg between 0 and 300);
+alter table public.robo_itens drop constraint if exists robo_itens_margem;
+alter table public.robo_itens add constraint robo_itens_margem check (margem_min_pct is null or margem_min_pct between 0 and 1000);
 alter table public.robo_itens drop constraint if exists robo_itens_quantidade;
 alter table public.robo_itens add constraint robo_itens_quantidade check (quantidade between 1 and 100000000);
 alter table public.robo_itens drop constraint if exists robo_itens_nosso_porte;
