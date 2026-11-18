@@ -1027,3 +1027,27 @@ body.sem-login .app { display: none; }
 .robo-chat__msg--previsao { border-left: 3px solid #a78bfa; background: rgba(167, 139, 250, 0.08); }
 /* Perfil do concorrente numa linha própria abaixo do nome (a coluna é estreita). */
 .robo-rank__nome .robo-perfil { display: table; margin: 3px 0 0; }
+
+/* --- Robô Turbo 2.0: alertas como bolinha de vidro no canto superior direito --- */
+.robo-topo { position: relative; }
+.robo-topo .pagina__cabecalho { padding-right: 64px; }
+.robo-orbe {
+  position: absolute; top: 2px; right: 2px; z-index: 2;
+  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+  color: #cbd5e1; border: 1px solid rgba(148, 197, 255, 0.28);
+  background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.04) 45%, rgba(14, 40, 70, 0.35) 100%);
+  backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35), inset 0 -6px 12px rgba(2, 12, 27, 0.35), 0 8px 22px rgba(2, 12, 27, 0.45);
+  transition: transform 0.25s ease, box-shadow 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+.robo-orbe svg { width: 20px; height: 20px; }
+.robo-orbe:hover, .robo-orbe:focus-visible {
+  transform: translateY(-1px) scale(1.06); color: #e0f2fe; border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.45), inset 0 -6px 12px rgba(2, 12, 27, 0.3), 0 0 0 4px rgba(56, 189, 248, 0.12), 0 10px 26px rgba(56, 189, 248, 0.28);
+}
+.robo-orbe__ponto { position: absolute; top: 9px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: #64748b; box-shadow: 0 0 0 2px rgba(4, 11, 22, 0.8); transition: background 0.3s ease; }
+.robo-orbe--ligado { color: #a5f3fc; border-color: rgba(34, 211, 238, 0.5); }
+.robo-orbe--ligado .robo-orbe__ponto { background: #34d399; box-shadow: 0 0 0 2px rgba(4, 11, 22, 0.8), 0 0 8px rgba(52, 211, 153, 0.9); animation: robo-orbe-pulso 2.4s ease-in-out infinite; }
+@keyframes robo-orbe-pulso { 50% { box-shadow: 0 0 0 2px rgba(4, 11, 22, 0.8), 0 0 14px rgba(52, 211, 153, 0.4); } }
+@media (max-width: 640px) { .robo-orbe { width: 40px; height: 40px; } .robo-topo .pagina__cabecalho { padding-right: 52px; } }
+@media (prefers-reduced-motion: reduce) { .robo-orbe, .robo-orbe__ponto { transition: none; animation: none !important; } }

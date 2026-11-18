@@ -46,6 +46,10 @@ LH.vistas = LH.vistas || {};
   LH.vistas.robo = {
     titulo: 'Robô Turbo 2.0',
     render: () => `
+      <div class="robo-topo">
+      <button type="button" class="robo-orbe" data-alertas aria-label="Alertas por e-mail" title="Alertas por e-mail">
+        ${icone('sino')}<i class="robo-orbe__ponto" aria-hidden="true"></i>
+      </button>
       ${LH.cabecalho({
         titulo: 'Robô Turbo 2.0',
         texto: 'Cobre os lances dos concorrentes por centavos, acompanha as fases do pregão e para sozinho no seu preço mínimo de segurança. Nunca dá lance em prejuízo.',
@@ -54,9 +58,9 @@ LH.vistas = LH.vistas || {};
                   <button type="button" role="radio" class="robo-modo__op" data-modo="real">${icone('plugue')} Modo real</button>
                 </div>
                 <button class="btn btn--fantasma" type="button" data-cofre>${icone('cadeado')} Credenciais</button>
-                <button class="btn btn--fantasma" type="button" data-alertas>${icone('sino')} Alertas</button>
                 <button class="btn btn--primario" type="button" data-novo>${icone('mais')} Novo item</button>`,
       })}
+      </div>
       <p class="nota robo-aviso robo-aviso--real" data-aviso-real hidden>${icone('plugue')} <span><strong>Modo real:</strong> o robô do servidor entra no portal com a <strong>sua credencial do cofre</strong>, abre a sala do pregão e transmite os lances, as fases e o chat ao vivo para esta tela. Por padrão ele <strong>só monitora</strong>; para dar lances de verdade, escolha isso ao conectar e confirme. Os portais não têm API pública: cada um precisa ter a sala mapeada no robô (por enquanto nenhum foi conferido numa sessão real, então a conexão avisa o que falta).</span></p>
       <p class="nota robo-aviso">${icone('escudo')} <span><strong>Prejuízo zero:</strong> o robô nunca dá lance abaixo do preço mínimo nem acima do teto, e o mínimo nunca fica abaixo do custo. A regra é conferida no motor e de novo no banco de dados. Os portais ainda não têm API pública de lances, então a sala abaixo é uma <strong>simulação</strong> com as regras do modo aberto e da LC 123, para testar a estratégia.</span></p>
       <div class="robo-portais" role="group" aria-label="Filtrar por portal">
@@ -86,6 +90,14 @@ LH.vistas = LH.vistas || {};
         </aside>
       </div>`,
     montar(raiz) {
+      const orbe = raiz.querySelector('.robo-orbe');
+      const marcarOrbe = (ligado) => {
+        orbe.classList.toggle('robo-orbe--ligado', !!ligado);
+        const t = ligado ? 'Alertas por e-mail: ligados' : 'Alertas por e-mail: desligados (clique para ligar)';
+        orbe.title = t;
+        orbe.setAttribute('aria-label', t);
+      };
+      LH.repo.alertasRobo?.().then((a) => marcarOrbe(a.email)).catch(() => {});
       const caixa = raiz.querySelector('#robo-itens');
       const chat = raiz.querySelector('#robo-chat');
       const painelRanking = raiz.querySelector('#robo-ranking');
@@ -468,6 +480,7 @@ LH.vistas = LH.vistas || {};
               const erro = janela.querySelector('[data-erro]');
               try {
                 await LH.repo.salvarAlertasRobo({ email: f.email.checked });
+                marcarOrbe(f.email.checked);
                 LH.aviso(f.email.checked ? 'Alertas por e-mail ligados.' : 'Alertas por e-mail desligados.', 'sucesso');
                 fechar();
               } catch (e) { erro.textContent = e.message; erro.hidden = false; }
