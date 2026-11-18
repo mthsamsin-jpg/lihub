@@ -16,6 +16,13 @@ window.LH = window.LH || {};
   const chat = [];
   let itens = null;
   let carregando = null;
+  // Modo da sala: "simulada" (concorrentes fictícios) ou "real" (portal de verdade).
+  // É uma preferência deste navegador.
+  const CHAVE_MODO = 'lh-robo-modo';
+  let modo = 'simulada';
+  try { if (localStorage.getItem(CHAVE_MODO) === 'real') modo = 'real'; } catch { /* sem armazenamento */ }
+  // Lances dos concorrentes na sala simulada: a cada 3 a 7 segundos.
+  const PASSO_SIMULACAO = { passoMinMs: 3000, passoMaxMs: 7000 };
 
   const moeda = (v) => (v == null ? '—' : LH.fmt.moeda(v));
   const item = (id) => (itens || []).find((i) => i.id === id);
@@ -55,6 +62,16 @@ window.LH = window.LH || {};
   const api = {
     INTERVALO_SIMULACAO_MS,
     ouvir(fn) { ouvintes.add(fn); return () => ouvintes.delete(fn); },
+    modo: () => modo,
+    /** Troca o modo da sala. Só com todos os robôs parados. */
+    mudarModo(novo) {
+      if (novo === modo) return true;
+      if (api.vivos().some((i) => i.status === 'running' || i.status === 'paused')) return false;
+      modo = novo === 'real' ? 'real' : 'simulada';
+      try { localStorage.setItem(CHAVE_MODO, modo); } catch { /* sem armazenamento */ }
+      emitir('modo', modo);
+      return true;
+    },
     lista: () => itens || [],
     item,
     mensagens: () => chat,
@@ -89,11 +106,17 @@ window.LH = window.LH || {};
       if (!i) return;
       const existente = disputas.get(id);
       if (existente && existente.status === 'paused') { existente.retomar(); return; }
+      if (modo === 'real') {
+        const texto = 'Modo real: nenhum portal tem adaptador de lances conectado ainda (os portais não têm API pública). Use a sala simulada para testar a estratégia.';
+        LH.aviso(texto, 'alerta', 7000);
+        falar('Sistema', texto, 'robo-chat__msg--alerta', { itemId: id });
+        return;
+      }
       const nome = i.descricao;
       // Concorrentes da simulação: param entre ~95% do custo e ~5% acima do piso.
       const custo = i.custo ?? i.piso * 0.9;
       const minimo = custo * 0.95 + Math.random() * (i.piso * 1.05 - custo * 0.95);
-      const sala = new LH.robo.SalaSimulada({ inicial: i.teto * 1.03, minimoConcorrentes: Math.round(minimo * 100) / 100 });
+      const sala = new LH.robo.SalaSimulada({ inicial: i.teto * 1.03, minimoConcorrentes: Math.round(minimo * 100) / 100, abertaMs: 60000, prorrogacaoMs: 15000, ...PASSO_SIMULACAO });
       const qtd = i.quantidade || 1;
       const posicaoDe = (autor) => d.ranking().find((x) => x.autor === autor)?.posicao ?? null;
       const d = new LH.robo.Disputa({
@@ -128,13 +151,14 @@ window.LH = window.LH || {};
         },
         aoMensagem: (m) => falar(m.autor, m.texto, m.autor === 'Sistema' ? 'robo-chat__msg--sistema' : 'robo-chat__msg--oficial', { itemId: id }),
         aoAlerta: (texto) => {
-          falar('Trava de segurança', texto, 'robo-chat__msg--alerta', { itemId: id });
-          LH.aviso(texto, 'perigo');
-          LH.notificar?.('Robô parado por segurança', texto);
+          mudar(id, { alertaPiso: texto }, false);
+          falar('Preço mínimo atingido', texto, 'robo-chat__msg--alerta', { itemId: id });
+          LH.aviso(`Preço mínimo atingido · ${nome}`, 'perigo', 7000);
+          LH.notificar?.('Preço mínimo atingido', texto);
         },
       });
       disputas.set(id, d);
-      mudar(id, { nossoLance: null, melhorLance: null, fase: 'aberta', fimEm: null });
+      mudar(id, { nossoLance: null, melhorLance: null, fase: 'aberta', fimEm: null, alertaPiso: null });
       falar('Sistema', `Robô ligado · ${portal ? `${portal} · ` : ''}${nome}. Piso ${moeda(i.piso)}, teto ${moeda(i.teto)}.`, 'robo-chat__msg--sistema', { itemId: id });
       d.iniciar().catch((e) => { LH.aviso(e.message, 'perigo'); mudar(id, { status: 'stopped_at_floor' }); });
     },
@@ -176,7 +200,7 @@ window.LH = window.LH || {};
   // ---------------------------------------------------------------------------
   // Mini player flutuante: aparece fora da tela do robô enquanto houver disputa.
   // ---------------------------------------------------------------------------
-  const ROTULO = { running: 'Ativo', paused: 'Pausado', stopped_at_floor: 'Parou no mínimo' };
+  const ROTULO = { running: 'Ativo', paused: 'Pausado', stopped_at_floor: 'Preço mínimo atingido' };
   const CLASSE = { running: 'ativo', paused: 'pausado', stopped_at_floor: 'piso' };
   let el = null;
   let dispensadoEm = null; // assinatura do estado quando o operador fechou o balão

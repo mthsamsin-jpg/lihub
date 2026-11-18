@@ -20,7 +20,7 @@ LH.vistas = LH.vistas || {};
     idle: ['Parado', 'robo-status--parado'],
     running: ['Ativo', 'robo-status--ativo'],
     paused: ['Pausado', 'robo-status--pausado'],
-    stopped_at_floor: ['Parado por segurança', 'robo-status--piso'],
+    stopped_at_floor: ['Preço mínimo atingido', 'robo-status--piso'],
   };
   const FASES = [
     ['aberta', 'Aberta', 'Lances livres. O robô cobre a praça por centavos, respeitando o intervalo do portal, o teto e o piso.'],
@@ -49,9 +49,13 @@ LH.vistas = LH.vistas || {};
       ${LH.cabecalho({
         titulo: 'Robô de lances',
         texto: 'Cobre os lances dos concorrentes por centavos, acompanha as fases do pregão e para sozinho no seu preço mínimo de segurança. Nunca dá lance em prejuízo.',
-        acoes: `<span class="selo selo--alerta">${icone('info')} Sala simulada</span>
+        acoes: `<div class="robo-modo" role="radiogroup" aria-label="Modo da sala de disputa">
+                  <button type="button" role="radio" class="robo-modo__op" data-modo="simulada">${icone('play')} Sala simulada</button>
+                  <button type="button" role="radio" class="robo-modo__op" data-modo="real">${icone('plugue')} Modo real</button>
+                </div>
                 <button class="btn btn--primario" type="button" data-novo>${icone('mais')} Novo item</button>`,
       })}
+      <p class="nota robo-aviso robo-aviso--real" data-aviso-real hidden>${icone('alerta')} <span><strong>Modo real:</strong> os portais (Compras.gov.br, BLL e os demais) não têm API pública de lances, e ainda não há adaptador conectado a nenhum deles. Neste modo o robô não inicia. Volte para a <strong>sala simulada</strong> para testar a estratégia com concorrentes fictícios.</span></p>
       <p class="nota robo-aviso">${icone('escudo')} <span><strong>Prejuízo zero:</strong> o robô nunca dá lance abaixo do preço mínimo nem acima do teto, e o mínimo nunca fica abaixo do custo. A regra é conferida no motor e de novo no banco de dados. Os portais ainda não têm API pública de lances, então a sala abaixo é uma <strong>simulação</strong> com as regras do modo aberto e da LC 123, para testar a estratégia.</span></p>
       <div class="robo-portais" role="group" aria-label="Filtrar por portal">
         <span class="robo-portais__rotulo">${icone('computador')} Portal</span>
@@ -221,6 +225,7 @@ LH.vistas = LH.vistas || {};
             <div class="${i.nossoLance == null ? '' : vencendo ? 'robo-placar--vencendo' : 'robo-placar--coberto'}"><span>Nosso lance</span><strong>${moeda(i.nossoLance)}</strong>
               <em>${i.nossoLance == null ? 'ainda sem lance' : `${vencendo ? 'estamos na frente' : 'fomos cobertos'} · total ${moeda(i.nossoLance * qtd)}`}</em></div>
           </div>
+          ${i.status === 'stopped_at_floor' ? `<div class="robo-piso-alerta" role="alert">${icone('escudo')}<div><b>Preço mínimo atingido</b><span>${esc(i.alertaPiso || `Cobrir a praça exigiria ficar abaixo do mínimo de segurança de ${moeda(i.piso)}.`)} O robô parou e não dá mais lances neste item. Ajuste em "Piso e teto" ou pare o robô.</span></div></div>` : ''}
           ${alertaLC123(i)}
           ${trilho(i)}
           <dl class="robo-limites">
@@ -378,6 +383,20 @@ LH.vistas = LH.vistas || {};
         });
       };
 
+      // --- Modo da sala (simulada x real) ---
+      const desenharModo = () => {
+        const m = vivo.modo();
+        raiz.querySelectorAll('[data-modo]').forEach((b) => {
+          b.classList.toggle('ativo', b.dataset.modo === m);
+          b.setAttribute('aria-checked', String(b.dataset.modo === m));
+        });
+        raiz.querySelector('[data-aviso-real]').hidden = m !== 'real';
+      };
+      desenharModo();
+      LH.ao(raiz, 'click', '[data-modo]', (e, b) => {
+        if (!vivo.mudarModo(b.dataset.modo)) LH.aviso('Pare todos os robôs (ativos ou pausados) antes de trocar o modo da sala.', 'alerta');
+      });
+
       // --- Eventos ---
       LH.ao(raiz, 'click', '[data-novo]', () => abrirForm());
       LH.ao(raiz, 'click', '[data-portal]', (e, b) => {
@@ -442,6 +461,7 @@ LH.vistas = LH.vistas || {};
           if (i && abaDe.has(dado) && abaDe.get(dado) !== i.fase && i.fase && (ORDEM_FASE[abaDe.get(dado)] ?? 0) < (ORDEM_FASE[i.fase] ?? 0)) abaDe.delete(dado);
           redesenhar(dado);
         } else if (tipo === 'lista') desenhar();
+        else if (tipo === 'modo') desenharModo();
         else if (tipo === 'chat') falarNaTela(dado);
       });
       vivo.carregar()

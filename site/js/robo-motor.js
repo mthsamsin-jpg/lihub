@@ -239,10 +239,10 @@
 
   class SalaSimulada {
     constructor({
-      inicial, minimoConcorrentes, passoMs = 2500, aleatorio = Math.random, eventos = null,
+      inicial, minimoConcorrentes, passoMs = 2500, passoMinMs = null, passoMaxMs = null, aleatorio = Math.random, eventos = null,
       concorrentes = CONCORRENTES_PADRAO, abertaMs = 45000, prorrogacaoMs = 12000, etapaMs = 4000, agora = () => Date.now(),
     } = {}) {
-      Object.assign(this, { passoMs, aleatorio, abertaMs, prorrogacaoMs, etapaMs, agora, fila: eventos ? [...eventos] : null });
+      Object.assign(this, { passoMs, passoMinMs, passoMaxMs, aleatorio, abertaMs, prorrogacaoMs, etapaMs, agora, fila: eventos ? [...eventos] : null });
       // Cada concorrente tem o próprio mínimo, perto do mínimo geral da simulação.
       this.concorrentes = concorrentes.map((c) => (typeof c === 'string' ? { autor: c, porte: 'demais' } : { ...c }))
         .map((c) => ({ ...c, minimo: Math.round(minimoConcorrentes * (1 + aleatorio() * 0.035) * 100) / 100 }));
@@ -336,7 +336,10 @@
       }
       const falta = this.fimEm - this.agora();
       if (falta <= 0) { this.encerrarLances(); return this.pendentes.shift(); }
-      await new Promise((ok) => setTimeout(ok, Math.min(falta, this.passoMs * (0.6 + this.aleatorio() * 0.8))));
+      const passo = this.passoMinMs != null
+        ? this.passoMinMs + this.aleatorio() * ((this.passoMaxMs ?? this.passoMinMs) - this.passoMinMs)
+        : this.passoMs * (0.6 + this.aleatorio() * 0.8);
+      await new Promise((ok) => setTimeout(ok, Math.min(falta, passo)));
       if (!this.aberta) return { tipo: 'encerrada' };
       if (this.pendentes.length) return this.pendentes.shift();
       if (this.agora() >= this.fimEm) return { tipo: 'tique' };
