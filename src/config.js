@@ -85,6 +85,8 @@ export const config = {
   pncp: {
     urlConsulta: texto('PNCP_URL_CONSULTA', 'https://pncp.gov.br/api/consulta'),
     urlIntegracao: texto('PNCP_URL_INTEGRACAO', 'https://pncp.gov.br/api/pncp'),
+    // Busca por palavra (a mesma do site do PNCP; não documentada).
+    urlBusca: texto('PNCP_URL_BUSCA', 'https://pncp.gov.br/api/search'),
     // Modalidades baixadas do PNCP (as mesmas do filtro do site):
     // 6 Pregão Eletr., 8 Dispensa, 4 Concorrência Eletr., 7 Pregão Pres., 9 Inexigibilidade,
     // 3 Concurso, 5 Concorrência Pres., 12 Credenciamento, 13 Leilão Pres., 1 Leilão Eletr.
@@ -98,6 +100,19 @@ export const config = {
     maxPaginas: inteiro('PNCP_MAX_PAGINAS', 400),
     guardarBruto: texto('PNCP_GUARDAR_BRUTO', '0') === '1',
     limparDias: inteiro('LIMPAR_DIAS', 90),
+  },
+
+  // Robô de Lances no MODO REAL (portais de verdade, via Playwright).
+  roboReal: {
+    // Chave do cofre de credenciais (32 bytes em base64). Sem ela, o cofre fica desligado.
+    chaveCofre: texto('CREDENCIAIS_CHAVE'),
+    maxSessoes: inteiro('ROBO_REAL_MAX_SESSOES', 3),
+    // "permitir" = usa seletores ainda não conferidos (só para mapear um portal; nunca envia lance).
+    permitirNaoValidado: texto('ROBO_SELETORES_NAO_VALIDADOS').toLowerCase() === 'permitir',
+    // "nao" = abre o navegador visível (útil para mapear seletores no computador).
+    headless: texto('ROBO_REAL_HEADLESS', 'sim').toLowerCase() !== 'nao',
+    // Caminho de um Chrome/Chromium já instalado (vazio = o do "npx playwright install chromium").
+    executavel: texto('ROBO_REAL_CHROMIUM') || null,
   },
 
   servidor: {

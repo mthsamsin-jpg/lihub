@@ -261,6 +261,27 @@ test('robô de lances: travas do piso no banco e itens só da própria organiza�
     /row-level security/);
 });
 
+test('robô modo real: cofre fechado para o navegador; sessões e eventos só da própria organização', async () => {
+  // O cofre só é acessado pelo servidor (service role): nem o próprio dono lê pelo navegador.
+  await db.query(`insert into public.portal_credentials (user_id, portal, tipo, segredo_cifrado) values ($1, 'bll', 'senha', 'v1.a.b.c')`, [ids.a]);
+  await assert.rejects(como(ids.a, `select * from public.portal_credentials`), /permission denied/);
+  await assert.rejects(como(ids.a, `insert into public.portal_credentials (user_id, portal, tipo, segredo_cifrado) values ($1, 'bll', 'senha', 'x')`, [ids.a]), /permission denied/);
+  await assert.rejects(db.query(`insert into public.portal_credentials (user_id, portal, tipo, segredo_cifrado) values ($1, 'pncp', 'senha', 'x')`, [ids.a]), /portal_credentials_portal/);
+
+  const item = (await db.query(`insert into public.robo_itens (organizacao_id, descricao, max_price, min_floor_price) values ($1, 'Lote 1', 100, 90) returning id`, [ids.orgA])).rows[0].id;
+  const sessao = (await db.query(`insert into public.robo_sessoes (organizacao_id, robo_item_id, user_id, portal, pregao_ref) values ($1, $2, $3, 'bll', '90012/2026') returning id`, [ids.orgA, item, ids.a])).rows[0].id;
+  await db.query(`insert into public.auction_live_bids (sessao_id, organizacao_id, robo_item_id, tipo, autor, porte, valor) values ($1, $2, $3, 'lance', 'F2', 'me', 95)`, [sessao, ids.orgA, item]);
+  assert.equal((await como(ids.a, `select * from public.auction_live_bids`)).rows.length, 1);
+  assert.equal((await como(ids.a, `select * from public.robo_sessoes`)).rows.length, 1);
+  assert.equal((await como(ids.b, `select * from public.auction_live_bids`)).rows.length, 0, 'outra organização não vê a sala');
+  assert.equal((await como(ids.b, `select * from public.robo_sessoes`)).rows.length, 0);
+  // Escrita só pelo servidor.
+  await assert.rejects(como(ids.a, `insert into public.auction_live_bids (sessao_id, organizacao_id, robo_item_id, tipo) values ($1, $2, $3, 'status')`, [sessao, ids.orgA, item]), /row-level security|permission denied/);
+  await assert.rejects(como(ids.a, `update public.robo_sessoes set modo = 'lances' where id = $1`, [sessao]), /row-level security|permission denied/);
+  const mudou = await db.query(`select modo from public.robo_sessoes where id = $1`, [sessao]);
+  assert.equal(mudou.rows[0].modo, 'monitorar');
+});
+
 test('observações: cada usuário vê e edita só as próprias', async () => {
   const salvar = (u, texto) => como(u, `insert into public.licitacao_observacoes (licitacao_id, texto) values ($1, $2)
     on conflict (user_id, licitacao_id) do update set texto = excluded.texto`, [ids.licPncp, texto]);

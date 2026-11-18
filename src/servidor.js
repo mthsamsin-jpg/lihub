@@ -12,6 +12,10 @@ import { criarDetalhes } from './pncp/detalhes.js';
 import { sincronizarPncp } from './pncp/sincronizar.js';
 import { criarClienteAdmin, criarClienteDoUsuario } from './supabase.js';
 import { criarLog } from './util.js';
+import { criarCofre } from './cofre.js';
+import { ligarModoReal } from './api/modo-real.js';
+import { ligarPncpAoVivo } from './api/pncp-ao-vivo.js';
+import { criarGerenciador } from '../worker/gerenciador.js';
 
 const log = criarLog('servidor');
 
@@ -63,6 +67,25 @@ const app = criarApp({
 });
 
 // O site (pasta site/) sai pelo mesmo endereço da API.
+// Busca ao vivo no PNCP (por palavra) e itens de cada compra.
+ligarPncpAoVivo(app);
+
+// Robô de Lances, modo real: cofre de credenciais + sessões com Playwright.
+let cofre = null;
+if (config.roboReal.chaveCofre) {
+  try { cofre = criarCofre(config.roboReal.chaveCofre); } catch (e) { log.erro(e.message); }
+} else {
+  log.aviso('CREDENCIAIS_CHAVE não definida: cofre de credenciais e modo real do robô desligados.');
+}
+const gerenciadorReal = cofre ? criarGerenciador({
+  admin, cofre, maxSessoes: config.roboReal.maxSessoes, permitirNaoValidado: config.roboReal.permitirNaoValidado,
+  headless: config.roboReal.headless, executavel: config.roboReal.executavel, log: criarLog('robo-real'),
+}) : null;
+ligarModoReal(app, {
+  admin, cofre, gerenciador: gerenciadorReal,
+  navegadorDisponivel: async () => { try { await import('playwright'); return true; } catch { return false; } },
+});
+
 ligarSite(app, { publico: { supabaseUrl: config.supabase.url, supabaseChave: config.supabase.chavePublica, siteUrl: config.site.url } });
 
 // No Render (variável RENDER=true), localhost nos links é sempre engano.
@@ -119,6 +142,7 @@ if (config.servidor.syncIntervaloMin > 0) {
 function encerrar(sinal) {
   log.info(`Encerrando (${sinal})...`);
   controleSync.abort(new Error('Servidor encerrando.'));
+  gerenciadorReal?.encerrarTudo().catch(() => {});
   servidor.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 5_000).unref();
 }

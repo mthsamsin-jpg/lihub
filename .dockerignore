@@ -1,0 +1,12 @@
+node_modules
+.env
+.env.*
+!.env.exemplo
+.git
+*.log
+testes
+editais-teste
+demo
+analise-*.json
+worker/mapeamentos
+*.bat

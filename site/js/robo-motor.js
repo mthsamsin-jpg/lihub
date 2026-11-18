@@ -170,7 +170,16 @@
       const nova = decidir(this); // a praça pode ter mudado durante a espera
       if (nova.acao !== 'lance') return this.avaliar();
       if (centavos(nova.valor) < centavos(this.piso)) throw new Error('Trava: lance abaixo do piso bloqueado.');
-      await this.sala.enviarLance(nova.valor);
+      try {
+        await this.sala.enviarLance(nova.valor);
+      } catch (e) {
+        // Recusa normal do portal (ex.: a praça mudou entre a decisão e o envio): não muda
+        // o nosso lance e espera o próximo evento da sala para decidir de novo.
+        if (!e?.recuperavel) throw e;
+        this.ultimoLanceEm = this.agora();
+        this.eventos.aoRecusa?.(e.message, nova.valor);
+        return;
+      }
       this.nossoLance = nova.valor;
       this.ultimoLanceEm = this.agora();
       this.eventos.aoLance?.(nova.valor, nova.motivo);

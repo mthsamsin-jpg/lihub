@@ -107,9 +107,12 @@ window.LH = window.LH || {};
       const existente = disputas.get(id);
       if (existente && existente.status === 'paused') { existente.retomar(); return; }
       if (modo === 'real') {
-        const texto = 'Modo real: nenhum portal tem adaptador de lances conectado ainda (os portais não têm API pública). Use a sala simulada para testar a estratégia.';
-        LH.aviso(texto, 'alerta', 7000);
-        falar('Sistema', texto, 'robo-chat__msg--alerta', { itemId: id });
+        // Modo real: o worker do servidor abre o portal; os eventos chegam pelo Realtime.
+        LH.roboReal?.iniciar(i, {
+          mudar, falar,
+          prender: (itemId, d) => disputas.set(itemId, d),
+          soltar: (itemId, d) => { if (disputas.get(itemId) === d) disputas.delete(itemId); },
+        });
         return;
       }
       const nome = i.descricao;

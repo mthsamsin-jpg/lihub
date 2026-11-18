@@ -53,9 +53,10 @@ LH.vistas = LH.vistas || {};
                   <button type="button" role="radio" class="robo-modo__op" data-modo="simulada">${icone('play')} Sala simulada</button>
                   <button type="button" role="radio" class="robo-modo__op" data-modo="real">${icone('plugue')} Modo real</button>
                 </div>
+                <button class="btn btn--fantasma" type="button" data-cofre>${icone('cadeado')} Credenciais</button>
                 <button class="btn btn--primario" type="button" data-novo>${icone('mais')} Novo item</button>`,
       })}
-      <p class="nota robo-aviso robo-aviso--real" data-aviso-real hidden>${icone('alerta')} <span><strong>Modo real:</strong> os portais (Compras.gov.br, BLL e os demais) não têm API pública de lances, e ainda não há adaptador conectado a nenhum deles. Neste modo o robô não inicia. Volte para a <strong>sala simulada</strong> para testar a estratégia com concorrentes fictícios.</span></p>
+      <p class="nota robo-aviso robo-aviso--real" data-aviso-real hidden>${icone('plugue')} <span><strong>Modo real:</strong> o robô do servidor entra no portal com a <strong>sua credencial do cofre</strong>, abre a sala do pregão e transmite os lances, as fases e o chat ao vivo para esta tela. Por padrão ele <strong>só monitora</strong>; para dar lances de verdade, escolha isso ao conectar e confirme. Os portais não têm API pública: cada um precisa ter a sala mapeada no robô (por enquanto nenhum foi conferido numa sessão real, então a conexão avisa o que falta).</span></p>
       <p class="nota robo-aviso">${icone('escudo')} <span><strong>Prejuízo zero:</strong> o robô nunca dá lance abaixo do preço mínimo nem acima do teto, e o mínimo nunca fica abaixo do custo. A regra é conferida no motor e de novo no banco de dados. Os portais ainda não têm API pública de lances, então a sala abaixo é uma <strong>simulação</strong> com as regras do modo aberto e da LC 123, para testar a estratégia.</span></p>
       <div class="robo-portais" role="group" aria-label="Filtrar por portal">
         <span class="robo-portais__rotulo">${icone('computador')} Portal</span>
@@ -127,7 +128,7 @@ LH.vistas = LH.vistas || {};
         const [rotulo, classe] = ROTULO[i.status] || ROTULO.idle;
         const acao = i.status === 'running'
           ? `<button type="button" class="btn btn--pequeno" data-foco-acao="pausar">${icone('relogio')} Pausar</button>`
-          : `<button type="button" class="btn btn--pequeno btn--primario" data-foco-acao="iniciar">${icone('play')} ${i.status === 'paused' ? 'Retomar' : 'Simular praça'}</button>`;
+          : `<button type="button" class="btn btn--pequeno btn--primario" data-foco-acao="iniciar">${icone(vivo.modo() === 'real' ? 'plugue' : 'play')} ${i.status === 'paused' ? 'Retomar' : vivo.modo() === 'real' ? 'Conectar ao pregão' : 'Simular praça'}</button>`;
         caixaFoco.innerHTML = `
           <div class="robo-foco__topo">${portais().selo(i.plataforma)}<span class="robo-status ${classe}"><i aria-hidden="true"></i>${rotulo}</span></div>
           <b class="robo-foco__nome" title="${esc(i.descricao)}">${esc(i.descricao)}</b>
@@ -151,7 +152,7 @@ LH.vistas = LH.vistas || {};
           </li>`;
         }).join('');
         painelRanking.innerHTML = `
-          ${r.length ? `<ol class="robo-rank__lista">${linhas}</ol>` : '<p class="robo-chat__vazio">Clique em <b>Simular praça</b> acima para os concorrentes começarem a dar lances.</p>'}
+          ${r.length ? `<ol class="robo-rank__lista">${linhas}</ol>` : `<p class="robo-chat__vazio">${vivo.modo() === 'real' ? 'Clique em <b>Conectar ao pregão</b> acima para acompanhar a sala real.' : 'Clique em <b>Simular praça</b> acima para os concorrentes começarem a dar lances.'}</p>`}
           <p class="robo-rank__nota">${icone('balanca')} <span><b>LC 123:</b> ME/EPP até ${LH.robo.MARGEM_LC123}% acima do 1º colocado (quando ele não é ME/EPP) pode cobrir o lance no desempate.${pref.empate ? ` Limite agora: <strong>${moeda(pref.limite)}</strong>.` : ''}</span></p>`;
       };
 
@@ -208,7 +209,7 @@ LH.vistas = LH.vistas || {};
         <article class="card robo-item ${classe}${vencendo ? ' robo-item--lider' : ''}${foco === i.id ? ' robo-item--foco' : ''}" data-item="${esc(i.id)}">
           <header class="robo-item__topo">
             <div>
-              <div class="robo-item__selos">${portais().selo(i.plataforma)}${i.itemNumero ? `<span class="selo">Item ${esc(i.itemNumero)}</span>` : ''}<span class="selo" title="Porte da nossa empresa (LC 123)">Nós: ${PORTE[i.nossoPorte || 'demais']}</span></div>
+              <div class="robo-item__selos">${portais().selo(i.plataforma)}${i.itemNumero ? `<span class="selo">Item ${esc(i.itemNumero)}</span>` : ''}<span class="selo" title="Porte da nossa empresa (LC 123)">Nós: ${PORTE[i.nossoPorte || 'demais']}</span>${i.real ? `<span class="selo-real" title="Conectado ao portal de verdade">${icone('plugue')} REAL · ${i.real.modo === 'lances' ? 'dando lances' : 'monitorando'}${i.real.status === 'iniciando' ? ' · conectando' : ''}</span>` : ''}${i.pregaoRef ? `<span class="selo" title="Pregão no portal">Pregão ${esc(i.pregaoRef)}${i.loteRef ? ` · lote ${esc(i.loteRef)}` : ''}</span>` : ''}</div>
               <h3>${esc(i.descricao)}</h3>
             </div>
             <span class="robo-status ${classe}"><i aria-hidden="true"></i>${rotulo}</span>
@@ -239,7 +240,7 @@ LH.vistas = LH.vistas || {};
           <div class="robo-item__acoes">
             ${i.status === 'running'
               ? `<button class="btn btn--pequeno" data-acao="pausar">${icone('relogio')} Pausar</button>`
-              : `<button class="btn btn--pequeno btn--primario" data-acao="iniciar">${icone('play')} ${i.status === 'paused' ? 'Retomar' : 'Iniciar'}</button>`}
+              : `<button class="btn btn--pequeno btn--primario" data-acao="iniciar">${icone(vivo.modo() === 'real' ? 'plugue' : 'play')} ${i.status === 'paused' ? 'Retomar' : vivo.modo() === 'real' ? 'Conectar ao pregão' : 'Iniciar'}</button>`}
             <button class="btn btn--pequeno" data-acao="parar" ${i.status === 'idle' ? 'disabled' : ''}>${icone('fechar')} Parar</button>
             <button class="btn btn--pequeno btn--fantasma" data-acao="limites">${icone('lapis')} Piso e teto</button>
             <button class="btn btn--pequeno btn--fantasma" data-acao="editar" ${i.status === 'idle' ? '' : 'disabled'}>${icone('engrenagem')} Item</button>
@@ -326,7 +327,7 @@ LH.vistas = LH.vistas || {};
         const porte = i?.nossoPorte || (soLimites ? 'demais' : await porteDaEmpresa());
         const portalInicial = i?.plataforma || filtro || 'comprasnet';
         LH.modal({
-          titulo: soLimites ? 'Piso e teto (vale na hora)' : (i ? 'Editar item' : 'Novo item no robô'),
+          titulo: soLimites ? 'Piso e teto (vale na hora)' : (i?.id ? 'Editar item' : i ? 'Importar do PNCP para o robô' : 'Novo item no robô'),
           html: `<form class="form" onsubmit="return false">
             ${soLimites ? `<p class="fraco">${esc(i.descricao)}</p>` : `<label class="campo"><span class="campo__rotulo">Descrição do item</span>
               <input name="descricao" maxlength="300" required value="${esc(i?.descricao || '')}" placeholder="ex.: Notebook i5 16 GB"></label>
@@ -359,9 +360,9 @@ LH.vistas = LH.vistas || {};
               const caixaErro = janela.querySelector('[data-erro]');
               if (erros.length) { caixaErro.textContent = erros[0]; caixaErro.hidden = false; return; }
               try {
-                if (i) vivo.atualizarLimites(i.id, { piso: dados.piso, teto: dados.teto });
+                if (i?.id) vivo.atualizarLimites(i.id, { piso: dados.piso, teto: dados.teto });
                 const salvo = await LH.repo.salvarRoboItem(dados);
-                if (i) {
+                if (i?.id) {
                   const { id, status, nossoLance, melhorLance, fase, ...campos } = salvo;
                   vivo.atualizar(i.id, campos);
                 } else {
@@ -391,6 +392,7 @@ LH.vistas = LH.vistas || {};
           b.setAttribute('aria-checked', String(b.dataset.modo === m));
         });
         raiz.querySelector('[data-aviso-real]').hidden = m !== 'real';
+        if (carregado) desenhar(); // os botões mudam de "Iniciar" para "Conectar ao pregão"
       };
       desenharModo();
       LH.ao(raiz, 'click', '[data-modo]', (e, b) => {
@@ -399,6 +401,7 @@ LH.vistas = LH.vistas || {};
 
       // --- Eventos ---
       LH.ao(raiz, 'click', '[data-novo]', () => abrirForm());
+      LH.ao(raiz, 'click', '[data-cofre]', () => LH.roboReal?.abrirCofre());
       LH.ao(raiz, 'click', '[data-portal]', (e, b) => {
         filtro = b.dataset.portal;
         raiz.querySelectorAll('[data-portal]').forEach((x) => x.classList.toggle('ativo', x === b));
@@ -465,7 +468,17 @@ LH.vistas = LH.vistas || {};
         else if (tipo === 'chat') falarNaTela(dado);
       });
       vivo.carregar()
-        .then(() => { carregado = true; desenhar(); })
+        .then(() => {
+          carregado = true;
+          desenhar();
+          // Veio do "Importar para o Robô" da busca no PNCP: abre o cadastro preenchido.
+          if (LH.roboImportar) {
+            const pre = LH.roboImportar;
+            LH.roboImportar = null;
+            abrirForm(pre);
+            LH.aviso(pre.teto ? 'Dados do PNCP preenchidos. Informe o custo e o preço mínimo de segurança.' : 'Dados do PNCP preenchidos. O valor estimado é sigiloso: informe o teto, o custo e o mínimo.', 'info', 7000);
+          }
+        })
         .catch((e) => { caixa.innerHTML = LH.erroHtml(e); });
 
       return () => { deixarDeOuvir(); clearInterval(relogio); };

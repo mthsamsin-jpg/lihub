@@ -77,6 +77,8 @@ LH.vistas = LH.vistas || {};
         </div>
       </form>
 
+      <section class="card pncp-vivo" id="pncp-vivo" aria-live="polite"></section>
+
       <section aria-live="polite" class="busca-resultados">
         <div class="resultados__barra">
           <span id="contagem"></span>
@@ -88,9 +90,13 @@ LH.vistas = LH.vistas || {};
         <div class="resultados" id="resultados"></div>
         <div class="mais-resultados" id="mais" hidden><button class="btn" type="button">${icone('setaBaixo')} Carregar mais</button></div>
       </section>`,
-    montar(raiz) {
+    montar(raiz, params = {}) {
       const form = raiz.querySelector('#filtros');
       const ordem = raiz.querySelector('#ordem');
+      // Busca ao vivo no PNCP: roda sozinha quando se chega pela barra do topo (?q=...).
+      const pncpVivo = LH.pncpAoVivo?.ligar(raiz.querySelector('#pncp-vivo'), {
+        termo: () => form.termo.value, uf: () => form.uf.value, automatico: !!params.q && LH.repo.modo === 'real',
+      });
       const caixa = raiz.querySelector('#resultados');
       const mais = raiz.querySelector('#mais');
       const cidade = form.municipio;
@@ -160,7 +166,7 @@ LH.vistas = LH.vistas || {};
         } catch { /* sem a lista, a cidade continua podendo ser digitada */ }
       };
 
-      form.addEventListener('submit', (e) => { e.preventDefault(); buscar(); });
+      form.addEventListener('submit', (e) => { e.preventDefault(); buscar(); if (LH.repo.modo === 'real' && form.termo.value.trim().length >= 3) pncpVivo?.buscar(); });
       form.addEventListener('reset', () => setTimeout(() => { atualizarCidades(); buscar(); }));
       form.uf.addEventListener('change', atualizarCidades);
       form.addEventListener('click', (e) => {

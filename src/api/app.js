@@ -70,7 +70,7 @@ export function criarApp({ repositorio, analisar, obterEdital, pagamentos = null
 
   app.use('*', cors({
     origin: origens.includes('*') ? '*' : origens,
-    allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Authorization', 'Content-Type'],
     maxAge: 600,
   }));

@@ -16,7 +16,8 @@
     "verificar": "node --env-file=.env scripts/verificar-supabase.js",
     "stripe:configurar": "node --env-file=.env scripts/stripe-configurar.js",
     "stripe:verificar": "node --env-file=.env scripts/stripe-verificar.js",
-    "test": "node --test \"testes/*.test.js\""
+    "test": "node --test \"testes/*.test.js\"",
+    "mapear": "node worker/mapear-portal.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
@@ -29,5 +30,8 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16"
+  },
+  "optionalDependencies": {
+    "playwright": "1.48.2"
   }
 }

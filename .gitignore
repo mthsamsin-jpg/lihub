@@ -3,3 +3,6 @@ node_modules/
 analise-*.json
 editais-teste/*.pdf
 *.log
+
+# Gravações do mapeamento de portais (podem conter senhas digitadas)
+worker/mapeamentos/
