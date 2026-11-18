@@ -242,7 +242,7 @@ test('Storage: PDF só entra na pasta da própria organização', async () => {
     /row-level security/);
 });
 
-test('Licita Lances: travas do piso no banco e itens só da própria organização', async () => {
+test('Robô Turbo 2.0: travas do piso no banco e itens só da própria organização', async () => {
   const r = await como(ids.a, `insert into public.robo_itens (organizacao_id, descricao, max_price, supplier_cost, min_floor_price)
     values ($1, 'Item 1 - Notebook', 5000, 3800, 4200) returning id`, [ids.orgA]);
   const id = r.rows[0].id;

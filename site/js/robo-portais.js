@@ -1,5 +1,5 @@
 /* =============================================================================
-   Uso LicitaHub · Portais do Licita Lances
+   Uso LicitaHub · Portais do Robô Turbo 2.0
    Um registro só com o selo e as regras de cada plataforma. A tela, o mini
    player e o formulário leem daqui.
 

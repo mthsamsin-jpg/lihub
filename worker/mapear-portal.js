@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Assistente de mapeamento dos portais do Licita Lances (modo real).
+// Assistente de mapeamento dos portais do Robô Turbo 2.0 (modo real).
 //
 //   npm run mapear            menu com os 9 portais de disputa
 //   npm run mapear -- bll     vai direto para um portal (chave ou número)
@@ -119,7 +119,7 @@ async function principal() {
   const rl = createInterface({ input: stdin, output: stdout });
   try {
     if (!escolha) {
-      console.log(negrito('\nMapeamento dos portais do Licita Lances (modo real)\n'));
+      console.log(negrito('\nMapeamento dos portais do Robô Turbo 2.0 (modo real)\n'));
       PRIORIDADE.forEach(([k, nome], i) => {
         const sel = SELETORES[k];
         const faltam = camposPendentes(sel).length;

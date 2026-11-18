@@ -70,7 +70,7 @@ const app = criarApp({
 // Busca ao vivo no PNCP (por palavra) e itens de cada compra.
 ligarPncpAoVivo(app);
 
-// Licita Lances, modo real: cofre de credenciais + sessões com Playwright.
+// Robô Turbo 2.0, modo real: cofre de credenciais + sessões com Playwright.
 let cofre = null;
 if (config.roboReal.chaveCofre) {
   try { cofre = criarCofre(config.roboReal.chaveCofre); } catch (e) { log.erro(e.message); }

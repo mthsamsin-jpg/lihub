@@ -1,4 +1,4 @@
-// Motor do Licita Lances no servidor: o mesmo código usado no navegador
+// Motor do Robô Turbo 2.0 no servidor: o mesmo código usado no navegador
 // (site/js/robo-motor.js), para as regras e a trava do piso serem uma só.
 import '../../site/js/robo-motor.js';
 

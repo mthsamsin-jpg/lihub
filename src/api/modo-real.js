@@ -1,4 +1,4 @@
-// Rotas do MODO REAL do Licita Lances (todas exigem login, pelo middleware /api/* do app.js):
+// Rotas do MODO REAL do Robô Turbo 2.0 (todas exigem login, pelo middleware /api/* do app.js):
 //   GET    /api/robo/real/estado                 o servidor tem cofre e navegador? quais portais estão mapeados?
 //   GET    /api/portais/credenciais              credenciais salvas (só metadados: nunca o segredo)
 //   PUT    /api/portais/credenciais/:portal      salva/troca a credencial (cifrada no servidor)

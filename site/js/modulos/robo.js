@@ -1,5 +1,5 @@
 /* =============================================================================
-   Uso LicitaHub · Licita Lances (6. Disputa)
+   Uso LicitaHub · Robô Turbo 2.0 (6. Disputa)
    Sala de disputa em tempo real, igual ao que o operador vê nos portais:
    - card por item com o selo do portal, as fases do pregão em abas (aberta,
      prorrogação, desempate ME/EPP, negociação, habilitação), quantidade e valor
@@ -44,10 +44,10 @@ LH.vistas = LH.vistas || {};
   };
 
   LH.vistas.robo = {
-    titulo: 'Licita Lances',
+    titulo: 'Robô Turbo 2.0',
     render: () => `
       ${LH.cabecalho({
-        titulo: 'Licita Lances',
+        titulo: 'Robô Turbo 2.0',
         texto: 'Cobre os lances dos concorrentes por centavos, acompanha as fases do pregão e para sozinho no seu preço mínimo de segurança. Nunca dá lance em prejuízo.',
         acoes: `<div class="robo-modo" role="radiogroup" aria-label="Modo da sala de disputa">
                   <button type="button" role="radio" class="robo-modo__op" data-modo="simulada">${icone('play')} Sala simulada</button>
@@ -64,7 +64,7 @@ LH.vistas = LH.vistas || {};
         ${portais().lista().map((p) => `<button type="button" class="chip-portal" data-portal="${esc(p.chave)}" style="--matiz:${p.matiz}"><i aria-hidden="true"></i>${esc(p.nome)}</button>`).join('')}
       </div>
       <section class="card feed-vivo" id="feed-vivo" aria-live="polite" hidden></section>
-      <h2 class="robo-secao">${icone('alvo')} Itens no Licita Lances</h2>
+      <h2 class="robo-secao">${icone('alvo')} Itens no Robô Turbo 2.0</h2>
       <div class="robo-grade">
         <section class="robo-itens" id="robo-itens" aria-live="polite">${LH.carregando('Carregando itens...')}</section>
         <aside class="card robo-chat" aria-label="Sala de pregão">
@@ -286,7 +286,7 @@ LH.vistas = LH.vistas || {};
           caixa.innerHTML = `<div class="card">${LH.vazio('computador', `Nenhum item em ${nomePortal(filtro)}`, 'Escolha outro portal ou cadastre um item neste.', `<button class="btn btn--primario" data-novo>${icone('mais')} Novo item</button>`)}</div>`;
         } else {
           caixa.innerHTML = itens.length ? visiveis.map(cartao).join('')
-            : `<div class="card">${LH.vazio('alvo', 'Nenhum item no Licita Lances', 'Cadastre um item com a quantidade, o preço teto, o seu custo e o preço mínimo de segurança.', `<button class="btn btn--primario" data-novo>${icone('mais')} Novo item</button>`)}</div>`;
+            : `<div class="card">${LH.vazio('alvo', 'Nenhum item no Robô Turbo 2.0', 'Cadastre um item com a quantidade, o preço teto, o seu custo e o preço mínimo de segurança.', `<button class="btn btn--primario" data-novo>${icone('mais')} Novo item</button>`)}</div>`;
         }
         desenharRanking();
         desenharFoco();
@@ -335,7 +335,7 @@ LH.vistas = LH.vistas || {};
         const porte = i?.nossoPorte || (soLimites ? 'demais' : await porteDaEmpresa());
         const portalInicial = i?.plataforma || filtro || 'comprasnet';
         LH.modal({
-          titulo: soLimites ? 'Piso e teto (vale na hora)' : (i?.id ? 'Editar item' : i ? 'Importar do PNCP para o Licita Lances' : 'Novo item no Licita Lances'),
+          titulo: soLimites ? 'Piso e teto (vale na hora)' : (i?.id ? 'Editar item' : i ? 'Importar do PNCP para o Robô Turbo 2.0' : 'Novo item no Robô Turbo 2.0'),
           html: `<form class="form" onsubmit="return false">
             ${soLimites ? `<p class="fraco">${esc(i.descricao)}</p>` : `<label class="campo"><span class="campo__rotulo">Descrição do item</span>
               <input name="descricao" maxlength="300" required value="${esc(i?.descricao || '')}" placeholder="ex.: Notebook i5 16 GB"></label>
@@ -459,7 +459,7 @@ LH.vistas = LH.vistas || {};
           case 'limites': abrirForm(i, true); break;
           case 'editar': abrirForm(i); break;
           case 'excluir':
-            if (!(await LH.confirmar('Excluir item', `Excluir "${i.descricao}" do Licita Lances?`, 'Excluir', true))) return;
+            if (!(await LH.confirmar('Excluir item', `Excluir "${i.descricao}" do Robô Turbo 2.0?`, 'Excluir', true))) return;
             try { await vivo.remover(i.id); } catch (erro) { LH.aviso(erro.message, 'perigo'); }
             break;
           default:
@@ -547,7 +547,7 @@ LH.vistas = LH.vistas || {};
         .then(() => {
           carregado = true;
           desenhar();
-          // Veio do "Importar para o Licita Lances" da busca no PNCP: abre o cadastro preenchido.
+          // Veio do "Importar para o Robô Turbo 2.0" da busca no PNCP: abre o cadastro preenchido.
           if (LH.roboImportar) {
             const pre = LH.roboImportar;
             LH.roboImportar = null;

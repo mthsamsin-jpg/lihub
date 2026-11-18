@@ -1,4 +1,4 @@
-// Modo real do Licita Lances: cofre de credenciais, adaptadores e a sessão
+// Modo real do Robô Turbo 2.0: cofre de credenciais, adaptadores e a sessão
 // (com um adaptador FALSO no lugar do Playwright: nenhum portal é acessado).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

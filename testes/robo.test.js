@@ -1,4 +1,4 @@
-// Licita Lances: cobertura por centavos e a trava do piso (nunca abaixo).
+// Robô Turbo 2.0: cobertura por centavos e a trava do piso (nunca abaixo).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { decidir, validarLimites, Disputa, SalaSimulada, STATUS, FASES, preferenciaLC123 } from '../src/robo/motor.js';

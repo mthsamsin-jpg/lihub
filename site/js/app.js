@@ -20,7 +20,7 @@ window.LH = window.LH || {};
       { id: 'petronect', rotulo: 'Petronect', tag: 'Beta' },
       { id: 'favoritas', rotulo: 'Licitações favoritas' },
     ] },
-    { etapa: 2, id: 'robo', rotulo: 'Licita Lances', icone: 'alvo' },
+    { etapa: 2, id: 'robo', rotulo: 'Robô Turbo 2.0', icone: 'alvo' },
     { etapa: 3, rotulo: 'Análise do edital', icone: 'brilho', filhos: [
       { id: 'ia/leitor', rotulo: 'Leitor de Edital IA' },
       { id: 'ia/dossie', rotulo: 'Dossiê Jurídico IA' },
@@ -61,7 +61,7 @@ window.LH = window.LH || {};
     const tag = (t) => (t ? `<span class="menu__tag">${esc(t)}</span>` : '');
     menu.innerHTML = `<ul>${LH.menu.map((item, i) => {
       if (!item.filhos) {
-        // Etapa com acesso direto (ex.: "2 Licita Lances"): número da etapa, sem submenu.
+        // Etapa com acesso direto (ex.: "2 Robô Turbo 2.0"): número da etapa, sem submenu.
         const marcaDireta = item.etapa ? `<span class="menu__num" aria-hidden="true">${item.etapa}</span>` : icone(item.icone);
         const rotuloDireto = item.etapa ? `<span class="sr-only">Etapa ${item.etapa}: </span>${esc(item.rotulo)}` : esc(item.rotulo);
         return `<li class="menu__item${item.etapa ? ' menu__item--etapa' : ''}"><a class="menu__link" href="#/${item.id}" data-rota="${item.id}">

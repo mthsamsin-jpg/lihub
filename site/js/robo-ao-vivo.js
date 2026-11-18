@@ -1,5 +1,5 @@
 /* =============================================================================
-   Uso LicitaHub · Licita Lances ao vivo (estado global + mini player)
+   Uso LicitaHub · Robô Turbo 2.0 ao vivo (estado global + mini player)
    Guarda as disputas, os itens e o chat da sala FORA da tela do robô, para os
    robôs continuarem rodando quando o operador navega para outros módulos.
    A tela (js/modulos/robo.js) e o mini player flutuante só "ouvem" este estado.
@@ -205,7 +205,7 @@ window.LH = window.LH || {};
   LH.roboAoVivo = api;
 
   // ---------------------------------------------------------------------------
-  // Mini player flutuante: aparece fora da tela do Licita Lances enquanto houver
+  // Mini player flutuante: aparece fora da tela do Robô Turbo 2.0 enquanto houver
   // disputa (CRM, leitor de edital, documentos...). Os dados chegam do mesmo estado
   // global (sala simulada ou Supabase Realtime no modo real), que segue rodando.
   // ---------------------------------------------------------------------------
@@ -237,7 +237,7 @@ window.LH = window.LH || {};
     el = document.createElement('aside');
     el.className = 'robo-mini';
     el.hidden = true;
-    el.setAttribute('aria-label', 'Licita Lances em segundo plano');
+    el.setAttribute('aria-label', 'Robô Turbo 2.0 em segundo plano');
     el.innerHTML = `
       <header class="robo-mini__topo">
         <span class="robo-mini__status" data-m="status"><i aria-hidden="true"></i><b></b></span>
