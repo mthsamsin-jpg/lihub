@@ -57,8 +57,8 @@ LH.vistas = LH.vistas || {};
                   <button type="button" role="radio" class="robo-modo__op" data-modo="simulada">${icone('play')} Sala simulada</button>
                   <button type="button" role="radio" class="robo-modo__op" data-modo="real">${icone('plugue')} Modo real</button>
                 </div>
-                <button class="btn btn--fantasma" type="button" data-cofre>${icone('cadeado')} Credenciais</button>
-                <button class="btn btn--primario" type="button" data-novo>${icone('mais')} Novo item</button>`,
+                <button class="robo-quadro" type="button" data-cofre aria-label="Credenciais dos portais" title="Credenciais dos portais">${icone('cadeado')}</button>
+                <button class="robo-quadro robo-quadro--primario" type="button" data-novo aria-label="Novo item" title="Novo item">${icone('mais')}</button>`,
       })}
       </div>
       <p class="nota robo-aviso robo-aviso--real" data-aviso-real hidden>${icone('plugue')} <span><strong>Modo real:</strong> o robô do servidor entra no portal com a <strong>sua credencial do cofre</strong>, abre a sala do pregão e transmite os lances, as fases e o chat ao vivo para esta tela. Por padrão ele <strong>só monitora</strong>; para dar lances de verdade, escolha isso ao conectar e confirme. Os portais não têm API pública: cada um precisa ter a sala mapeada no robô (por enquanto nenhum foi conferido numa sessão real, então a conexão avisa o que falta).</span></p>

@@ -1051,3 +1051,21 @@ body.sem-login .app { display: none; }
 @keyframes robo-orbe-pulso { 50% { box-shadow: 0 0 0 2px rgba(4, 11, 22, 0.8), 0 0 14px rgba(52, 211, 153, 0.4); } }
 @media (max-width: 640px) { .robo-orbe { width: 40px; height: 40px; } .robo-topo .pagina__cabecalho { padding-right: 52px; } }
 @media (prefers-reduced-motion: reduce) { .robo-orbe, .robo-orbe__ponto { transition: none; animation: none !important; } }
+
+/* --- Robô Turbo 2.0: Credenciais e Novo item como quadradinhos de vidro só com o ícone --- */
+.robo-quadro {
+  width: 44px; height: 44px; border-radius: 12px; display: inline-grid; place-items: center; flex: none; cursor: pointer;
+  color: #cbd5e1; border: 1px solid rgba(148, 197, 255, 0.26);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03) 55%, rgba(14, 40, 70, 0.3));
+  backdrop-filter: blur(12px) saturate(1.3); -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), 0 6px 16px rgba(2, 12, 27, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+.robo-quadro svg { width: 19px; height: 19px; }
+.robo-quadro:hover, .robo-quadro:focus-visible {
+  transform: translateY(-1px); color: #e0f2fe; border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35), 0 0 0 4px rgba(56, 189, 248, 0.12), 0 8px 20px rgba(56, 189, 248, 0.25);
+}
+.robo-quadro--primario { color: #04121f; border-color: rgba(56, 189, 248, 0.7); background: linear-gradient(160deg, #67e8f9, #38bdf8 55%, #0284c7); }
+.robo-quadro--primario:hover, .robo-quadro--primario:focus-visible { color: #04121f; box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.18), 0 10px 24px rgba(56, 189, 248, 0.4); }
+@media (prefers-reduced-motion: reduce) { .robo-quadro { transition: none; } }
