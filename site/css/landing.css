@@ -12,7 +12,9 @@
 /* Logo (o mesmo do painel) */
 .logo { display: inline-flex; align-items: center; gap: 10px; color: var(--texto); }
 .logo:hover { text-decoration: none; }
-.logo__marca svg { width: 34px; height: 34px; filter: drop-shadow(0 6px 16px rgba(14, 165, 233, 0.45)); }
+.logo__marca { display: inline-flex; flex: none; }
+.logo__marca img, .logo__marca svg { width: 36px; height: 36px; border-radius: 10px; object-fit: cover; box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35), 0 6px 18px rgba(56, 189, 248, 0.35), 0 0 22px rgba(168, 85, 247, 0.25); }
+@media (max-width: 480px) { .logo__marca img { width: 32px; height: 32px; border-radius: 9px; } }
 .logo__nome { font-size: 1.32rem; font-weight: 800; letter-spacing: -0.02em; color: var(--texto); }
 .logo__nome b { background: var(--gradiente); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
