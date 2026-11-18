@@ -63,6 +63,17 @@ LH.vistas = LH.vistas || {};
         chat.scrollTop = chat.scrollHeight;
       };
 
+      // Barra teto -> piso: quanto da margem de descida o nosso lance já consumiu.
+      const trilho = (i) => {
+        if (i.nossoLance == null || !(i.teto > i.piso)) return '';
+        const pct = Math.max(0, Math.min(100, ((i.teto - i.nossoLance) / (i.teto - i.piso)) * 100));
+        const nivel = pct >= 85 ? 'robo-trilho--perto' : pct >= 60 ? 'robo-trilho--meio' : '';
+        return `<div class="robo-trilho ${nivel}" role="meter" aria-label="Margem consumida até o piso" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}">
+            <div class="robo-trilho__barra"><i style="width:${pct.toFixed(1)}%"></i></div>
+            <div class="robo-trilho__legenda"><span>Teto</span><b>${Math.round(pct)}% da margem usada</b><span>Piso</span></div>
+          </div>`;
+      };
+
       const cartao = (i) => {
         const [rotulo, classe] = ROTULO[i.status] || ROTULO.idle;
         const vencendo = i.nossoLance != null && (i.melhorLance == null || i.nossoLance < i.melhorLance);
@@ -76,9 +87,10 @@ LH.vistas = LH.vistas || {};
           </header>
           <div class="robo-placar">
             <div><span>Melhor lance da praça</span><strong>${moeda(i.melhorLance)}</strong></div>
-            <div class="${vencendo ? 'robo-placar--vencendo' : ''}"><span>Nosso lance</span><strong>${moeda(i.nossoLance)}</strong>
+            <div class="${i.nossoLance == null ? '' : vencendo ? 'robo-placar--vencendo' : 'robo-placar--coberto'}"><span>Nosso lance</span><strong>${moeda(i.nossoLance)}</strong>
               <em>${i.nossoLance == null ? 'ainda sem lance' : vencendo ? 'estamos na frente' : 'fomos cobertos'}</em></div>
           </div>
+          ${trilho(i)}
           <dl class="robo-limites">
             <div><dt>Preço teto</dt><dd>${moeda(i.teto)}</dd></div>
             <div><dt>Custo</dt><dd>${moeda(i.custo)}</dd></div>
