@@ -576,6 +576,13 @@ window.LH = window.LH || {};
     },
 
     // --- Robô Turbo 2.0 ---
+    /** Fechamentos de disputas da organização (base da previsão). */
+    async roboHistorico() {
+      const { data, error } = await db().from('robo_historico').select('descricao, desagio_pct, preco_fechamento, teto, vencemos, encerrado_em')
+        .eq('organizacao_id', ctx().organizacao.id).order('encerrado_em', { ascending: false }).limit(500);
+      if (error) throw erroBanco(error, 'Não consegui ler o histórico de fechamentos');
+      return (data || []).map((h) => ({ descricao: h.descricao, desagioPct: Number(h.desagio_pct) }));
+    },
     async roboItens() {
       const { data, error } = await db().from('robo_itens').select('*').eq('organizacao_id', ctx().organizacao.id).order('criado_em');
       if (error?.code === '42P01' || error?.code === 'PGRST205') throw new Error('Falta a tabela do Robô Turbo 2.0: rode o supabase/atualizar-robo.sql no Supabase.');
@@ -826,6 +833,7 @@ window.LH = window.LH || {};
 
     // Robô Turbo 2.0 (demonstração: neste navegador)
     roboItens: async () => LH.estado.obter('robo') || [],
+    roboHistorico: async () => [],
     async salvarRoboItem(item) {
       const lista = LH.estado.obter('robo') || [];
       const salvo = { status: 'idle', nossoLance: null, melhorLance: null, ...item, id: item.id || LH.idNovo('r') };

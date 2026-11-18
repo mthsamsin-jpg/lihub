@@ -15,7 +15,11 @@
 //     descontando a latência medida aqui a cada envio;
 //   - auto-healing: queda da página, do navegador ou da sessão do portal faz a
 //     sessão pausar o motor, reconectar (com espera crescente) e retomar.
+//   - preditivo: cada lance alimenta o perfil dos concorrentes e a previsão do
+//     fechamento; mudanças relevantes viram alerta no feed e no webhook. No fim,
+//     o fechamento e os perfis vão para o histórico (base das próximas previsões).
 import { Disputa, centavos } from '../src/robo/motor.js';
+import { MonitorPreditivo } from '../src/robo/analise.js';
 import { ErroAdaptador } from './adaptadores/base.js';
 
 /** Ponte entre o adaptador (que empurra eventos) e o motor (que puxa com proximoEvento). */
@@ -65,6 +69,13 @@ export class SalaReal {
   }
 }
 
+/** Piso efetivo do item (piso informado ou custo + margem mínima, o que for maior). */
+function pisoComMargem(item) {
+  const m = Number(item.margemMinPct);
+  if (item.custo == null || !Number.isFinite(m) || m <= 0) return item.piso;
+  return Math.max(item.piso, Math.ceil(item.custo * (100 + m)) / 100);
+}
+
 export class SessaoReal {
   /**
    * @param {object} deps
@@ -75,8 +86,14 @@ export class SessaoReal {
    * @param {(campos: object) => Promise<void>} deps.atualizarSessao  status/erro em robo_sessoes
    * @param {(campos: object) => Promise<void>} deps.atualizarItem     bid_status/nosso_lance/melhor_lance/fase em robo_itens
    */
-  constructor({ sessao, item, adaptador, gravar, atualizarSessao, atualizarItem, log = console, maxReconexoes = 5, esperaBaseMs = 1000, esperar }) {
-    Object.assign(this, { sessao, item, adaptador, gravar, atualizarSessao, atualizarItem, log, maxReconexoes, esperaBaseMs });
+  constructor({
+    sessao, item, adaptador, gravar, atualizarSessao, atualizarItem, log = console, maxReconexoes = 5, esperaBaseMs = 1000, esperar,
+    historico = [], notificar = null, salvarFechamento = null, salvarPerfis = null, agora = () => Date.now(),
+  }) {
+    Object.assign(this, { sessao, item, adaptador, gravar, atualizarSessao, atualizarItem, log, maxReconexoes, esperaBaseMs, notificar, salvarFechamento, salvarPerfis });
+    this.preditivo = new MonitorPreditivo({
+      teto: item.teto, piso: pisoComMargem(item), custo: item.custo ?? null, decremento: item.decremento ?? 0.01, historico, agora,
+    });
     this.esperar = esperar || ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.disputa = null;
     this.sala = null;
@@ -132,6 +149,7 @@ export class SessaoReal {
       aoErro: (e) => this.falhar(e),
       aoLance: async (valor, motivo) => {
         this.sniperAvisado = false;
+        this.tratarPrevisao(this.preditivo.nosso(valor));
         await this.atualizarItem({ nosso_lance: valor, bid_status: 'running' }).catch((e) => this.log.erro?.(e.message));
         await this.avisar('lance', { autor: 'nos', porte: 'nos', valor, texto: motivo === 'fuga_empate' ? 'Lance para sair da faixa de 5% da ME/EPP' : 'Lance do robô enviado ao portal' });
       },
@@ -166,6 +184,7 @@ export class SessaoReal {
       const k = this.chaveLance(ev);
       if (this.lancesVistos.has(k)) return; // já registrado (foto inicial ou antes da reconexão)
       this.lancesVistos.add(k);
+      if (!ev.nosso) this.tratarPrevisao(this.preditivo.concorrente(ev.autor, ev.valor, ev.porte));
       if (!ev.nosso && (this.melhor == null || ev.valor < this.melhor)) {
         this.melhor = ev.valor;
         this.atualizarItem({ melhor_lance: ev.valor }).catch(() => {});
@@ -226,10 +245,37 @@ export class SessaoReal {
 
   pausar() { this.disputa?.pausar(); return this.atualizarSessao({ status: 'pausado' }); }
   async retomar() { await this.atualizarSessao({ status: 'conectado' }); await this.disputa?.retomar(); }
+  /** Alerta preditivo: vai para o feed (tela) e para o webhook da organização. */
+  tratarPrevisao({ alerta }) {
+    if (!alerta || this.encerrada) return;
+    this.avisar('alerta', { texto: alerta.texto });
+    const p = this.preditivo.previsao;
+    this.notificar?.({
+      tipo: 'previsao', motivo: alerta.motivo, texto: `Robô Turbo 2.0 · pregão ${this.sessao.pregao_ref}${this.sessao.lote_ref ? `, lote ${this.sessao.lote_ref}` : ''}: ${alerta.texto}`,
+      pregao: this.sessao.pregao_ref, lote: this.sessao.lote_ref, portal: this.adaptador.portal,
+      probabilidadeVitoria: p.probabilidadeVitoria, margemEstimadaPct: p.margemEstimadaPct, fechamentoPrevisto: p.previsto,
+      faixa: [p.minimo, p.maximo], confianca: p.confianca,
+    }).catch?.((e) => this.log.erro?.(`Webhook: ${e.message}`));
+  }
+
+  /** Fim da disputa: fechamento e perfis entram no histórico (base das próximas previsões). */
+  async registrarHistorico() {
+    const concorrentes = this.preditivo.perfil.resumo();
+    const nosso = this.disputa?.nossoLance ?? null;
+    const precos = [...concorrentes.map((c) => c.menor), nosso].filter((v) => v != null);
+    if (!precos.length) return;
+    const fechamento = Math.min(...precos);
+    await this.salvarFechamento?.({
+      preco: fechamento, vencemos: nosso != null ? nosso <= fechamento : null, lances: this.preditivo.lances.length,
+    }).catch((e) => this.log.erro?.(`Histórico: ${e.message}`));
+    await this.salvarPerfis?.(concorrentes).catch((e) => this.log.erro?.(`Perfis: ${e.message}`));
+  }
+
   atualizarLimites({ piso, teto }) {
     this.disputa?.atualizarLimites({ piso, teto });
     if (this.sala) Object.assign(this.sala, { piso: piso ?? this.sala.piso, teto: teto ?? this.sala.teto });
     Object.assign(this.item, { piso: piso ?? this.item.piso, teto: teto ?? this.item.teto });
+    this.preditivo.limites({ piso: pisoComMargem(this.item), teto: this.item.teto });
   }
 
   async falhar(e) {
@@ -242,10 +288,13 @@ export class SessaoReal {
     if (this.encerrada) return;
     this.encerrada = true;
     const parouNoPiso = this.disputa?.status === 'stopped_at_floor';
+    // Só grava no histórico disputa que terminou de verdade (não queda nem erro).
+    const terminou = !erro && (texto === 'Sessão encerrada pelo portal.');
     this.pararLeitura?.();
     this.disputa?.parar();
     this.sala?.fechar();
     await this.adaptador.close().catch(() => {});
+    if (terminou) await this.registrarHistorico();
     if (texto) await this.avisar('status', { texto });
     await this.atualizarSessao(erro ? { status: 'erro', erro: erro.slice(0, 1000), encerrado_em: new Date().toISOString() } : { status: 'encerrada', encerrado_em: new Date().toISOString() }).catch(() => {});
     await this.atualizarItem({ bid_status: parouNoPiso ? 'stopped_at_floor' : 'idle' }).catch(() => {});

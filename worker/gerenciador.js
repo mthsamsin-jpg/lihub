@@ -4,6 +4,7 @@
 // tabelas do modo real não aceitam escrita vinda do navegador.
 import { criarAdaptador, situacaoDosPortais } from './adaptadores/index.js';
 import { SessaoReal } from './sessao.js';
+import { enviarWebhook } from './webhook.js';
 
 export class ErroModoReal extends Error {
   constructor(mensagem, status = 400, codigo = 'modo_real') {
@@ -14,10 +15,26 @@ export class ErroModoReal extends Error {
 }
 
 const num = (v) => (v == null ? null : Number(v));
+
+// Palavras que identificam o produto (sem acentos, sem palavras curtas e sem medidas soltas).
+const palavras = (t) => new Set(String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  .split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !/^\d+$/.test(w) && !['item', 'lote', 'para', 'com', 'tipo', 'unidade'].includes(w)));
+
+/** Fechamentos parecidos com a descrição do item (pelo menos 40% das palavras em comum). */
+export function historicoParecido(descricao, linhas, minimo = 0.4) {
+  const alvo = palavras(descricao);
+  if (!alvo.size) return [];
+  return linhas.filter((h) => {
+    const p = palavras(h.descricao);
+    let comum = 0;
+    for (const w of alvo) if (p.has(w)) comum += 1;
+    return comum / Math.min(alvo.size, p.size || 1) >= minimo;
+  }).map((h) => ({ desagioPct: num(h.desagio_pct), descricao: h.descricao }));
+}
 const itemDoBanco = (r) => ({
   id: r.id, organizacaoId: r.organizacao_id, plataforma: r.plataforma, descricao: r.descricao,
   teto: num(r.max_price), custo: num(r.supplier_cost), piso: num(r.min_floor_price), decremento: num(r.decremento) ?? 0.01,
-  intervaloSeg: r.intervalo_seg ?? 20, nossoPorte: r.nosso_porte || 'demais', fugirEmpate: !!r.fugir_empate,
+  intervaloSeg: r.intervalo_seg ?? 20, nossoPorte: r.nosso_porte || 'demais', fugirEmpate: !!r.fugir_empate, quantidade: r.quantidade || 1,
   sniperSeg: r.sniper_seg ?? 0, margemMinPct: num(r.margem_min_pct),
 });
 
@@ -69,6 +86,12 @@ export function criarGerenciador({
       }).select('*').single(), 'Falha ao criar a sessão');
 
       const adaptador = fabricaAdaptador(item.plataforma, { credencial, carregarPlaywright, permitirNaoValidado, headless, executavel, log });
+      // Camada preditiva: histórico de fechamentos parecidos e o webhook da organização.
+      const { data: linhasHist } = await admin.from('robo_historico').select('descricao, desagio_pct')
+        .eq('organizacao_id', item.organizacaoId).order('encerrado_em', { ascending: false }).limit(500);
+      const historico = historicoParecido(item.descricao, linhasHist || []);
+      const { data: alertas } = await admin.from('robo_alertas').select('webhook_url').eq('organizacao_id', item.organizacaoId).maybeSingle();
+      const webhook = alertas?.webhook_url || null;
       const base = { sessao_id: sessao.id, organizacao_id: item.organizacaoId, robo_item_id: item.id };
       const s = new SessaoReal({
         sessao, item, adaptador, log,
@@ -77,6 +100,25 @@ export function criarGerenciador({
         }), 'Falha ao gravar o evento'),
         atualizarSessao: (campos) => falhaBanco(admin.from('robo_sessoes').update(campos).eq('id', sessao.id), 'Falha ao atualizar a sessão'),
         atualizarItem: (campos) => falhaBanco(admin.from('robo_itens').update(campos).eq('id', item.id), 'Falha ao atualizar o item'),
+        historico,
+        notificar: webhook ? (dados) => enviarWebhook(webhook, dados) : null,
+        salvarFechamento: ({ preco, vencemos, lances }) => falhaBanco(admin.from('robo_historico').insert({
+          organizacao_id: item.organizacaoId, robo_item_id: item.id, origem: 'disputa', portal: item.plataforma,
+          descricao: item.descricao, teto: item.teto, preco_fechamento: preco, vencemos, lances,
+        }), 'Falha ao gravar o histórico'),
+        salvarPerfis: async (perfis) => {
+          for (const c of perfis) {
+            const identificador = c.cnpj || c.autor;
+            const { data: atual } = await admin.from('robo_concorrentes').select('disputas, lances')
+              .eq('organizacao_id', item.organizacaoId).eq('portal', item.plataforma).eq('identificador', identificador).maybeSingle();
+            await falhaBanco(admin.from('robo_concorrentes').upsert({
+              organizacao_id: item.organizacaoId, portal: item.plataforma, identificador, cnpj: c.cnpj || null,
+              disputas: (atual?.disputas || 0) + 1, lances: (atual?.lances || 0) + c.lances,
+              resposta_mediana_ms: c.respostaMedianaMs, agressividade_pct: c.agressividadePct, perfil: c.perfil,
+              atualizado_em: new Date().toISOString(),
+            }, { onConflict: 'organizacao_id,portal,identificador' }), 'Falha ao gravar o perfil');
+          }
+        },
       });
       ativas.set(sessao.id, s);
       const fim = s.encerrar.bind(s);

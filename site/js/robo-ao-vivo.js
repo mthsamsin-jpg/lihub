@@ -51,12 +51,53 @@ window.LH = window.LH || {};
     if (salvar) gravar(id);
   };
 
+  // --- Camada preditiva (LH.roboAnalise): um monitor por item em disputa -------------
+  // Todo lance (simulado ou real) passa por falar(); dali alimenta o perfil dos
+  // concorrentes e a previsão de fechamento, que vai para o item (painel em foco).
+  const preditivos = new Map(); // itemId -> MonitorPreditivo
+  let historico = null; // fechamentos da organização (robo_historico), lidos uma vez
+  const AUTOR_NOS = 'Robô (nós)';
+  const pisoEfetivo = (i) => {
+    const m = Number(i.margemMinPct);
+    if (i.custo == null || !Number.isFinite(m) || m <= 0) return i.piso;
+    return Math.max(i.piso, Math.ceil(i.custo * (100 + m)) / 100);
+  };
+  const parecidos = (descricao) => {
+    const pal = (t) => new Set(String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !/^\d+$/.test(w)));
+    const alvo = pal(descricao);
+    return (historico || []).filter((h) => {
+      const p = pal(h.descricao);
+      let comum = 0;
+      for (const w of alvo) if (p.has(w)) comum += 1;
+      return alvo.size && comum / Math.min(alvo.size, p.size || 1) >= 0.4;
+    });
+  };
+  function novoPreditivo(id) {
+    const i = item(id);
+    if (!i || !LH.roboAnalise || !i.teto || !i.piso) return null;
+    const m = new LH.roboAnalise.MonitorPreditivo({ teto: i.teto, piso: pisoEfetivo(i), custo: i.custo ?? null, decremento: i.decremento ?? 0.01, historico: parecidos(i.descricao) });
+    preditivos.set(id, m);
+    mudar(id, { previsao: null }, false);
+    return m;
+  }
+  function alimentarPreditivo(autor, extra) {
+    const id = extra?.itemId;
+    if (!id || extra.valor == null) return;
+    const m = preditivos.get(id) || novoPreditivo(id);
+    if (!m) return;
+    const r = autor === AUTOR_NOS ? m.nosso(extra.valor) : m.concorrente(autor, extra.valor, extra.porte);
+    if (r.previsao) mudar(id, { previsao: r.previsao }, false);
+    // No modo real o alerta vem do worker (feed + webhook); aqui só na sala simulada.
+    if (r.alerta && modo !== 'real') falar('Previsão do robô', r.alerta.texto, 'robo-chat__msg--previsao', { itemId: id });
+  }
+
   /** extra (lances): { porte, posicao, valor, quantidade, itemId } para o feed mostrar posição, ME/EPP e unitário x total. */
   const falar = (autor, texto, tipo = '', extra = null) => {
     const msg = { autor, texto, tipo, hora: new Date().toLocaleTimeString('pt-BR'), ...(extra || {}) };
     chat.push(msg);
     if (chat.length > MAX_MSGS) chat.shift();
     emitir('chat', msg);
+    alimentarPreditivo(autor, extra);
   };
 
   const api = {
@@ -99,7 +140,13 @@ window.LH = window.LH || {};
       itens = (itens || []).filter((x) => x.id !== id);
       emitir('lista');
     },
-    atualizarLimites(id, limites) { disputas.get(id)?.atualizarLimites(limites); },
+    atualizarLimites(id, limites) {
+      disputas.get(id)?.atualizarLimites(limites);
+      const i = item(id);
+      if (i) preditivos.get(id)?.limites({ piso: pisoEfetivo({ ...i, ...limites }), teto: limites.teto ?? i.teto });
+    },
+    /** Previsão atual do item (fechamento, chance de vitória, margem, perfis). */
+    previsao: (id) => preditivos.get(id)?.previsao || null,
 
     /** opcoes.pedido (modo real): { pregao, lote, modo } para conectar sem perguntar. */
     iniciar(id, portal = '', opcoes = {}) {
@@ -107,6 +154,12 @@ window.LH = window.LH || {};
       if (!i) return;
       const existente = disputas.get(id);
       if (existente && existente.status === 'paused') { existente.retomar(); return; }
+      // Disputa nova: previsão do zero (com o histórico de fechamentos da organização).
+      novoPreditivo(id);
+      if (historico == null) {
+        historico = [];
+        LH.repo.roboHistorico?.().then((h) => { historico = h || []; const m = preditivos.get(id); if (m) m.historico = parecidos(i.descricao); }).catch(() => {});
+      }
       if (modo === 'real') {
         // Modo real: o worker do servidor abre o portal; os eventos chegam pelo Realtime.
         LH.roboReal?.iniciar(i, {

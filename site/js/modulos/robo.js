@@ -54,6 +54,7 @@ LH.vistas = LH.vistas || {};
                   <button type="button" role="radio" class="robo-modo__op" data-modo="real">${icone('plugue')} Modo real</button>
                 </div>
                 <button class="btn btn--fantasma" type="button" data-cofre>${icone('cadeado')} Credenciais</button>
+                <button class="btn btn--fantasma" type="button" data-alertas>${icone('sino')} Alertas</button>
                 <button class="btn btn--primario" type="button" data-novo>${icone('mais')} Novo item</button>`,
       })}
       <p class="nota robo-aviso robo-aviso--real" data-aviso-real hidden>${icone('plugue')} <span><strong>Modo real:</strong> o robô do servidor entra no portal com a <strong>sua credencial do cofre</strong>, abre a sala do pregão e transmite os lances, as fases e o chat ao vivo para esta tela. Por padrão ele <strong>só monitora</strong>; para dar lances de verdade, escolha isso ao conectar e confirme. Os portais não têm API pública: cada um precisa ter a sala mapeada no robô (por enquanto nenhum foi conferido numa sessão real, então a conexão avisa o que falta).</span></p>
@@ -136,7 +137,27 @@ LH.vistas = LH.vistas || {};
         caixaFoco.innerHTML = `
           <div class="robo-foco__topo">${portais().selo(i.plataforma)}<span class="robo-status ${classe}"><i aria-hidden="true"></i>${rotulo}</span></div>
           <b class="robo-foco__nome" title="${esc(i.descricao)}">${esc(i.descricao)}</b>
-          <div class="robo-foco__linha"><span>Praça <strong>${moeda(i.melhorLance)}</strong></span><span>Nós <strong>${moeda(i.nossoLance)}</strong></span>${acao}</div>`;
+          <div class="robo-foco__linha"><span>Praça <strong>${moeda(i.melhorLance)}</strong></span><span>Nós <strong>${moeda(i.nossoLance)}</strong></span>${acao}</div>
+          ${blocoPrevisao(i.previsao)}`;
+      };
+
+      // --- Previsão (camada preditiva): fechamento, chance de vitória e margem ---
+      const pct = (v) => (v == null ? '—' : `${Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`);
+      const blocoPrevisao = (p) => {
+        if (!p) return '';
+        const chance = p.probabilidadeVitoria;
+        const tom = chance >= 60 ? 'boa' : chance >= 35 ? 'media' : 'ruim';
+        const fonte = p.fonte.historico === 'historico' ? `${p.fonte.homologacoes} fechamento(s) parecido(s) + praça ao vivo` : 'praça ao vivo (ainda sem histórico parecido)';
+        return `<div class="robo-previsao robo-previsao--${tom}" title="Estimativa estatística. Não é garantia de resultado.">
+          <div class="robo-previsao__chance"><span>Chance de vitória</span><strong>${pct(chance)}</strong><i style="--p:${Math.max(0, Math.min(100, chance))}%"></i></div>
+          <dl class="robo-previsao__dados">
+            <div><dt>Fechamento previsto</dt><dd>${moeda(p.previsto)}<small>${moeda(p.minimo)} a ${moeda(p.maximo)}</small></dd></div>
+            <div><dt>Margem estimada</dt><dd>${pct(p.margemEstimadaPct)}</dd></div>
+            <div><dt>Deságio máx. seguro</dt><dd>${pct(p.tetoSeguroDesagioPct)}</dd></div>
+            <div><dt>Inflexão da praça</dt><dd>${p.inflexao ? moeda(p.inflexao.valor) : '—'}</dd></div>
+          </dl>
+          <p class="robo-previsao__fonte">Confiança ${esc(p.confianca)} · ${esc(fonte)}</p>
+        </div>`;
       };
 
       // --- Ranking da praça (item em foco) ---
@@ -146,12 +167,20 @@ LH.vistas = LH.vistas || {};
         const r = vivo.ranking(i.id);
         const pref = vivo.preferencia(i.id);
         const qtd = i.quantidade || 1;
+        const perfis = new Map((i.previsao?.concorrentes || []).map((c) => [c.autor, c]));
+        const seloPerfil = (autor) => {
+          const c = perfis.get(autor);
+          if (!c) return '';
+          const resp = c.respostaMedianaMs != null ? ` · responde em ~${Math.round(c.respostaMedianaMs / 1000)}s` : '';
+          const agr = c.agressividadePct != null ? ` · desce ~${pct(c.agressividadePct)} por lance` : '';
+          return `<em class="robo-perfil robo-perfil--${c.perfil}" title="${esc(`${c.lances} lance(s)${resp}${agr}`)}">${c.perfil}</em>`;
+        };
         const linhas = r.map((x) => {
           const nos = x.autor === 'nos';
           const faixa = pref.faixa.has(x.autor);
           return `<li class="robo-rank${nos ? ' robo-rank--nos' : ''}${x.posicao === 1 ? ' robo-rank--lider' : ''}${faixa ? ' robo-rank--faixa' : ''}">
             <span class="robo-pos">${x.posicao}º</span>
-            <span class="robo-rank__nome">${nos ? 'Nós (robô)' : esc(x.autor)}${seloPorte(x.porte)}${faixa ? '<em title="Na faixa de 5% da LC 123: pode cobrir no desempate">≤5%</em>' : ''}</span>
+            <span class="robo-rank__nome">${nos ? 'Nós (robô)' : esc(x.autor)}${seloPorte(x.porte)}${nos ? '' : seloPerfil(x.autor)}${faixa ? '<em title="Na faixa de 5% da LC 123: pode cobrir no desempate">≤5%</em>' : ''}</span>
             <span class="robo-rank__valor"><strong>${moeda(x.valor)}</strong><small>total ${moeda(x.valor * qtd)}</small></span>
           </li>`;
         }).join('');
@@ -416,6 +445,43 @@ LH.vistas = LH.vistas || {};
       // --- Eventos ---
       LH.ao(raiz, 'click', '[data-novo]', () => abrirForm());
       LH.ao(raiz, 'click', '[data-cofre]', () => LH.roboReal?.abrirCofre());
+      LH.ao(raiz, 'click', '[data-alertas]', () => abrirAlertas());
+
+      // Alertas preditivos por webhook (Slack, Discord, Teams, n8n, Zapier...): a cada
+      // mudança relevante da chance de vitória o robô do modo real manda a previsão para lá.
+      async function abrirAlertas() {
+        if (LH.repo.modo === 'demo') {
+          LH.modal({ titulo: 'Alertas preditivos', html: '<p>Na demonstração os alertas aparecem só no feed da sala. Entre com a sua conta para mandar também para o Slack, Discord, Teams ou WhatsApp (via n8n/Zapier).</p>', acoes: [{ rotulo: 'Fechar', classe: 'btn--fantasma' }] });
+          return;
+        }
+        const org = LH.nuvem.ctx?.organizacao?.id;
+        let atual = null;
+        try { atual = (await LH.nuvem.api(`/api/robo/alertas?organizacao_id=${encodeURIComponent(org)}`)).webhook_url; } catch (e) { LH.aviso(e.message, 'perigo'); return; }
+        const pedir = (caminho, metodo, url) => LH.nuvem.api(caminho, { metodo, corpo: { organizacao_id: org, webhook_url: url || null } });
+        LH.modal({
+          titulo: 'Alertas preditivos',
+          html: `<form class="form" onsubmit="return false">
+            <p>Durante a disputa no modo real, o robô calcula a <strong>chance de vitória</strong>, o <strong>fechamento previsto</strong> e a <strong>margem estimada</strong>. Quando isso muda de forma relevante, o alerta aparece no feed da sala e também é enviado para o endereço abaixo.</p>
+            <label class="campo"><span class="campo__rotulo">Webhook (https)</span>
+              <input name="url" type="url" maxlength="500" placeholder="https://hooks.slack.com/services/..." value="${esc(atual || '')}"></label>
+            <p class="fraco">Funciona com Slack, Discord, Microsoft Teams, n8n, Make e Zapier (de lá dá para mandar para o WhatsApp ou e-mail). Deixe em branco para desligar. Só o dono ou um admin da organização pode mudar.</p>
+            <p class="texto-perigo" data-erro hidden></p>
+          </form>`,
+          acoes: [
+            { rotulo: 'Cancelar', classe: 'btn--fantasma' },
+            { rotulo: 'Enviar teste', classe: 'btn--fantasma', acao: async (fechar, janela) => {
+              const url = janela.querySelector('[name=url]').value.trim();
+              try { await pedir('/api/robo/alertas/testar', 'POST', url); LH.aviso('Teste enviado. Confira se a mensagem chegou.', 'sucesso'); } catch (e) { const p = janela.querySelector('[data-erro]'); p.textContent = e.message; p.hidden = false; }
+              return false;
+            } },
+            { rotulo: 'Salvar', classe: 'btn--primario', acao: async (fechar, janela) => {
+              const url = janela.querySelector('[name=url]').value.trim();
+              try { await pedir('/api/robo/alertas', 'PUT', url); LH.aviso(url ? 'Alertas ligados.' : 'Alertas por webhook desligados.', 'sucesso'); fechar(); } catch (e) { const p = janela.querySelector('[data-erro]'); p.textContent = e.message; p.hidden = false; }
+              return false;
+            } },
+          ],
+        });
+      }
       LH.ao(raiz, 'click', '[data-portal]', (e, b) => {
         filtro = b.dataset.portal;
         raiz.querySelectorAll('[data-portal]').forEach((x) => x.classList.toggle('ativo', x === b));
