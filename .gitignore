@@ -6,3 +6,6 @@ editais-teste/*.pdf
 
 # Gravações do mapeamento de portais (podem conter senhas digitadas)
 worker/mapeamentos/
+
+# Cópias do .env com chaves (ex.: para o VPS)
+.env.vps

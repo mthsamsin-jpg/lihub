@@ -91,10 +91,16 @@ table { border-collapse: collapse; width: 100%; }
   border-radius: 6px;
 }
 
-/* Barras de rolagem discretas */
-* { scrollbar-width: thin; scrollbar-color: rgba(148, 197, 255, 0.25) transparent; }
+/* Barras de rolagem sempre visíveis e destacadas (tema escuro; variante clara abaixo) */
+:root { --rolagem-trilha: rgba(148, 197, 255, 0.1); --rolagem-polegar: #3b82c4; --rolagem-hover: #38bdf8; }
+[data-theme="light"], .tema-claro { --rolagem-trilha: rgba(15, 23, 42, 0.08); --rolagem-polegar: #64748b; --rolagem-hover: #0284c7; }
+html { overflow-y: scroll; }
+* { scrollbar-width: auto; scrollbar-color: var(--rolagem-polegar) var(--rolagem-trilha); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: rgba(148, 197, 255, 0.2); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: var(--rolagem-trilha); border-radius: 10px; }
+::-webkit-scrollbar-thumb { background: var(--rolagem-polegar); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; min-height: 40px; }
+::-webkit-scrollbar-thumb:hover, ::-webkit-scrollbar-thumb:active { background: var(--rolagem-hover); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
 
 /* Só para leitores de tela */
 .sr {
