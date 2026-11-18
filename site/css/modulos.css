@@ -985,3 +985,15 @@ body.sem-login .app { display: none; }
 .robo-monitor-seguro { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 9px 12px; border-radius: 10px; font-size: 0.8rem; line-height: 1.45; color: var(--texto-2); background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.35); }
 .robo-monitor-seguro svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--ciano); }
 @media (prefers-reduced-motion: reduce) { .feed-vivo__card { animation: none; } .feed-vivo__card:hover { transform: none; } }
+.feed-vivo[hidden] { display: none; }
+
+/* Mini player: cronômetro e modo recolhido */
+.robo-mini__tempo { font-size: 0.74rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ciano); padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.1); }
+.robo-mini__tempo[hidden] { display: none; }
+.robo-mini__corpo { display: grid; gap: 10px; }
+.robo-mini--recolhido { width: 300px; gap: 6px; padding: 10px 12px; }
+.robo-mini--recolhido .robo-mini__corpo { display: none; }
+.robo-mini--recolhido [data-m-acao="recolher"] svg { transform: rotate(180deg); }
+.robo-mini--recolhido .robo-mini__item { font-size: 0.8rem; }
+.robo-mini__abrir { display: none; }
+.robo-mini--recolhido .robo-mini__abrir { display: grid; }

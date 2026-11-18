@@ -205,15 +205,32 @@ window.LH = window.LH || {};
   LH.roboAoVivo = api;
 
   // ---------------------------------------------------------------------------
-  // Mini player flutuante: aparece fora da tela do robô enquanto houver disputa.
+  // Mini player flutuante: aparece fora da tela do Licita Lances enquanto houver
+  // disputa (CRM, leitor de edital, documentos...). Os dados chegam do mesmo estado
+  // global (sala simulada ou Supabase Realtime no modo real), que segue rodando.
   // ---------------------------------------------------------------------------
   const ROTULO = { running: 'Ativo', paused: 'Pausado', stopped_at_floor: 'Preço mínimo atingido' };
   const CLASSE = { running: 'ativo', paused: 'pausado', stopped_at_floor: 'piso' };
+  const FASE = { aberta: 'Fase aberta', prorrogacao: 'Prorrogação', desempate: 'Desempate ME/EPP', negociacao: 'Negociação', habilitacao: 'Habilitação', encerrada: 'Encerrada' };
+  const CHAVE_RECOLHIDO = 'lh-robo-mini-recolhido';
   let el = null;
+  let relogio = null;
   let dispensadoEm = null; // assinatura do estado quando o operador fechou o balão
+  let recolhido = false;
+  try { recolhido = localStorage.getItem(CHAVE_RECOLHIDO) === '1'; } catch { /* sem armazenamento */ }
 
   const naTelaDoRobo = () => location.hash.replace(/^#\/?/, '').split('?')[0] === 'robo';
   const assinatura = (vivos) => vivos.map((i) => `${i.id}:${i.status}`).join('|');
+  const tempoRestante = (i) => {
+    if (!i.fimEm || !['aberta', 'prorrogacao'].includes(i.fase)) return '';
+    const s = Math.max(0, Math.ceil((i.fimEm - Date.now()) / 1000));
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  };
+  const rotulo = (i) => {
+    if (i.status === 'running' && i.fase && !['aberta', 'prorrogacao'].includes(i.fase)) return 'Acompanhando';
+    if (i.status === 'running' && (i.monitorando || i.real?.modo === 'monitorar')) return 'Monitorando';
+    return ROTULO[i.status];
+  };
 
   function criar() {
     const { icone } = LH;
@@ -224,28 +241,45 @@ window.LH = window.LH || {};
     el.innerHTML = `
       <header class="robo-mini__topo">
         <span class="robo-mini__status" data-m="status"><i aria-hidden="true"></i><b></b></span>
+        <span class="robo-mini__tempo" data-m="tempo" title="Tempo restante da etapa de lances"></span>
         <span class="robo-mini__mais" data-m="mais"></span>
+        <button type="button" class="robo-mini__x robo-mini__abrir" data-m-acao="abrir" aria-label="Abrir a sala em tela completa" title="Tela completa">${icone('externo')}</button>
+        <button type="button" class="robo-mini__x" data-m-acao="recolher" aria-label="Recolher o mini player">${icone('setaBaixo')}</button>
         <button type="button" class="robo-mini__x" data-m-acao="fechar" aria-label="Esconder o mini player">${icone('fechar')}</button>
       </header>
-      <div class="robo-mini__portal" data-m="portal"></div>
       <p class="robo-mini__item" data-m="item"></p>
-      <div class="robo-mini__placar">
-        <div><span>Praça</span><strong data-m="praca"></strong></div>
-        <div data-m="nos-caixa"><span>Nosso lance</span><strong data-m="nos"></strong></div>
-      </div>
-      <p class="robo-mini__ultima" data-m="ultima" aria-live="polite"></p>
-      <div class="robo-mini__acoes">
-        <button type="button" class="btn btn--pequeno btn--perigo" data-m-acao="pausar">${icone('relogio')} <span>Pausar</span></button>
-        <button type="button" class="btn btn--pequeno btn--primario" data-m-acao="abrir">${icone('externo')} Tela completa</button>
+      <div class="robo-mini__corpo">
+        <div class="robo-mini__portal" data-m="portal"></div>
+        <div class="robo-mini__placar">
+          <div><span>Praça</span><strong data-m="praca"></strong></div>
+          <div data-m="nos-caixa"><span>Nosso lance</span><strong data-m="nos"></strong></div>
+        </div>
+        <p class="robo-mini__ultima" data-m="ultima" aria-live="polite"></p>
+        <div class="robo-mini__acoes">
+          <button type="button" class="btn btn--pequeno btn--perigo" data-m-acao="pausar">${icone('relogio')} <span>Pausar</span></button>
+          <button type="button" class="btn btn--pequeno btn--primario" data-m-acao="abrir">${icone('externo')} Tela completa</button>
+        </div>
       </div>`;
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-m-acao]');
       if (!b) return;
-      if (b.dataset.mAcao === 'abrir') LH.ir('robo');
-      if (b.dataset.mAcao === 'fechar') { dispensadoEm = assinatura(api.vivos()); mini.atualizar(); }
-      if (b.dataset.mAcao === 'pausar') {
-        const n = api.pausarTodos();
-        if (n) LH.aviso(n > 1 ? `${n} robôs pausados.` : 'Robô pausado.', 'sucesso');
+      const acao = b.dataset.mAcao;
+      if (acao === 'abrir') LH.ir('robo');
+      if (acao === 'fechar') { dispensadoEm = assinatura(api.vivos()); mini.atualizar(); }
+      if (acao === 'recolher') {
+        recolhido = !recolhido;
+        try { localStorage.setItem(CHAVE_RECOLHIDO, recolhido ? '1' : '0'); } catch { /* sem armazenamento */ }
+        mini.atualizar();
+      }
+      if (acao === 'pausar') {
+        const ativos = api.vivos().filter((x) => x.status === 'running').length;
+        if (ativos) {
+          const n = api.pausarTodos();
+          if (n) LH.aviso(n > 1 ? `${n} disputas pausadas.` : 'Disputa pausada.', 'sucesso');
+        } else {
+          const pausado = api.vivos().find((x) => x.status === 'paused');
+          if (pausado) { api.iniciar(pausado.id); LH.aviso('Disputa retomada.', 'sucesso'); }
+        }
       }
     });
     document.body.append(el);
@@ -257,29 +291,49 @@ window.LH = window.LH || {};
       const sinal = assinatura(vivos);
       if (dispensadoEm != null && sinal !== dispensadoEm) dispensadoEm = null; // mudou algo: volta a aparecer
       const mostrar = vivos.length > 0 && !naTelaDoRobo() && !document.body.classList.contains('sem-login') && dispensadoEm == null;
-      if (!mostrar) { if (el) el.hidden = true; return; }
+      if (!mostrar) {
+        if (el) el.hidden = true;
+        clearInterval(relogio);
+        relogio = null;
+        return;
+      }
       if (!el) criar();
+      // Cronômetro: atualiza o tempo restante a cada segundo enquanto o balão estiver à vista.
+      if (!relogio) relogio = setInterval(() => mini.atualizar(), 1000);
       const i = api.destaque();
       const q = (k) => el.querySelector(`[data-m="${k}"]`);
       el.hidden = false;
-      el.className = `robo-mini robo-mini--${CLASSE[i.status]}`;
-      q('status').querySelector('b').textContent = ROTULO[i.status];
-      q('mais').textContent = vivos.length > 1 ? `+${vivos.length - 1} robô${vivos.length > 2 ? 's' : ''}` : '';
-      const FASE = { aberta: 'Fase aberta', prorrogacao: 'Prorrogação', desempate: 'Desempate ME/EPP', negociacao: 'Negociação', habilitacao: 'Habilitação', encerrada: 'Encerrada' };
+      el.className = `robo-mini robo-mini--${CLASSE[i.status]}${recolhido ? ' robo-mini--recolhido' : ''}`;
+      q('status').querySelector('b').textContent = rotulo(i);
+      const tempo = tempoRestante(i);
+      q('tempo').textContent = tempo ? `⏱ ${tempo}` : '';
+      q('tempo').hidden = !tempo;
+      q('mais').textContent = vivos.length > 1 ? `+${vivos.length - 1}` : '';
+      q('mais').title = vivos.length > 1 ? `${vivos.length} disputas ativas` : '';
+      el.querySelector('[data-m-acao="recolher"]').setAttribute('aria-label', recolhido ? 'Expandir o mini player' : 'Recolher o mini player');
       q('portal').innerHTML = `${LH.portaisRobo?.selo(i.plataforma) || ''}<span>${FASE[i.fase] || ''}</span>`;
-      if (i.status === 'running' && i.fase && !['aberta', 'prorrogacao'].includes(i.fase)) q('status').querySelector('b').textContent = 'Acompanhando';
       q('item').textContent = i.descricao;
       q('item').title = i.descricao;
       q('praca').textContent = moeda(i.melhorLance);
       q('nos').textContent = moeda(i.nossoLance);
       const vencendo = i.nossoLance != null && (i.melhorLance == null || i.nossoLance < i.melhorLance);
       q('nos-caixa').className = i.nossoLance == null ? '' : vencendo ? 'robo-mini--vencendo' : 'robo-mini--coberto';
-      const ultima = chat[chat.length - 1];
-      q('ultima').textContent = ultima ? `${ultima.autor}: ${ultima.texto}` : '';
+      // Último lance do item em destaque (ou a última mensagem da sala).
+      const doItem = chat.filter((m) => !m.itemId || m.itemId === i.id);
+      const ultimoLance = [...doItem].reverse().find((m) => m.valor != null);
+      const ultima = doItem[doItem.length - 1];
+      q('ultima').textContent = ultimoLance
+        ? `Último lance: ${ultimoLance.autor} · ${moeda(ultimoLance.valor)} (${ultimoLance.hora})`
+        : ultima ? `${ultima.autor}: ${ultima.texto}` : 'Aguardando o primeiro lance da praça...';
       const algumAtivo = vivos.some((x) => x.status === 'running');
-      const pausar = el.querySelector('[data-m-acao="pausar"]');
-      pausar.disabled = !algumAtivo;
-      pausar.querySelector('span').textContent = vivos.filter((x) => x.status === 'running').length > 1 ? 'Pausar todos' : 'Pausar';
+      const algumPausado = vivos.some((x) => x.status === 'paused');
+      const botao = el.querySelector('[data-m-acao="pausar"]');
+      botao.disabled = !algumAtivo && !algumPausado;
+      botao.classList.toggle('btn--perigo', algumAtivo);
+      botao.classList.toggle('btn--primario', !algumAtivo && algumPausado);
+      botao.querySelector('span').textContent = algumAtivo
+        ? (vivos.filter((x) => x.status === 'running').length > 1 ? 'Pausar todos' : 'Pausar')
+        : 'Retomar';
     },
   };
 

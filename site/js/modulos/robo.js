@@ -63,7 +63,7 @@ LH.vistas = LH.vistas || {};
         <button type="button" class="chip-portal ativo" data-portal="">Todos</button>
         ${portais().lista().map((p) => `<button type="button" class="chip-portal" data-portal="${esc(p.chave)}" style="--matiz:${p.matiz}"><i aria-hidden="true"></i>${esc(p.nome)}</button>`).join('')}
       </div>
-      <section class="card feed-vivo" id="feed-vivo" aria-live="polite"></section>
+      <section class="card feed-vivo" id="feed-vivo" aria-live="polite" hidden></section>
       <h2 class="robo-secao">${icone('alvo')} Itens no Licita Lances</h2>
       <div class="robo-grade">
         <section class="robo-itens" id="robo-itens" aria-live="polite">${LH.carregando('Carregando itens...')}</section>
@@ -277,8 +277,10 @@ LH.vistas = LH.vistas || {};
       };
 
       const desenhar = () => {
-        const itens = vivo.lista();
-        if (!foco || !item(foco)) foco = (itens.find((x) => x.status === 'running') || itens[0])?.id || null;
+        // Sala simulada: só itens de teste. Itens ligados a pregões reais (do feed) ficam no modo real.
+        const isRealMode = vivo.modo() === 'real';
+        const itens = vivo.lista().filter((x) => isRealMode || x.licitacaoId == null);
+        if (!foco || !itens.some((x) => x.id === foco)) foco = (itens.find((x) => x.status === 'running') || itens[0])?.id || null;
         const visiveis = itens.filter((i) => !filtro || i.plataforma === filtro).sort(comparar(ordemBase()));
         if (itens.length && !visiveis.length) {
           caixa.innerHTML = `<div class="card">${LH.vazio('computador', `Nenhum item em ${nomePortal(filtro)}`, 'Escolha outro portal ou cadastre um item neste.', `<button class="btn btn--primario" data-novo>${icone('mais')} Novo item</button>`)}</div>`;
@@ -392,6 +394,7 @@ LH.vistas = LH.vistas || {};
       };
 
       // --- Modo da sala (simulada x real) ---
+      let sincronizarFeed = () => {}; // definido junto com o feed, mais abaixo
       const desenharModo = () => {
         const m = vivo.modo();
         raiz.querySelectorAll('[data-modo]').forEach((b) => {
@@ -399,6 +402,7 @@ LH.vistas = LH.vistas || {};
           b.setAttribute('aria-checked', String(b.dataset.modo === m));
         });
         raiz.querySelector('[data-aviso-real]').hidden = m !== 'real';
+        sincronizarFeed();
         if (carregado) desenhar(); // os botões mudam de "Iniciar" para "Conectar ao pregão"
       };
       desenharModo();
@@ -505,9 +509,22 @@ LH.vistas = LH.vistas || {};
         abrirForm(existente || doFeed(l, { comPiso: false }), false, { depois: seguir });
       };
       let sinalFeed = '';
-      const feed = LH.roboFeed?.ligar(raiz.querySelector('#feed-vivo'), {
-        filtro: () => filtro, itemDe: itemDaLicitacao, aoMonitorar: monitorar, aoConectar: conectar,
-      });
+      let feed = null;
+      const caixaFeed = raiz.querySelector('#feed-vivo');
+      // O feed de pregões REAIS só existe no Modo real. Na sala simulada fica escondido e
+      // parado (sem consultar a base): lá aparecem só os itens e lances fictícios de teste.
+      sincronizarFeed = () => {
+        const isRealMode = vivo.modo() === 'real';
+        caixaFeed.hidden = !isRealMode;
+        if (isRealMode && !feed) {
+          feed = LH.roboFeed?.ligar(caixaFeed, { filtro: () => filtro, itemDe: itemDaLicitacao, aoMonitorar: monitorar, aoConectar: conectar }) || null;
+        } else if (!isRealMode && feed) {
+          feed.parar();
+          feed = null;
+          caixaFeed.innerHTML = '';
+        }
+      };
+      sincronizarFeed();
 
       // A tela só "ouve" o estado global. Ao sair, deixa de ouvir: os robôs continuam
       // rodando e aparecem no mini player flutuante (js/robo-ao-vivo.js).
