@@ -139,7 +139,8 @@ LH.vistas = LH.vistas || {};
           const r = await LH.repo.buscar(f, offset);
           if (meu !== pedido) return;
           if (!continuar) total = r.total ?? 0;
-          const html = r.lista.map((l) => LH.cartaoLicitacao(l, favs)).join('');
+          // Numeração contínua entre páginas ("Carregar mais" segue de onde parou).
+          const html = r.lista.map((l, k) => LH.cartaoLicitacao(l, favs, { n: offset + k + 1, total: Math.max(total, offset + r.lista.length) })).join('');
           if (continuar) caixa.insertAdjacentHTML('beforeend', html);
           else caixa.innerHTML = html || LH.vazio('busca', 'Nada encontrado', 'Tente outras palavras ou tire alguns filtros.');
           offset += r.lista.length;

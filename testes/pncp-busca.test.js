@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { Hono } from 'hono';
 import { buscarNoPncp, normalizarResultado, portalDaOrigem } from '../src/pncp/busca.js';
 import { ligarPncpAoVivo } from '../src/api/pncp-ao-vivo.js';
+import { normalizarItens } from '../src/pncp/detalhes.js';
 
 // Formato real de um resultado do /api/search do PNCP (18/11/2026, campos principais).
 const BRUTO = {
@@ -68,5 +69,16 @@ test('rotas: valida a busca e a identificação da compra', async () => {
   assert.equal(semUf.resultados[0].uf, null);
   assert.equal((await app.request('/api/pncp/compras/123/2026/60/itens')).status, 400);
   const itens = await (await app.request('/api/pncp/compras/04628376000104/2026/60/itens')).json();
-  assert.deepEqual(itens.itens[0], { numero: 1, descricao: 'Notebook', tipo: '', quantidade: 30, unidade: 'UN', valorUnitario: 4890, valorTotal: null, beneficio: '', situacao: '' });
+  assert.deepEqual(itens.itens[0], { numero: 1, descricao: 'Notebook', tipo: '', quantidade: 30, unidade: 'UN', valorUnitario: 4890, valorTotal: null, beneficio: '', situacao: '', posicao: 1, total: 1 });
+});
+
+test('itens: ordem oficial 1..N, sem repetidos entre páginas, sem número vai para o fim', () => {
+  const r = normalizarItens([
+    { numeroItem: 10, descricao: 'J' }, { numeroItem: 2, descricao: 'B' }, null,
+    { descricao: 'sem número' }, { numeroItem: 1, descricao: 'A' }, { numeroItem: 2, descricao: 'B repetido' },
+  ]);
+  assert.deepEqual(r.map((i) => i.numero), [1, 2, 10, null]);
+  assert.deepEqual(r.map((i) => i.posicao), [1, 2, 3, 4]);
+  assert.ok(r.every((i) => i.total === 4));
+  assert.equal(r[1].descricao, 'B');
 });

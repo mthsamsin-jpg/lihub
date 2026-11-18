@@ -48,10 +48,16 @@ export function normalizarArquivos(lista, baseCompra) {
     .sort((a, b) => Number(ehEdital(b)) - Number(ehEdital(a)));
 }
 
+// Itens na ordem oficial do edital (Item 1, 2, 3... até o total). O PNCP pagina a
+// lista e pode repetir um item entre páginas ou entregá-lo fora de ordem: a ordem
+// é refeita pelo número oficial (sem número vai para o fim, na ordem em que veio),
+// o repetido sai, e cada item ganha a posição (1..total) e o total.
 export function normalizarItens(lista) {
-  return lista
+  const vistos = new Set();
+  const itens = lista
     .filter(Boolean)
-    .map((i) => ({
+    .map((i, k) => ({
+      _ordem: k,
       numero: numero(i.numeroItem),
       descricao: texto(i.descricao) || 'Item sem descrição',
       tipo: texto(i.materialOuServicoNome) || (i.materialOuServico === 'S' ? 'Serviço' : i.materialOuServico === 'M' ? 'Material' : ''),
@@ -62,7 +68,14 @@ export function normalizarItens(lista) {
       beneficio: texto(i.tipoBeneficioNome),
       situacao: texto(i.situacaoCompraItemNome),
     }))
-    .sort((a, b) => (a.numero ?? 0) - (b.numero ?? 0));
+    .filter((i) => {
+      if (i.numero == null) return true;
+      if (vistos.has(i.numero)) return false;
+      vistos.add(i.numero);
+      return true;
+    })
+    .sort((a, b) => (a.numero ?? Infinity) - (b.numero ?? Infinity) || a._ordem - b._ordem);
+  return itens.map(({ _ordem, ...i }, k) => ({ ...i, posicao: k + 1, total: itens.length }));
 }
 
 /**

@@ -126,7 +126,8 @@ window.LH = window.LH || {};
   const siteOficial = (l) => l.linkDisputa || l.linkPncp || null;
 
   /** favs: Set com os ids favoritados (vem do LH.repo). */
-  LH.cartaoLicitacao = (l, favs = new Set()) => {
+  // pos = { n, total }: posição do resultado na busca ("3 de 120"), opcional.
+  LH.cartaoLicitacao = (l, favs = new Set(), pos = null) => {
     const fav = favs.has(l.id);
     const dias = l.abertura ? LH.datas.diasAte(l.abertura) : 99;
     const status = !l.abertura ? ['Aberta', 'selo--sucesso'] : dias < 0 ? ['Encerrada', 'selo--perigo'] : ['Aberta', 'selo--sucesso'];
@@ -140,7 +141,8 @@ window.LH = window.LH || {};
           <div class="chips">
             <span class="selo ${status[1]} licitacao__status"><i aria-hidden="true"></i>${status[0]}</span>
             <span class="selo selo--info">${esc(l.modalidade)}</span>
-            <span class="selo" title="Número de identificação">#${esc(l.numero)}</span>
+            ${pos ? `<span class="selo" title="Posição nesta busca">${fmt.numero(pos.n)} de ${fmt.numero(pos.total)}</span>` : ''}
+            <span class="selo" title="Número oficial da compra no PNCP">Nº ${esc(l.numero)}</span>
             ${l.me_epp ? '<span class="selo selo--sucesso">Exclusiva ME/EPP</span>' : ''}
             ${dias >= 0 && dias <= 3 ? `<span class="selo selo--alerta">${icone('relogio')} Encerra ${fmt.relativo(l.abertura)}</span>` : ''}
           </div>
@@ -271,15 +273,27 @@ window.LH = window.LH || {};
       if (LH.repo.modo === 'demo') return soNoReal('ver os itens, quantidades e valores publicados no PNCP');
       const { itens } = await LH.nuvem.api(`/api/licitacoes/${Number(id)}/itens`);
       if (!itens.length) return `<p class="fraco">O PNCP não tem itens publicados para esta licitação.</p><div class="chips">${linkPncp(l)}</div>`;
+      // Ordem oficial do edital (o servidor já ordena; reforça aqui sem perder a posição).
+      itens.sort((a, b) => (a.numero ?? Infinity) - (b.numero ?? Infinity) || (a.posicao ?? 0) - (b.posicao ?? 0));
+      const n = itens.length;
       const total = itens.reduce((s, i) => s + (i.valorTotal ?? 0), 0);
-      return `
-        <p class="fraco">${fmt.numero(itens.length)} item(ns)${total ? ` · ${fmt.moeda(total)} estimados` : ''}</p>
+      const numeros = itens.map((i) => i.numero).filter((x) => Number.isInteger(x) && x > 0);
+      const maior = numeros.length ? Math.max(...numeros) : 0;
+      const tem = new Set(numeros);
+      const faltam = [];
+      for (let k = 1; k <= maior && faltam.length < 30; k += 1) if (!tem.has(k)) faltam.push(k);
+      const rotulo = (i, k) => `Item ${i.numero ?? k + 1}`;
+      const html = `
+        <p class="fraco"><strong>${fmt.numero(n)}</strong> item(ns) no edital${maior ? ` · Item 1 a Item ${fmt.numero(maior)}` : ''}${total ? ` · ${fmt.moeda(total)} estimados` : ''}</p>
+        ${faltam.length ? `<p class="selo selo--alerta">O PNCP não publicou: ${faltam.map((x) => `Item ${x}`).join(', ')}${faltam.length >= 30 ? '...' : ''}</p>` : ''}
+        ${n > 5 ? `<input type="search" class="campo" data-itens-filtro placeholder="Filtrar por número ou descrição (a numeração oficial é mantida)" style="margin:8px 0;width:100%">
+        <p class="fraco" data-itens-contagem aria-live="polite"></p>` : ''}
         <div class="tabela-rolagem itens-tabela">
           <table class="tabela">
-            <thead><tr><th>Nº</th><th>Descrição</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead>
-            <tbody>${itens.map((i) => `
-              <tr>
-                <td>${i.numero ?? '—'}</td>
+            <thead><tr><th>Nº oficial</th><th>Descrição</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead>
+            <tbody>${itens.map((i, k) => `
+              <tr data-item-busca="${esc(`${i.numero ?? ''} ${i.descricao}`.toLowerCase())}" data-item-num="${i.numero ?? ''}">
+                <td style="white-space:nowrap"><strong>${rotulo(i, k)}</strong><br><span class="fraco">${k + 1} de ${n}</span></td>
                 <td>${esc(i.descricao)}${i.beneficio && !/sem benef/i.test(i.beneficio) ? `<br><span class="selo selo--sucesso">${esc(i.beneficio)}</span>` : ''}</td>
                 <td>${i.quantidade == null ? '—' : fmt.numero(i.quantidade)} ${esc(i.unidade)}</td>
                 <td>${i.valorUnitario == null ? 'Sigiloso' : fmt.moeda(i.valorUnitario)}</td>
@@ -287,8 +301,27 @@ window.LH = window.LH || {};
               </tr>`).join('')}</tbody>
           </table>
         </div>`;
+      return html;
     });
   };
+
+  // Filtro da janela de itens: só esconde linhas, nunca renumera (o "Item N" é o oficial).
+  // Número puro ("12") acha exatamente o Item 12; texto procura na descrição.
+  document.addEventListener('input', (e) => {
+    const campo = e.target.closest?.('[data-itens-filtro]');
+    if (!campo) return;
+    const corpo = campo.closest('[data-corpo]');
+    const termo = campo.value.trim().toLowerCase();
+    const soNumero = /^\d+$/.test(termo);
+    const linhas = [...corpo.querySelectorAll('[data-item-busca]')];
+    let vis = 0;
+    for (const tr of linhas) {
+      const ok = !termo || (soNumero ? tr.dataset.itemNum === String(Number(termo)) : tr.dataset.itemBusca.includes(termo));
+      tr.hidden = !ok;
+      if (ok) vis += 1;
+    }
+    corpo.querySelector('[data-itens-contagem]').textContent = termo ? `${fmt.numero(vis)} de ${fmt.numero(linhas.length)} item(ns)` : '';
+  });
 
   /** Liga os botões dos cards de licitação dentro da raiz. aoMudar() redesenha a lista. */
   LH.ligarAcoesLicitacao = (raiz, aoMudar) => {
