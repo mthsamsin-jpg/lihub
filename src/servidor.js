@@ -10,6 +10,10 @@ import { maxBytesPdf, obterEditalDoPncp } from './ia/documento.js';
 import { criarPagamentos, modoDoToken } from './pagamentos/mercadopago.js';
 import { criarDetalhes } from './pncp/detalhes.js';
 import { sincronizarPncp } from './pncp/sincronizar.js';
+import { executarColeta, situacaoColeta } from './services/collectors/index.js';
+import { agendarCron } from './services/collectors/cron.js';
+import { criarLogEstruturado } from './services/collectors/log.js';
+import { timingSafeEqual } from 'node:crypto';
 import { atualizarCapag } from './capag/atualizar.js';
 import { criarClienteAdmin, criarClienteDoUsuario } from './supabase.js';
 import { criarLog } from './util.js';
@@ -111,6 +115,30 @@ ligarModoReal(app, {
   navegadorDisponivel: async () => { try { await import('playwright'); return true; } catch { return false; } },
 });
 
+const logColeta = criarLogEstruturado('coleta');
+// Disparo manual protegido: Authorization: Bearer <SCRAPER_ADMIN_TOKEN>.
+function tokenConfere(c) {
+  const esperado = config.coletores.tokenAdmin;
+  const recebido = (c.req.header('authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!esperado || !recebido) return false;
+  const a = Buffer.from(recebido); const b = Buffer.from(esperado);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+app.get('/api/admin/coleta', (c) => (tokenConfere(c) ? c.json(situacaoColeta()) : c.json({ erro: 'Não autorizado.' }, 401)));
+app.post('/api/admin/coleta', async (c) => {
+  if (!tokenConfere(c)) return c.json({ erro: 'Não autorizado.' }, 401);
+  const corpo = await c.req.json().catch(() => ({}));
+  const permitidos = ['fontes', 'ufs', 'desde', 'ate', 'diasAtras', 'modo', 'modalidades', 'maxPaginas', 'simular'];
+  const opcoes = Object.fromEntries(Object.entries(corpo || {}).filter(([k]) => permitidos.includes(k)));
+  if (situacaoColeta().emExecucao) return c.json({ erro: 'Já existe uma coleta em andamento.', ...situacaoColeta() }, 409);
+  const execucao = executarColeta(opcoes, { supabase: admin, log: logColeta, sinal: controleSync.signal });
+  // erros de validação aparecem na hora; o resto roda em segundo plano
+  const resultado = await Promise.race([execucao.then(() => null, (e) => e), new Promise((r) => setTimeout(() => r(null), 50))]);
+  if (resultado instanceof Error) return c.json({ erro: resultado.message }, 400);
+  execucao.catch((e) => logColeta.erro('manual.falhou', { erro: e.message }));
+  return c.json({ iniciada: true, ...situacaoColeta() }, 202);
+});
+
 ligarSite(app, { publico: { supabaseUrl: config.supabase.url, supabaseChave: config.supabase.chavePublica, siteUrl: config.site.url } });
 
 // No Render (variável RENDER=true), localhost nos links é sempre engano.
@@ -167,7 +195,26 @@ async function sincronizarAgora() {
     sincronizando = false;
   }
 }
-if (config.servidor.syncIntervaloMin > 0) {
+// Coletores próprios (src/services/collectors). Com ENABLE_SCRAPER_CRON ligado, o cron
+// assume a sincronização incremental e o laço antigo (SYNC_INTERVALO_MIN) fica desligado.
+async function coletarAgendado() {
+  try {
+    await executarColeta({}, { supabase: admin, log: logColeta, sinal: controleSync.signal });
+  } catch (e) {
+    if (e.codigo === 'em_andamento') logColeta.aviso('cron.pulado', { motivo: e.message });
+    else if (!controleSync.signal.aborted) logColeta.erro('cron.falhou', { erro: e.message });
+  }
+}
+if (config.coletores.cron) {
+  try {
+    agendarCron(config.coletores.agenda, coletarAgendado, { log: logColeta });
+    logColeta.info('cron.ligado', { agenda: config.coletores.agenda, fontes: config.coletores.fontes, ufs: config.coletores.ufs.length ? config.coletores.ufs : 'todas', modo: config.coletores.modo });
+  } catch (e) {
+    log.erro(`SCRAPER_CRON_SCHEDULE inválido: ${e.message}`);
+  }
+}
+
+if (config.servidor.syncIntervaloMin > 0 && !config.coletores.cron) {
   setTimeout(sincronizarAgora, 15_000).unref();
   setInterval(sincronizarAgora, config.servidor.syncIntervaloMin * 60_000).unref();
   log.info(`Sincronização automática com o PNCP a cada ${config.servidor.syncIntervaloMin} min.`);

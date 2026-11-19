@@ -95,6 +95,22 @@ export const config = {
     limparDias: inteiro('LIMPAR_DIAS', 90),
   },
 
+  // Coletores próprios de licitações (src/services/collectors). Ver .env.exemplo.
+  coletores: {
+    // Liga o agendamento por cron (substitui o SYNC_INTERVALO_MIN para não coletar em dobro).
+    cron: ['1', 'true', 'sim'].includes(texto('ENABLE_SCRAPER_CRON').toLowerCase()),
+    agenda: texto('SCRAPER_CRON_SCHEDULE', '10 * * * *'), // horário de Brasília
+    ufs: lista('SCRAPER_TARGET_UFS').map((u) => u.toUpperCase()), // vazio = Brasil todo
+    fontes: lista('SCRAPER_FONTES', ['pncp']),
+    modo: texto('SCRAPER_MODO', 'atualizacao'), // publicacao | atualizacao | abertas
+    diasAtras: inteiro('SCRAPER_DIAS_ATRAS', 1),
+    maxPaginas: inteiro('SCRAPER_MAX_PAGINAS', inteiro('PNCP_MAX_PAGINAS', 400)),
+    lote: inteiro('SCRAPER_LOTE', 50),
+    guardarBruto: texto('SCRAPER_GUARDAR_BRUTO', '0') === '1',
+    // Token do disparo manual (POST /api/admin/coleta). Vazio = rota desligada.
+    tokenAdmin: texto('SCRAPER_ADMIN_TOKEN'),
+  },
+
   // Robô Turbo 2.0 no MODO REAL (portais de verdade, via Playwright).
   roboReal: {
     // Chave do cofre de credenciais (32 bytes em base64). Sem ela, o cofre fica desligado.

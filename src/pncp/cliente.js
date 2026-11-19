@@ -185,6 +185,17 @@ export function urlAtualizacoes({ dataInicial, dataFinal, modalidade, uf, pagina
   });
 }
 
+/**
+ * Contratações PUBLICADAS entre `dataInicial` e `dataFinal` (AAAAMMDD).
+ * A modalidade é obrigatória neste endpoint.
+ * @param {ParametrosConsulta} p
+ */
+export function urlPublicacoes({ dataInicial, dataFinal, modalidade, uf, pagina = 1, tamanhoPagina = 50 }) {
+  return montarUrl(config.pncp.urlConsulta, '/v1/contratacoes/publicacao', {
+    dataInicial, dataFinal, codigoModalidadeContratacao: modalidade, uf, pagina, tamanhoPagina,
+  });
+}
+
 /** Uma contratação específica. */
 export function obterContratacao({ cnpj, ano, sequencial }, opcoes) {
   return obterJson(montarUrl(config.pncp.urlConsulta, `/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}`), opcoes);

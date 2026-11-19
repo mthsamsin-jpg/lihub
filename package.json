@@ -12,6 +12,8 @@
     "servidor": "node --env-file=.env src/servidor.js",
     "sync": "node --env-file=.env scripts/sync-pncp.js",
     "sync:simular": "node --env-file-if-exists=.env scripts/sync-pncp.js --simular --ufs=SP --modalidades=6 --max-paginas=2",
+    "coletar": "node --env-file=.env scripts/coletar.js",
+    "coletar:simular": "node --env-file-if-exists=.env scripts/coletar.js --simular --ufs=SP --modalidades=6 --max-paginas=2",
     "analisar": "node --env-file=.env scripts/analisar-edital.js",
     "verificar": "node --env-file=.env scripts/verificar-supabase.js",
     "test": "node --test \"testes/*.test.js\"",
