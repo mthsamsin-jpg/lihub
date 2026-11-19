@@ -26,14 +26,14 @@ LH.vistas = LH.vistas || {};
         </ul>
       </div>
 
-      <aside class="destaque__preco card--vidro" data-reveal="escala" style="--atraso:120ms" aria-label="Plano Completo">
-        <span class="selo selo--beta">${assinante ? 'Seu plano' : 'Pix, crédito ou débito'}</span>
-        <p>Plano <strong>Pro</strong></p>
-        <div class="preco" aria-label="97 reais por mês">
-          <span class="preco__moeda">R$</span><span class="preco__valor">97</span><span class="preco__periodo">/mês</span>
+      <aside class="destaque__preco card--vidro" data-reveal="escala" style="--atraso:120ms" aria-label="Plano Max">
+        <span class="selo selo--beta">Mais popular</span>
+        <p>Plano <strong>Max</strong> · Robô Turbo 2.0</p>
+        <div class="preco" aria-label="197 reais por mês">
+          <span class="preco__moeda">R$</span><span class="preco__valor">197</span><span class="preco__periodo">/mês</span>
         </div>
-        <p>Até 10 empresas e 30 leituras de edital por IA por mês.</p>
-        <a class="btn btn--primario btn--bloco btn--grande" href="#/perfil">${assinante ? 'Ver minha assinatura' : 'Assinar o Pro'}</a>
+        <p>Tudo liberado: Robô Turbo 2.0, até 20 empresas e 60 leituras por IA por mês.</p>
+        <a class="btn btn--primario btn--bloco btn--grande" href="${assinante ? "#/perfil" : "#/perfil?assinar=max"}">${assinante ? 'Ver minha assinatura' : 'Assinar o Max'}</a>
         <p class="destaque__garantia">Cancele quando quiser, sem multa.</p>
       </aside>
 
