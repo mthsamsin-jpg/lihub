@@ -1,3 +1,4 @@
+-- ATENÇÃO: depois deste arquivo, rode supabase/atualizar-busca.sql (a busca atual, com tipo e palavras rigorosas).
 -- =============================================================================
 -- LicitaHub · atualização do Radar (novembro/2026)
 -- Só as mudanças do Radar com mapa, para quem já rodou o schema.sql antigo.

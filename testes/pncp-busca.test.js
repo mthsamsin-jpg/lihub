@@ -59,12 +59,12 @@ test('buscarNoPncp: monta a consulta, tira cancelados e filtra a UF', async () =
 test('rotas: valida a busca e a identificação da compra', async () => {
   const app = new Hono();
   ligarPncpAoVivo(app, {
-    buscar: async ({ q, uf }) => ({ total: 1, pagina: 1, resultados: [{ q, uf }] }),
+    buscar: async ({ q, uf }) => ({ total: 1, pagina: 1, resultados: [{ q, uf, objeto: 'Aquisição de notebook', numeroControle: 'x' }] }),
     itens: async () => [{ numeroItem: 1, descricao: 'Notebook', quantidade: 30, unidadeMedida: 'UN', valorUnitarioEstimado: 4890 }],
   });
   assert.equal((await app.request('/api/pncp/busca?q=no')).status, 400);
   const ok = await (await app.request('/api/pncp/busca?q=notebook&uf=sp')).json();
-  assert.deepEqual(ok.resultados[0], { q: 'notebook', uf: 'SP' });
+  assert.deepEqual([ok.resultados[0].q, ok.resultados[0].uf, ok.resultados[0].achadoEm], ['notebook', 'SP', 'objeto']);
   const semUf = await (await app.request('/api/pncp/busca?q=notebook&uf=XX')).json();
   assert.equal(semUf.resultados[0].uf, null);
   assert.equal((await app.request('/api/pncp/compras/123/2026/60/itens')).status, 400);
@@ -81,4 +81,39 @@ test('itens: ordem oficial 1..N, sem repetidos entre páginas, sem número vai p
   assert.deepEqual(r.map((i) => i.posicao), [1, 2, 3, 4]);
   assert.ok(r.every((i) => i.total === 4));
   assert.equal(r[1].descricao, 'B');
+});
+
+test('palavras: vírgula = OU, todas as palavras da alternativa, começo de palavra, sem acento', async () => {
+  const { gruposDeTermos, casaTermos, tipoObjeto } = await import('../src/pncp/termos.js');
+  const g = gruposDeTermos('copo, papel A4');
+  assert.deepEqual(g, [['copo'], ['papel', 'a4']]);
+  assert.equal(casaTermos('AQUISIÇÃO DE COPOS DESCARTÁVEIS', g), true);
+  assert.equal(casaTermos('Utensílios de copa e cozinha', g), false, 'copo não acha copa');
+  assert.equal(casaTermos('Resmas de papel sulfite A4', g), true);
+  assert.equal(casaTermos('Papel higiênico', g), false, 'papel sem A4 não passa');
+  assert.equal(casaTermos('Ação de saúde', gruposDeTermos('acao')), true, 'sem acento');
+  assert.equal(tipoObjeto('Aquisição de copos descartáveis'), 'material');
+  assert.equal(tipoObjeto('Contratação de empresa para prestação de serviços de limpeza'), 'servico');
+});
+
+test('busca ao vivo: confere objeto e itens, junta alternativas e filtra o tipo', async () => {
+  const base = (id, objeto) => ({ numeroControle: id, cnpj: '04628376000104', ano: 2026, sequencial: Number(id), objeto });
+  const app = new Hono();
+  const pedidos = [];
+  ligarPncpAoVivo(app, {
+    buscar: async ({ q, uf }) => {
+      pedidos.push([q, uf]);
+      return q === 'copo'
+        ? { total: 3, resultados: [base('1', 'Aquisição de copos'), base('2', 'Material de expediente'), base('3', 'Utensílios de copa')] }
+        : { total: 1, resultados: [base('4', 'Aquisição de papel A4'), base('1', 'Aquisição de copos')] };
+    },
+    itens: async ({ sequencial }) => (sequencial === 2
+      ? [{ numeroItem: 1, descricao: 'Copo plástico 200 ml', materialOuServico: 'M' }, { numeroItem: 2, descricao: 'Caneta' }]
+      : [{ numeroItem: 1, descricao: 'Panela' }]),
+  });
+  const r = await (await app.request('/api/pncp/busca?q=' + encodeURIComponent('copo, papel A4') + '&uf=SP')).json();
+  assert.deepEqual(pedidos, [['copo', 'SP'], ['papel a4', 'SP']]);
+  assert.deepEqual(r.resultados.map((x) => [x.numeroControle, x.achadoEm, x.itensComTermo]), [['1', 'objeto', null], ['2', 'itens', 1], ['4', 'objeto', null]]);
+  const servicos = await (await app.request('/api/pncp/busca?q=copo&tipo=servico')).json();
+  assert.equal(servicos.resultados.length, 0, 'compras de copo não são serviço');
 });

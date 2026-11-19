@@ -385,7 +385,7 @@ test('funciona mesmo sem as permissões automáticas do Supabase', async () => {
         has_table_privilege('anon', 'public.licitacoes', 'select') as visitante_le,
         has_function_privilege('authenticated', 'public.eh_membro(uuid)', 'execute') as regras_rls,
         has_function_privilege('authenticated',
-          'public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[])',
+          'public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[], text, timestamptz, text, text[], boolean, text[])',
           'execute') as busca,
         has_table_privilege('authenticated', 'public.vw_crm_cards', 'select') as visao_crm,
         has_table_privilege('authenticated', 'public.assinaturas', 'select') as assinatura_le,

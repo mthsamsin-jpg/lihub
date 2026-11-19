@@ -1132,3 +1132,42 @@ body.sem-login .app { display: none; }
   50%      { box-shadow: 0 0 0 5px rgba(56, 189, 248, 0); }
 }
 @media (prefers-reduced-motion: reduce) { .licitacao__info .plataforma-selo { animation: none; } }
+
+/* Marca-texto das palavras pesquisadas (objeto, itens, contagem) */
+mark.marca-termo {
+  background: #facc15; color: #111; font-weight: 600;
+  padding: 0 4px; border-radius: 4px;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone;
+}
+
+/* Tipo de contratação: Todos | Materiais / Produtos | Serviços */
+.busca-avancada__tipo { align-items: end; }
+.segmentado { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.segmentado legend { width: 100%; margin-bottom: 6px; }
+.segmentado label { position: relative; }
+.segmentado input { position: absolute; opacity: 0; pointer-events: none; }
+.segmentado span {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 7px 14px; border-radius: 999px; font-size: 0.86rem; font-weight: 600;
+  color: var(--texto-2); border: 1px solid var(--card-borda); background: var(--vidro);
+  transition: all 0.2s ease;
+}
+.segmentado span svg { width: 15px; height: 15px; }
+.segmentado span:hover { color: var(--texto); border-color: var(--ciano); }
+.segmentado input:checked + span { color: #04121f; background: var(--gradiente); border-color: transparent; }
+.segmentado input:focus-visible + span { outline: 2px solid var(--ciano); outline-offset: 2px; }
+.busca-avancada__dica { margin: 0; font-size: 0.82rem; display: inline-flex; gap: 6px; align-items: center; }
+.busca-avancada__dica svg { width: 15px; height: 15px; flex: none; }
+
+.selo--tipo { display: inline-flex; align-items: center; gap: 4px; }
+.selo--tipo svg { width: 13px; height: 13px; }
+
+/* Itens com a palavra pesquisada */
+.itens-termo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 8px 0; font-size: 0.88rem; list-style: none; }
+.itens-termo svg { width: 15px; height: 15px; }
+.itens-termo__so { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--texto-2); }
+tr.item--termo td, li.item--termo { background: rgba(250, 204, 21, 0.08); }
+tr.item--termo td:first-child { box-shadow: inset 3px 0 0 #facc15; }
+li.item--termo { box-shadow: inset 3px 0 0 #facc15; border-radius: 8px; }
+.pncp-vivo__achado { margin: 4px 0 8px; font-size: 0.85rem; display: flex; gap: 6px; align-items: center; color: var(--texto-2); }
+.pncp-vivo__achado svg { width: 15px; height: 15px; flex: none; }

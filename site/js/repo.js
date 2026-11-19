@@ -43,6 +43,7 @@ window.LH = window.LH || {};
       edital: r.numero_compra ? [r.numero_compra, r.ano_compra].filter(Boolean).join('/') : null,
       uasg: r.unidade_codigo || null,
       me_epp: false,
+      tipo: r.tipo === 'material' ? 'Material' : r.tipo === 'servico' ? 'Serviço' : null,
       // CAPAG: município pelo IBGE, estado/DF pela UF. Órgão federal/estatal não tem nota.
       capagChave: r.orgao_esfera === 'M' && /^\d{7}$/.test(r.municipio_ibge || '') ? r.municipio_ibge
         : ['E', 'D'].includes(r.orgao_esfera) && r.uf ? `UF-${r.uf}` : null,
@@ -155,10 +156,19 @@ window.LH = window.LH || {};
     modalidades: LH.MODALIDADES.map(([id, nome]) => [String(id), nome]),
 
     async buscar(f, offset = 0) {
-      if (f.plataformas?.length || f.de) return buscarNaTabela(f, offset);
       const municipios = (f.municipios?.length ? f.municipios : [f.municipio]).map((m) => String(m || '').trim()).filter(Boolean);
-      const termoBase = [f.termo, f.orgao].map((s) => String(s || '').trim()).filter(Boolean).join(' ');
-      const termo = termoBase;
+      const termo = String(f.termo || '').trim();
+      // Plataforma: trechos do nome do sistema de origem (ilike) + "outros".
+      const padrao = (p) => `%${String(p).replace(/[%_]/g, '').replace(/\s+/g, '%')}%`;
+      const plataformas = (f.plataformas || []).filter((c) => c !== 'outros');
+      const novos = {
+        p_tipo: f.tipo || null,
+        p_encerramento_de: f.de ? `${f.de}T00:00:00-03:00` : null,
+        p_orgao: String(f.orgao || '').trim() || null,
+        p_plataformas: LH.PLATAFORMAS.filter(([c]) => plataformas.includes(c)).flatMap(([, , partes]) => partes.map(padrao)),
+        p_plataforma_outros: (f.plataformas || []).includes('outros'),
+        p_plataformas_conhecidas: LH.PLATAFORMAS.flatMap(([, , partes]) => partes.map(padrao)),
+      };
       const parametros = {
         p_termo: termo || null,
         p_ufs: f.ufs?.length ? f.ufs : (f.uf ? [f.uf] : null),
@@ -171,13 +181,9 @@ window.LH = window.LH || {};
         p_limite: POR_PAGINA,
         p_offset: offset,
       };
-      let { data, error } = await db().rpc('buscar_licitacoes', { ...parametros, ...(municipios.length ? { p_municipios: municipios } : {}) });
-      // Banco ainda sem o filtro de municípios (schema.sql antigo): o município vira palavra da busca.
-      if (error?.code === 'PGRST202' && municipios.length) {
-        ({ data, error } = await db().rpc('buscar_licitacoes', {
-          ...parametros, p_termo: [termoBase, municipios.length === 1 ? municipios[0] : ''].filter(Boolean).join(' ') || null,
-        }));
-      }
+      let { data, error } = await db().rpc('buscar_licitacoes', { ...parametros, ...novos, ...(municipios.length ? { p_municipios: municipios } : {}) });
+      // Banco ainda sem a função nova (supabase/atualizar-busca.sql não rodou): busca direto na tabela.
+      if (error?.code === 'PGRST202') return buscarNaTabela(f, offset);
       if (error) throw erroBanco(error, 'A busca falhou');
       // A função de busca não devolve a esfera do órgão: lê só essa coluna, de uma vez.
       const esferas = new Map();
@@ -712,14 +718,14 @@ window.LH = window.LH || {};
     modalidades: LH.MODALIDADES.map(([, nome]) => [nome, nome]),
 
     async buscar(f, offset = 0) {
-      // "a or b" (Radar): basta um dos termos; senão, todas as palavras.
-      const alternativas = sem(f.termo).split(/\s+or\s+/).map((t) => t.replace(/"/g, '').split(/\s+/).filter(Boolean)).filter((t) => t.length);
+      // "a, b" ou "a or b": basta uma alternativa; dentro dela, todas as palavras (no objeto).
+      const grupos = LH.termos.grupos(f.termo);
       const municipios = (f.municipios?.length ? f.municipios : [f.municipio]).filter(Boolean).map(sem);
       const ufs = f.ufs?.length ? f.ufs : (f.uf ? [f.uf] : []);
       const modalidades = f.modalidades?.length ? f.modalidades : (f.modalidade ? [f.modalidade] : []);
       const lista = LH.dados.licitacoes.filter((l) => {
-        const texto = sem(`${l.objeto} ${l.orgao} ${l.numero} ${l.municipio}`);
-        return (!alternativas.length || alternativas.some((ps) => ps.every((t) => texto.includes(t))))
+        return LH.termos.casa(l.objeto, grupos)
+          && (!f.tipo || !l.tipo || (f.tipo === 'material') === (l.tipo === 'Material'))
           && (!f.orgao || sem(l.orgao).includes(sem(f.orgao)))
           && (!municipios.length || municipios.includes(sem(l.municipio)) || (!f.municipios?.length && sem(l.municipio).includes(municipios[0])))
           && (!modalidades.length || modalidades.includes(l.modalidade))

@@ -21,12 +21,13 @@ window.LH = window.LH || {};
     LH.ir('robo');
   }
 
-  async function escolherItem(r) {
+  async function escolherItem(r, { titulo = 'Importar para o Robô Turbo 2.0', grupos = LH.termosBusca || [] } = {}) {
+    const marcar = (t) => LH.termos.destacar(t, grupos);
     LH.modal({
-      titulo: 'Importar para o Robô Turbo 2.0',
+      titulo,
       html: `<div class="pncp-importar">
         <div class="cofre__form-topo">${LH.portaisRobo.selo(r.portal)}<b>${esc(r.orgao || '')} · ${esc(r.numero || '')}</b></div>
-        <p class="fraco">${esc(r.objeto || '')}</p>
+        <p class="fraco">${marcar(r.objeto || '')}</p>
         <ul class="pncp-importar__itens" data-itens>${LH.carregando('Lendo os itens no PNCP...')}</ul>
       </div>`,
       acoes: [{ rotulo: 'Fechar', classe: 'btn--fantasma' }],
@@ -44,8 +45,12 @@ window.LH = window.LH || {};
     const compraInteira = `<li class="pncp-importar__item"><div><b>Compra inteira (lote único)</b><span class="fraco">${esc((r.objeto || '').slice(0, 140))}</span></div>
       <button type="button" class="btn btn--pequeno" data-importar="-1">${icone('alvo')} Importar</button></li>`;
     if (itens.length) {
-      lista.innerHTML = itens.map((it, k) => `<li class="pncp-importar__item"><div>
-          <b>Item ${esc(it.numero ?? k + 1)} · ${esc(it.descricao)}</b>
+      // Itens com a palavra pesquisada primeiro (a numeração oficial continua a mesma).
+      const ordem = itens.map((it, k) => [it, k]);
+      if (grupos.length) ordem.sort(([a], [b]) => Number(LH.termos.casa(b.descricao, grupos)) - Number(LH.termos.casa(a.descricao, grupos)));
+      const comTermo = grupos.length ? itens.filter((it) => LH.termos.casa(it.descricao, grupos)).length : 0;
+      lista.innerHTML = (grupos.length ? `<li class="itens-termo">${comTermo ? `${icone('busca')} <strong>${comTermo}</strong> de ${itens.length} item(ns) com a palavra pesquisada (aparecem primeiro)` : `${icone('info')} A palavra está no objeto, não na descrição dos itens.`}</li>` : '') + ordem.map(([it, k]) => `<li class="pncp-importar__item${grupos.length && LH.termos.casa(it.descricao, grupos) ? ' item--termo' : ''}"><div>
+          <b>Item ${esc(it.numero ?? k + 1)} · ${marcar(it.descricao)}</b>
           <span class="fraco">${esc(it.quantidade ?? '—')} ${esc(it.unidade || '')} · unitário estimado ${it.valorUnitario ? moeda(it.valorUnitario) : 'sigiloso'}${it.beneficio ? ` · ${esc(it.beneficio)}` : ''}</span></div>
           <button type="button" class="btn btn--pequeno btn--primario" data-importar="${k}">${icone('alvo')} Importar</button></li>`).join('') + compraInteira;
     } else if (!lista.querySelector('.nota')) lista.innerHTML = compraInteira;
@@ -75,11 +80,12 @@ window.LH = window.LH || {};
    * @param {HTMLElement} caixa
    * @param {{ termo: () => string, uf: () => string, automatico?: boolean }} o
    */
-  function ligar(caixa, { termo, uf, automatico = false }) {
+  function ligar(caixa, { termo, uf, tipo = () => '', automatico = false }) {
     let resultados = [];
     let pagina = 1;
     let total = 0;
     let pedido = 0;
+    let grupos = [];
     caixa.innerHTML = `
       <div class="card__titulo"><h2>${icone('raio')} Direto do PNCP, agora</h2>
         <button type="button" class="btn btn--pequeno" data-pncp-buscar>${icone('busca')} Buscar no PNCP ao vivo</button></div>
@@ -93,7 +99,9 @@ window.LH = window.LH || {};
       <article class="pncp-vivo__item">
         <header>${LH.portaisRobo.selo(r.portal)}${r.portal === 'outros' ? `<span class="fraco">${esc(r.portalNome)}</span>` : ''}
           <span class="selo">${esc(r.modalidade || '')}${r.modoDisputa ? ` · modo ${esc(r.modoDisputa.toLowerCase())}` : ''}</span>${r.srp ? '<span class="selo">Registro de preços</span>' : ''}</header>
-        <h3>${esc(r.objeto || r.titulo || '')}</h3>
+        <h3>${LH.termos.destacar(r.objeto || r.titulo || '', grupos)}</h3>
+        ${r.achadoEm === 'itens' ? `<p class="pncp-vivo__achado">${icone('busca')} A palavra está em <b>${r.itensComTermo} item(ns)</b> do edital: clique em <b>Ver itens</b>.</p>` : ''}
+        ${r.achadoEm === 'nao_conferido' ? `<p class="pncp-vivo__achado fraco">${icone('info')} O PNCP não entregou os itens agora; confira em <b>Ver itens</b>.</p>` : ''}
         <dl>
           <div><dt>Órgão</dt><dd>${esc(r.orgao || '—')}${r.municipio ? ` · ${esc(r.municipio)}/${esc(r.uf || '')}` : ''}</dd></div>
           <div><dt>Número</dt><dd>${esc(r.numero || '—')}</dd></div>
@@ -103,6 +111,7 @@ window.LH = window.LH || {};
         <footer>
           ${r.linkPncp ? `<a class="btn btn--pequeno btn--fantasma" href="${esc(r.linkPncp)}" target="_blank" rel="noopener">${icone('externo')} PNCP</a>` : ''}
           ${r.linkOrigem ? `<a class="btn btn--pequeno btn--fantasma" href="${esc(r.linkOrigem)}" target="_blank" rel="noopener">${icone('externo')} Portal da disputa</a>` : ''}
+          <button type="button" class="btn btn--pequeno" data-pncp-itens="${k}">${icone('caixa')} Ver itens</button>
           <button type="button" class="btn btn--pequeno btn--primario" data-pncp-importar="${k}">${icone('alvo')} Importar para o Robô Turbo 2.0</button>
         </footer>
       </article>`;
@@ -113,19 +122,22 @@ window.LH = window.LH || {};
       if (q.length < 3) { lista.innerHTML = `<p class="nota">${icone('info')} Digite pelo menos 3 letras no campo <b>Objeto</b> (ou na barra do topo).</p>`; return; }
       const meu = ++pedido;
       pagina = proxima ? pagina + 1 : 1;
+      grupos = LH.termos.grupos(q);
       if (!proxima) { resultados = []; lista.innerHTML = LH.carregando('Consultando o PNCP agora...'); }
       mais.hidden = true;
       try {
         const qs = new URLSearchParams({ q, pagina: String(pagina) });
         if (uf()) qs.set('uf', uf());
+        if (tipo()) qs.set('tipo', tipo());
         const r = await LH.nuvem.api(`/api/pncp/busca?${qs}`);
         if (meu !== pedido) return;
         total = r.total;
         resultados = resultados.concat(r.resultados);
+        const onde = uf() ? ` em ${esc(uf())}` : '';
         lista.innerHTML = resultados.length
-          ? `<p class="fraco">${total.toLocaleString('pt-BR')} edital(is) com propostas abertas no PNCP para "${esc(q)}".</p>${resultados.map(cartao).join('')}`
-          : `<p class="nota">${icone('info')} O PNCP não tem editais com propostas abertas para "${esc(q)}".</p>`;
-        mais.hidden = resultados.length >= total || !r.resultados.length;
+          ? `<p class="fraco">${resultados.length.toLocaleString('pt-BR')} edital(is) conferido(s)${onde} com <mark class="marca-termo">${esc(q)}</mark> no objeto ou nos itens (o PNCP achou ${total.toLocaleString('pt-BR')} parecidos).</p>${resultados.map(cartao).join('')}`
+          : `<p class="nota">${icone('info')} Nenhum edital aberto${onde} com "${esc(q)}" no objeto ou nos itens${r.temMais ? ' nesta página do PNCP. Use "Mais resultados" para conferir os próximos.' : '.'}</p>`;
+        mais.hidden = !r.temMais;
       } catch (e) {
         if (meu === pedido) lista.innerHTML = LH.erroHtml(e);
       }
@@ -134,7 +146,9 @@ window.LH = window.LH || {};
       if (e.target.closest('[data-pncp-buscar]')) buscar();
       if (e.target.closest('[data-pncp-mais] button')) buscar(true);
       const b = e.target.closest('[data-pncp-importar]');
-      if (b) escolherItem(resultados[Number(b.dataset.pncpImportar)]);
+      if (b) escolherItem(resultados[Number(b.dataset.pncpImportar)], { grupos });
+      const v = e.target.closest('[data-pncp-itens]');
+      if (v) escolherItem(resultados[Number(v.dataset.pncpItens)], { titulo: 'Itens do edital', grupos });
     });
     if (automatico) buscar();
     return { buscar };

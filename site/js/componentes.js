@@ -133,6 +133,59 @@ window.LH = window.LH || {};
     return `<span class="capag capag--${nota[0].toLowerCase()}" title="CAPAG ${nota}: capacidade de pagamento ${ente}, segundo o Tesouro Nacional. A é a melhor, D a pior.">CAPAG ${nota}</span>`;
   };
 
+  // --- Palavras-chave da busca: leitura, conferência e marca-texto -------------------
+  // "copo, papel A4" = copo OU (papel E A4). Cada palavra casa com o COMEÇO de uma
+  // palavra do texto, sem acento nem maiúscula ("copo" acha "copos", não "copa").
+  LH.termos = {
+    /** Texto digitado -> [[palavras da alternativa 1], [alternativa 2], ...]. */
+    grupos(q) {
+      return String(q ?? '').split(/,|\s+or\s+/i)
+        .map((g) => semAcento(g).split(/[^a-z0-9]+/).filter(Boolean))
+        .filter((g) => g.length);
+    },
+    /** O texto tem todas as palavras de pelo menos uma alternativa? (sem palavras = sim) */
+    casa(texto, grupos) {
+      if (!grupos?.length) return true;
+      const t = semAcento(texto);
+      return grupos.some((g) => g.every((w) => new RegExp(`(^|[^a-z0-9])${w}`).test(t)));
+    },
+    /** HTML seguro do texto com as palavras pesquisadas em marca-texto amarelo. */
+    destacar(texto, grupos) {
+      const original = String(texto ?? '');
+      const palavras = [...new Set((grupos || []).flat())];
+      if (!palavras.length || !original) return esc(original);
+      // Texto sem acento, guardando de qual posição do original veio cada letra.
+      let norm = '';
+      const origem = [];
+      [...original].forEach((ch, k) => {
+        const n = semAcento(ch);
+        for (const c of n) { norm += c; origem.push(k); }
+      });
+      const letras = [...original];
+      const marcar = new Array(letras.length).fill(false);
+      for (const w of palavras) {
+        const re = new RegExp(`(^|[^a-z0-9])(${w}[a-z0-9]*)`, 'g');
+        let m;
+        while ((m = re.exec(norm))) {
+          const ini = m.index + m[1].length;
+          for (let i = ini; i < ini + m[2].length; i += 1) marcar[origem[i]] = true;
+          re.lastIndex = ini + m[2].length;
+        }
+      }
+      let html = '';
+      let aberto = false;
+      letras.forEach((ch, k) => {
+        if (marcar[k] && !aberto) { html += '<mark class="marca-termo">'; aberto = true; }
+        if (!marcar[k] && aberto) { html += '</mark>'; aberto = false; }
+        html += esc(ch);
+      });
+      return aberto ? `${html}</mark>` : html;
+    },
+  };
+  // Palavras da busca atual (a tela de busca preenche; trocar de tela limpa).
+  LH.termosBusca = [];
+  window.addEventListener('hashchange', () => { LH.termosBusca = []; });
+
   /** favs: Set com os ids favoritados (vem do LH.repo). */
   // pos = { n, total }: posição do resultado na busca ("3 de 120"), opcional.
   LH.cartaoLicitacao = (l, favs = new Set(), pos = null) => {
@@ -152,10 +205,11 @@ window.LH = window.LH || {};
             <span class="selo selo--info">${esc(l.modalidade)}</span>
             <span class="selo" title="Número oficial da compra no PNCP">Nº ${esc(l.numero)}</span>
             ${l.me_epp ? '<span class="selo selo--sucesso">Exclusiva ME/EPP</span>' : ''}
+            ${l.tipo ? `<span class="selo selo--tipo" title="Classificado pelo texto do objeto">${icone(l.tipo === 'Material' ? 'caixa' : 'engrenagem')} ${l.tipo}</span>` : ''}
             ${dias >= 0 && dias <= 3 ? `<span class="selo selo--alerta">${icone('relogio')} Encerra ${fmt.relativo(l.abertura)}</span>` : ''}
           </div>
           <div class="chips licitacao__perfil">${selosPerfil(l)}</div>
-          <h3 class="licitacao__objeto" style="margin-top:10px">${esc(l.objeto)}</h3>
+          <h3 class="licitacao__objeto" style="margin-top:10px">${LH.termos.destacar(l.objeto, LH.termosBusca)}</h3>
           <p class="licitacao__orgao">${esc(l.orgao)}</p>
         </div>
         <div class="licitacao__acoes-topo">
@@ -190,6 +244,7 @@ window.LH = window.LH || {};
       <div class="licitacao__acoes">
         <div class="licitacao__mais">
           <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="detalhes" data-id="${l.id}">${icone('olho')} Detalhes</button>
+          <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="itens" data-id="${l.id}">${icone('caixa')} Ver itens</button>
           <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="ler-ia" data-id="${l.id}">${icone('brilho')} Ler com IA</button>
           <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="crm" data-id="${l.id}">${icone('kanban')} CRM</button>
         </div>
@@ -305,8 +360,15 @@ window.LH = window.LH || {};
       const faltam = [];
       for (let k = 1; k <= maior && faltam.length < 30; k += 1) if (!tem.has(k)) faltam.push(k);
       const rotulo = (i, k) => `Item ${i.numero ?? k + 1}`;
+      // Palavras da busca: marca-texto na descrição e atalho para ver só esses itens.
+      const grupos = LH.termosBusca || [];
+      const comTermo = grupos.length ? itens.filter((i) => LH.termos.casa(i.descricao, grupos)).length : 0;
       const html = `
         <p class="fraco"><strong>${fmt.numero(n)}</strong> item(ns) no edital${maior ? ` · Item 1 a Item ${fmt.numero(maior)}` : ''}${total ? ` · ${fmt.moeda(total)} estimados` : ''}</p>
+        ${grupos.length ? `<p class="itens-termo">${comTermo
+          ? `${icone('busca')} <strong>${fmt.numero(comTermo)}</strong> item(ns) com <mark class="marca-termo">${esc(grupos.map((g) => g.join(' ')).join(', '))}</mark>
+             <label class="itens-termo__so"><input type="checkbox" data-itens-so-termo> Mostrar só esses</label>`
+          : `${icone('info')} Nenhum item com "${esc(grupos.map((g) => g.join(' ')).join(', '))}": a palavra está só no objeto.`}</p>` : ''}
         ${faltam.length ? `<p class="selo selo--alerta">O PNCP não publicou: ${faltam.map((x) => `Item ${x}`).join(', ')}${faltam.length >= 30 ? '...' : ''}</p>` : ''}
         ${n > 5 ? `<input type="search" class="campo" data-itens-filtro placeholder="Filtrar por número ou descrição (a numeração oficial é mantida)" style="margin:8px 0;width:100%">
         <p class="fraco" data-itens-contagem aria-live="polite"></p>` : ''}
@@ -314,9 +376,9 @@ window.LH = window.LH || {};
           <table class="tabela">
             <thead><tr><th>Nº oficial</th><th>Descrição</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead>
             <tbody>${itens.map((i, k) => `
-              <tr data-item-busca="${esc(`${i.numero ?? ''} ${i.descricao}`.toLowerCase())}" data-item-num="${i.numero ?? ''}">
+              <tr data-item-busca="${esc(`${i.numero ?? ''} ${i.descricao}`.toLowerCase())}" data-item-num="${i.numero ?? ''}"${grupos.length && LH.termos.casa(i.descricao, grupos) ? ' data-item-termo class="item--termo"' : ''}>
                 <td style="white-space:nowrap"><strong>${rotulo(i, k)}</strong><br><span class="fraco">${k + 1} de ${n}</span></td>
-                <td>${esc(i.descricao)}${i.beneficio && !/sem benef/i.test(i.beneficio) ? `<br><span class="selo selo--sucesso">${esc(i.beneficio)}</span>` : ''}</td>
+                <td>${LH.termos.destacar(i.descricao, grupos)}${i.beneficio && !/sem benef/i.test(i.beneficio) ? `<br><span class="selo selo--sucesso">${esc(i.beneficio)}</span>` : ''}</td>
                 <td>${i.quantidade == null ? '—' : fmt.numero(i.quantidade)} ${esc(i.unidade)}</td>
                 <td>${i.valorUnitario == null ? 'Sigiloso' : fmt.moeda(i.valorUnitario)}</td>
                 <td>${i.valorTotal == null ? 'Sigiloso' : fmt.moeda(i.valorTotal)}</td>
@@ -346,20 +408,26 @@ window.LH = window.LH || {};
 
   // Filtro da janela de itens: só esconde linhas, nunca renumera (o "Item N" é o oficial).
   // Número puro ("12") acha exatamente o Item 12; texto procura na descrição.
-  document.addEventListener('input', (e) => {
-    const campo = e.target.closest?.('[data-itens-filtro]');
-    if (!campo) return;
-    const corpo = campo.closest('[data-corpo]');
-    const termo = campo.value.trim().toLowerCase();
+  // "Mostrar só esses" deixa só os itens com a palavra da busca.
+  const filtrarItens = (corpo) => {
+    const campo = corpo.querySelector('[data-itens-filtro]');
+    const soTermo = corpo.querySelector('[data-itens-so-termo]')?.checked;
+    const termo = (campo?.value || '').trim().toLowerCase();
     const soNumero = /^\d+$/.test(termo);
     const linhas = [...corpo.querySelectorAll('[data-item-busca]')];
     let vis = 0;
     for (const tr of linhas) {
-      const ok = !termo || (soNumero ? tr.dataset.itemNum === String(Number(termo)) : tr.dataset.itemBusca.includes(termo));
+      const ok = (!termo || (soNumero ? tr.dataset.itemNum === String(Number(termo)) : tr.dataset.itemBusca.includes(termo)))
+        && (!soTermo || tr.hasAttribute('data-item-termo'));
       tr.hidden = !ok;
       if (ok) vis += 1;
     }
-    corpo.querySelector('[data-itens-contagem]').textContent = termo ? `${fmt.numero(vis)} de ${fmt.numero(linhas.length)} item(ns)` : '';
+    const contagem = corpo.querySelector('[data-itens-contagem]');
+    if (contagem) contagem.textContent = termo || soTermo ? `${fmt.numero(vis)} de ${fmt.numero(linhas.length)} item(ns)` : '';
+  };
+  document.addEventListener('input', (e) => {
+    const campo = e.target.closest?.('[data-itens-filtro], [data-itens-so-termo]');
+    if (campo) filtrarItens(campo.closest('[data-corpo]'));
   });
 
   /** Liga os botões dos cards de licitação dentro da raiz. aoMudar() redesenha a lista. */

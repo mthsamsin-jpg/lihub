@@ -26,6 +26,14 @@ LH.vistas = LH.vistas || {};
   // Painel de filtros avançados em cima (objeto, estado, cidade, modalidade,
   // plataformas e período de abertura) e os cards dos editais embaixo.
   const plataformasTodas = () => [...LH.PLATAFORMAS, LH.PLATAFORMA_OUTROS];
+  /** " · em SP / Campinas · materiais · com "copo"": o que está filtrando a contagem. */
+  const resumoFiltros = (f) => {
+    const partes = [];
+    if (f.uf) partes.push(`em <b>${esc(f.municipio ? `${f.municipio}/${f.uf}` : f.uf)}</b>`);
+    if (f.tipo) partes.push(f.tipo === 'material' ? 'de <b>materiais/produtos</b>' : 'de <b>serviços</b>');
+    if (String(f.termo || '').trim()) partes.push(`com <mark class="marca-termo">${esc(String(f.termo).trim())}</mark>`);
+    return partes.length ? ` ${partes.join(' · ')}` : '';
+  };
   LH.vistas.buscar = {
     titulo: 'Buscar Licitações',
     render: (p) => `
@@ -38,7 +46,7 @@ LH.vistas = LH.vistas || {};
         <div class="card__titulo"><h2>${icone('filtro')} Filtros avançados</h2></div>
         <div class="busca-avancada__linha">
           <label class="campo busca-avancada__objeto"><span class="campo__rotulo">Objeto</span>
-            <input name="termo" value="${esc(p.q || '')}" placeholder="ex.: notebook, cadeira de rodas, &quot;ar condicionado&quot;"></label>
+            <input name="termo" value="${esc(p.q || '')}" placeholder="ex.: copo, papel A4, cadeira de rodas"></label>
           <label class="campo"><span class="campo__rotulo">Estado (UF)</span>
             <select name="uf">${LH.opcoesUf('')}</select></label>
           <label class="campo"><span class="campo__rotulo">Cidade</span>
@@ -46,6 +54,15 @@ LH.vistas = LH.vistas || {};
             <datalist id="busca-cidades"></datalist></label>
           <label class="campo"><span class="campo__rotulo">Modalidade</span>
             <select name="modalidade">${LH.opcoes(LH.repo.modalidades.map(comDocumentacao), '', 'Todas')}</select></label>
+        </div>
+        <div class="busca-avancada__linha busca-avancada__tipo">
+          <fieldset class="segmentado" aria-label="Tipo de contratação">
+            <legend class="campo__rotulo">Tipo de contratação</legend>
+            <label><input type="radio" name="tipo" value="" checked><span>Todos</span></label>
+            <label><input type="radio" name="tipo" value="material"><span>${icone('caixa')} Materiais / Produtos</span></label>
+            <label><input type="radio" name="tipo" value="servico"><span>${icone('engrenagem')} Serviços</span></label>
+          </fieldset>
+          <p class="fraco busca-avancada__dica">${icone('info')} Separe produtos por vírgula (<b>copo, papel A4</b>). A palavra precisa estar no objeto ou nos itens do edital.</p>
         </div>
 
         <fieldset class="plataformas">
@@ -95,7 +112,7 @@ LH.vistas = LH.vistas || {};
       const ordem = raiz.querySelector('#ordem');
       // Busca ao vivo no PNCP: roda sozinha quando se chega pela barra do topo (?q=...).
       const pncpVivo = LH.pncpAoVivo?.ligar(raiz.querySelector('#pncp-vivo'), {
-        termo: () => form.termo.value, uf: () => form.uf.value, automatico: !!params.q && LH.repo.modo === 'real',
+        termo: () => form.termo.value, uf: () => form.uf.value, tipo: () => form.tipo.value, automatico: !!params.q && LH.repo.modo === 'real',
       });
       const caixa = raiz.querySelector('#resultados');
       const mais = raiz.querySelector('#mais');
@@ -110,7 +127,7 @@ LH.vistas = LH.vistas || {};
         const d = new FormData(form);
         const marcadas = plataformasMarcadas();
         return {
-          termo: d.get('termo'), orgao: d.get('orgao'), modalidade: d.get('modalidade'), uf: d.get('uf'),
+          termo: d.get('termo'), orgao: d.get('orgao'), modalidade: d.get('modalidade'), uf: d.get('uf'), tipo: d.get('tipo') || '',
           municipio: d.get('municipio') || '', min: fmt.lerNumero(d.get('min')), max: fmt.lerNumero(d.get('max')),
           de: d.get('de'), ate: d.get('ate'), ordem: ordem.value,
           // todas marcadas = sem filtro
@@ -120,6 +137,7 @@ LH.vistas = LH.vistas || {};
       const buscar = async (continuar = false) => {
         const meu = ++pedido;
         const f = ler();
+        LH.termosBusca = LH.termos.grupos(f.termo);
         if (!continuar) {
           offset = 0;
           mais.hidden = true;
@@ -144,7 +162,7 @@ LH.vistas = LH.vistas || {};
           if (continuar) caixa.insertAdjacentHTML('beforeend', html);
           else caixa.innerHTML = html || LH.vazio('busca', 'Nada encontrado', 'Tente outras palavras ou tire alguns filtros.');
           offset += r.lista.length;
-          raiz.querySelector('#contagem').innerHTML = `<strong>${fmt.numero(total)}</strong> licitação(ões) aberta(s)${offset < total ? ` · mostrando ${fmt.numero(offset)}` : ''}`;
+          raiz.querySelector('#contagem').innerHTML = `<strong>${fmt.numero(total)}</strong> licitação(ões) aberta(s)${resumoFiltros(f)}${offset < total ? ` · mostrando ${fmt.numero(offset)}` : ''}`;
           mais.hidden = offset >= total || r.lista.length < r.porPagina;
           LH.revelar(caixa);
         } catch (e) {
@@ -168,6 +186,13 @@ LH.vistas = LH.vistas || {};
       };
 
       form.addEventListener('submit', (e) => { e.preventDefault(); buscar(); if (LH.repo.modo === 'real' && form.termo.value.trim().length >= 3) pncpVivo?.buscar(); });
+      // Estado, cidade, modalidade, tipo, plataforma e datas valem na hora (sem precisar de "Pesquisar").
+      let espera = null;
+      form.addEventListener('change', (e) => {
+        if (e.target.name === 'termo' || e.target.matches('[data-obs]')) return;
+        clearTimeout(espera);
+        espera = setTimeout(() => buscar(), e.target.name === 'plataformas' ? 500 : 150);
+      });
       form.addEventListener('reset', () => setTimeout(() => { atualizarCidades(); buscar(); }));
       form.uf.addEventListener('change', atualizarCidades);
       form.addEventListener('click', (e) => {
