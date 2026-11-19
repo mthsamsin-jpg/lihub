@@ -53,7 +53,7 @@ if (config.mercadoPago.token) {
   log.aviso('MP_ACCESS_TOKEN não definida: assinaturas desligadas.');
 }
 
-// Planos pagos vencidos (30 dias sem novo pagamento) voltam ao Free. Isentas nunca.
+// Planos pagos vencidos (15 dias sem novo pagamento) voltam ao Free. Isentas nunca.
 async function expirarPlanos() {
   try {
     const n = await repositorio.expirarPlanos();

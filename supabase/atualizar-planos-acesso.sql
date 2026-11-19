@@ -26,7 +26,7 @@ end $$;
 revoke insert, update on public.organizacoes from authenticated;
 grant  update (nome, cnpj) on public.organizacoes to authenticated;
 
--- Mercado Pago: cada pagamento aprovado libera 30 dias (plano_ate). Vencido = Free.
+-- Mercado Pago: cada pagamento aprovado libera 15 dias (plano_ate). Vencido = Free.
 alter table public.organizacoes add column if not exists plano_ate timestamptz;
 alter table public.assinaturas add column if not exists mp_assinatura_id text unique;  -- cobrança mensal no cartão (preapproval)
 alter table public.assinaturas add column if not exists mp_pagamentos text;            -- ids já processados (evita liberar 2x)

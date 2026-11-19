@@ -119,7 +119,7 @@ LH.vistas = LH.vistas || {};
     const fim = (iso) => (iso ? fmt.data(LH.datas.paraIso(new Date(iso))) : '');
     if (org.plano === 'gratuito' || !org.plano_ate) return { texto: 'Plano Free', classe: '' };
     if (new Date(org.plano_ate) <= new Date()) return { texto: 'Prazo pago terminou', classe: 'selo--alerta' };
-    if (a?.forma === 'recorrente' && a.status === 'authorized') return { texto: `Crédito mensal · renova em ${fim(org.plano_ate)}`, classe: 'selo--sucesso' };
+    if (a?.forma === 'recorrente' && a.status === 'authorized') return { texto: `Crédito automático · renova em ${fim(org.plano_ate)}`, classe: 'selo--sucesso' };
     return { texto: `Liberado até ${fim(org.plano_ate)}`, classe: 'selo--sucesso' };
   }
 
@@ -167,7 +167,7 @@ LH.vistas = LH.vistas || {};
             <strong style="font-size:1.1rem">Plano ${isento ? 'Isento' : NOMES_PLANO[org.plano] || 'Free'}</strong>
             <span class="selo ${isento ? 'selo--sucesso' : sit.classe}">${esc(isento ? 'Acesso total, sem cobrança' : sit.texto)}</span>
           </div>
-          <div class="plano-atual__preco"><strong>R$ ${pago ? LH.plano.PRECOS[nivel] : 0}</strong><span class="suave">/mês</span></div>
+          <div class="plano-atual__preco"><strong>R$ ${pago ? LH.plano.PRECOS[nivel] : 0}</strong><span class="suave">${pago ? '/15 dias' : '/mês'}</span></div>
           ${isento ? '<p class="nota">Sua conta é isenta: todos os recursos liberados (Prospecção e Robô Turbo 2.0), para sempre e sem cobrança.</p>' : ''}
           <div class="uso">
             <div class="uso__linha"><span>Empresas</span><span>${empresas} de ${org.limite_empresas}</span></div>
@@ -180,16 +180,16 @@ LH.vistas = LH.vistas || {};
           ${!isento && nivel !== 'max' ? ['starter', 'max'].filter((p) => !(nivel === 'pro' && p === 'starter')).map((p) => {
             const max = p === 'max';
             return `<div class="assinar-plano${max ? ' assinar-plano--destaque' : ''}" data-plano-bloco="${p}">
-              <strong>${max ? 'Max' : 'Pro'} · R$ ${LH.plano.PRECOS[max ? 'max' : 'pro']}/mês</strong>
+              <strong>${max ? 'Max' : 'Pro'} · R$ ${LH.plano.PRECOS[max ? 'max' : 'pro']}/15 dias</strong>
               <p class="fraco">${max ? 'Tudo do Pro + Robô Turbo 2.0, até 20 empresas e 60 leituras por IA por mês.' : 'Prospecção completa (Busca, Radar, Petronect, Favoritas), até 10 empresas e 30 leituras de edital por IA por mês.'}</p>
-              <button class="btn ${max ? 'btn--primario' : ''} btn--bloco" type="button" data-acao="assinar" data-plano="${p}" data-forma="avulso">${icone('raio')} Pix, crédito ou débito · 30 dias</button>
-              <button class="btn btn--fantasma btn--bloco btn--pequeno" type="button" data-acao="assinar" data-plano="${p}" data-forma="recorrente">${icone('moeda')} Crédito mensal automático</button>
+              <button class="btn ${max ? 'btn--primario' : ''} btn--bloco" type="button" data-acao="assinar" data-plano="${p}" data-forma="avulso">${icone('raio')} Pix, crédito ou débito · 15 dias</button>
+              <button class="btn btn--fantasma btn--bloco btn--pequeno" type="button" data-acao="assinar" data-plano="${p}" data-forma="recorrente">${icone('moeda')} Crédito automático a cada 15 dias</button>
             </div>`;
           }).join('') : ''}
-          ${pago && nivel === 'pro' ? '<p class="fraco">Ao assinar o Max, os 30 dias começam na hora do pagamento.</p>' : ''}
-          ${pago && c.assinatura?.forma === 'recorrente' && c.assinatura?.status === 'authorized' ? `<button class="btn btn--bloco" type="button" data-acao="cancelar">${icone('fechar')} Cancelar crédito mensal</button>` : ''}
+          ${pago && nivel === 'pro' ? '<p class="fraco">Ao assinar o Max, os 15 dias começam na hora do pagamento.</p>' : ''}
+          ${pago && c.assinatura?.forma === 'recorrente' && c.assinatura?.status === 'authorized' ? `<button class="btn btn--bloco" type="button" data-acao="cancelar">${icone('fechar')} Cancelar crédito automático</button>` : ''}
           ${!podeGerenciar ? '<p class="nota">Só o dono ou um administrador da organização pode cuidar da assinatura.</p>' : ''}
-          <p class="fraco">Pagamento seguro pelo Mercado Pago (Pix, crédito ou débito). Cada pagamento libera 30 dias; no crédito mensal, cancele quando quiser e use até o fim dos dias pagos.</p>
+          <p class="fraco">Pagamento seguro pelo Mercado Pago (Pix, crédito ou débito). Cada pagamento libera 15 dias; no crédito automático, cancele quando quiser e use até o fim dos dias pagos.</p>
         </aside>
       </div>`;
     },
@@ -257,11 +257,11 @@ LH.vistas = LH.vistas || {};
             window.location.href = await LH.repo.assinar(b.dataset.plano || 'starter', b.dataset.forma || 'avulso');
           }
           if (acao === 'cancelar') {
-            const ok = await LH.confirmar('Cancelar crédito mensal', 'As próximas cobranças no cartão param. Você continua com acesso até o fim dos dias já pagos.', 'Cancelar cobrança', true);
+            const ok = await LH.confirmar('Cancelar crédito automático', 'As próximas cobranças no cartão param. Você continua com acesso até o fim dos dias já pagos.', 'Cancelar cobrança', true);
             if (!ok) return;
             await LH.repo.cancelarAssinatura();
             await LH.repo.recarregar().catch(() => {});
-            LH.aviso('Cobrança mensal cancelada.', 'sucesso');
+            LH.aviso('Cobrança automática cancelada.', 'sucesso');
             LH.ir('perfil');
           }
           if (acao === 'exportar') {
@@ -289,7 +289,7 @@ LH.vistas = LH.vistas || {};
 
   // --- Ajuda -------------------------------------------------------------------------
   const FAQ = [
-    ['Como funciona o pagamento?', 'Pelo Mercado Pago: Pix, cartão de crédito ou débito liberam o plano por 30 dias. No crédito mensal automático, a cobrança se repete todo mês até você cancelar.'],
+    ['Como funciona o pagamento?', 'Pelo Mercado Pago: Pix, cartão de crédito ou débito liberam o plano por 15 dias. No crédito automático, a cobrança se repete a cada 15 dias até você cancelar.'],
     ['Como cancelo a assinatura?', 'Em Meu Perfil > Gerenciar assinatura. O cancelamento vale no fim do período já pago e não tem multa.'],
     ['A IA substitui a leitura do edital?', 'Não. Ela adianta o trabalho e aponta riscos e divergências, mas pode errar. Confira sempre o edital original antes de enviar a proposta.'],
     ['De onde vêm as licitações?', 'Do PNCP (Portal Nacional de Contratações Públicas), atualizadas automaticamente várias vezes ao dia.'],

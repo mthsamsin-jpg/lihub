@@ -3,9 +3,9 @@
 //
 // Duas formas de pagar um plano (Pro R$ 97 ou Max R$ 197):
 //   - "avulso": Checkout Pro com Pix, cartão de crédito ou cartão de débito.
-//     Cada pagamento aprovado libera o plano por 30 dias.
+//     Cada pagamento aprovado libera o plano por 15 dias.
 //   - "recorrente": assinatura no cartão de crédito (preapproval). O Mercado
-//     Pago cobra todo mês; cada cobrança aprovada libera mais 30 dias.
+//     Pago cobra a cada 15 dias; cada cobrança aprovada libera mais 15 dias.
 //
 // Segurança:
 //   - O servidor nunca vê dados de cartão: o cliente paga na página do Mercado Pago.
@@ -13,7 +13,7 @@
 //     pagamento na API do Mercado Pago com o token secreto antes de liberar.
 //     Um aviso falso não libera nada. Com MP_WEBHOOK_SECRET definido, a
 //     assinatura x-signature também é conferida.
-//   - Cada pagamento libera os 30 dias uma vez só (avisos repetidos são ignorados).
+//   - Cada pagamento libera os 15 dias uma vez só (avisos repetidos são ignorados).
 //   - Conta isenta (organizacoes.isento) nunca é cobrada.
 // =============================================================================
 import { createHmac, timingSafeEqual } from 'node:crypto';
@@ -29,7 +29,7 @@ export class ErroPagamento extends Error {
 }
 
 const API = 'https://api.mercadopago.com';
-export const DIAS_POR_PAGAMENTO = 30;
+export const DIAS_POR_PAGAMENTO = 15;
 export const FORMAS = ['avulso', 'recorrente'];
 
 /** "teste" (credencial TEST-...) ou "real" (APP_USR-...). */
@@ -43,7 +43,7 @@ export function lerReferencia(ref) {
   return { organizacaoId, plano, forma };
 }
 
-/** Nova data de fim: soma 30 dias a partir do fim atual (se ainda vale) ou de agora. */
+/** Nova data de fim: soma 15 dias a partir do fim atual (se ainda vale) ou de agora. */
 export function novoFim(fimAtual, agora = new Date(), dias = DIAS_POR_PAGAMENTO) {
   const base = fimAtual && new Date(fimAtual) > agora ? new Date(fimAtual) : agora;
   return new Date(base.getTime() + dias * 86_400_000).toISOString();
@@ -94,7 +94,7 @@ export function criarPagamentos({ token, segredoWebhook = null, urlSite, reposit
     return json;
   }
 
-  /** Libera (ou estende) o plano por 30 dias, uma vez por pagamento. */
+  /** Libera (ou estende) o plano por 15 dias, uma vez por pagamento. */
   async function liberar({ organizacaoId, plano, forma, pagamentoId, valor }) {
     if (!(await repositorio.organizacaoExiste(organizacaoId))) return { ignorado: 'sem_organizacao' };
     const atual = await repositorio.assinatura(organizacaoId);
@@ -112,7 +112,7 @@ export function criarPagamentos({ token, segredoWebhook = null, urlSite, reposit
   }
 
   return {
-    /** Página de pagamento do Mercado Pago. forma: avulso (Pix/crédito/débito) | recorrente (crédito mensal). */
+    /** Página de pagamento do Mercado Pago. forma: avulso (Pix/crédito/débito) | recorrente (crédito a cada 15 dias). */
     async criarCheckout({ organizacao, usuario, plano, forma = 'avulso' }) {
       const p = PLANOS[plano];
       if (!p?.precos?.mensal) throw new ErroPagamento('Plano inválido.', { codigo: 'plano_invalido' });
@@ -120,17 +120,17 @@ export function criarPagamentos({ token, segredoWebhook = null, urlSite, reposit
       if (organizacao.isento === true) throw new ErroPagamento('Conta isenta: nada a pagar.', { status: 409, codigo: 'conta_isenta' });
       const valor = p.precos.mensal / 100;
       const ref = referencia(organizacao.id, plano, forma);
-      const titulo = `Uso LicitaHub ${p.nome} - 30 dias`;
+      const titulo = `Uso LicitaHub ${p.nome} - ${DIAS_POR_PAGAMENTO} dias`;
 
       if (forma === 'recorrente') {
         const r = await mp('/preapproval', {
           metodo: 'POST',
           corpo: {
-            reason: `Uso LicitaHub ${p.nome} (mensal)`,
+            reason: `Uso LicitaHub ${p.nome} (a cada ${DIAS_POR_PAGAMENTO} dias)`,
             external_reference: ref,
             payer_email: usuario.email,
             back_url: `${site}/assinatura/sucesso`,
-            auto_recurring: { frequency: 1, frequency_type: 'months', transaction_amount: valor, currency_id: 'BRL' },
+            auto_recurring: { frequency: DIAS_POR_PAGAMENTO, frequency_type: 'days', transaction_amount: valor, currency_id: 'BRL' },
             status: 'pending',
           },
         });
@@ -156,10 +156,10 @@ export function criarPagamentos({ token, segredoWebhook = null, urlSite, reposit
       return { url: r.init_point, id: r.id };
     },
 
-    /** Cancela a cobrança mensal no cartão (o acesso vale até o fim dos dias já pagos). */
+    /** Cancela a cobrança automática no cartão (o acesso vale até o fim dos dias já pagos). */
     async cancelar({ organizacao }) {
       const atual = await repositorio.assinatura(organizacao.id);
-      if (!atual?.mp_assinatura_id) throw new ErroPagamento('Não há cobrança mensal ativa para cancelar.', { status: 404, codigo: 'sem_assinatura' });
+      if (!atual?.mp_assinatura_id) throw new ErroPagamento('Não há cobrança automática ativa para cancelar.', { status: 404, codigo: 'sem_assinatura' });
       await mp(`/preapproval/${atual.mp_assinatura_id}`, { metodo: 'PUT', corpo: { status: 'cancelled' } });
       await repositorio.salvarAssinatura(organizacao.id, { status: 'cancelled', cancelar_no_fim: true });
       return { cancelado: true, ate: atual.periodo_fim ?? null };

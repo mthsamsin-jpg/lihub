@@ -138,7 +138,7 @@ create table if not exists public.organizacoes (
                             check (plano in ('gratuito', 'starter', 'prime', 'pro', 'max')),
   -- Isenta do paywall: acesso a tudo, sem cobrança, para sempre (contas antigas).
   isento                  boolean not null default false,
-  -- Fim dos dias pagos no Mercado Pago (30 por pagamento). Vencido = Free.
+  -- Fim dos dias pagos no Mercado Pago (15 por pagamento). Vencido = Free.
   plano_ate               timestamptz,
   limite_empresas         int  not null default 3   check (limite_empresas >= 0),
   limite_analises_ia_mes  int  not null default 10  check (limite_analises_ia_mes >= 0),

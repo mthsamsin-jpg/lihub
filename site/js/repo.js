@@ -459,7 +459,7 @@ window.LH = window.LH || {};
       await LH.nuvem.api('/api/conta', { metodo: 'DELETE' });
       await LH.nuvem.sair().catch(() => {});
     },
-    /** forma: 'avulso' (Pix, crédito ou débito: 30 dias) | 'recorrente' (crédito todo mês). */
+    /** forma: 'avulso' (Pix, crédito ou débito: 15 dias) | 'recorrente' (crédito a cada 15 dias). */
     async assinar(plano = 'starter', forma = 'avulso') {
       const r = await LH.nuvem.api('/api/assinaturas/checkout', { metodo: 'POST', corpo: { organizacao_id: ctx().organizacao.id, plano, forma } });
       return r.url;

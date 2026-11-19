@@ -32,9 +32,9 @@ test('referência e datas', () => {
   assert.equal(lerReferencia(`${ORG}|gratuito|avulso`), null);
   assert.equal(lerReferencia('qualquer|coisa'), null);
   const agora = new Date('2026-11-18T00:00:00Z');
-  assert.equal(novoFim(null, agora), '2026-12-18T00:00:00.000Z');
-  assert.equal(novoFim('2026-11-28T00:00:00Z', agora), '2026-12-28T00:00:00.000Z'); // soma ao que ainda vale
-  assert.equal(novoFim('2026-11-01T00:00:00Z', agora), '2026-12-18T00:00:00.000Z'); // vencido: conta de agora
+  assert.equal(novoFim(null, agora), '2026-12-03T00:00:00.000Z');
+  assert.equal(novoFim('2026-11-28T00:00:00Z', agora), '2026-12-13T00:00:00.000Z'); // soma ao que ainda vale
+  assert.equal(novoFim('2026-11-01T00:00:00Z', agora), '2026-12-03T00:00:00.000Z'); // vencido: conta de agora
 });
 
 test('checkout avulso: Pix, crédito e débito (sem boleto), valor do plano e aviso de volta', async () => {
@@ -43,27 +43,30 @@ test('checkout avulso: Pix, crédito e débito (sem boleto), valor do plano e av
   assert.equal(r.url, 'https://mp/checkout');
   const corpo = pedidos[0].corpo;
   assert.equal(corpo.items[0].unit_price, 197);
+  assert.equal(corpo.items[0].title, 'Uso LicitaHub Max - 15 dias');
   assert.equal(corpo.external_reference, `${ORG}|max|avulso`);
   assert.deepEqual(corpo.payment_methods.excluded_payment_types.map((t) => t.id).sort(), ['atm', 'ticket']);
   assert.equal(corpo.notification_url, 'https://site.test/mercadopago/webhook');
 });
 
-test('checkout recorrente: assinatura mensal no crédito; conta isenta nunca é cobrada', async () => {
+test('checkout recorrente: assinatura a cada 15 dias no crédito; conta isenta nunca é cobrada', async () => {
   const { pag, pedidos } = montar({ '/preapproval': { id: 'sub1', init_point: 'https://mp/sub' } });
   const r = await pag.criarCheckout({ organizacao: { id: ORG }, usuario: { email: 'a@b.c' }, plano: 'starter', forma: 'recorrente' });
   assert.equal(r.url, 'https://mp/sub');
   assert.equal(pedidos[0].corpo.auto_recurring.transaction_amount, 97);
-  assert.equal(pedidos[0].corpo.auto_recurring.frequency_type, 'months');
+  assert.equal(pedidos[0].corpo.auto_recurring.frequency_type, 'days');
+  assert.equal(pedidos[0].corpo.auto_recurring.frequency, 15);
   await assert.rejects(pag.criarCheckout({ organizacao: { id: ORG, isento: true }, usuario: { email: 'a@b.c' }, plano: 'max' }), /isenta/);
 });
 
-test('aviso de pagamento aprovado libera 30 dias, uma vez só', async () => {
+test('aviso de pagamento aprovado libera 15 dias, uma vez só', async () => {
   const pg = { id: 77, status: 'approved', transaction_amount: 97, external_reference: `${ORG}|starter|avulso` };
   const { pag, banco } = montar({ '/v1/payments/77': pg });
   const r = await pag.processarAviso({ tipo: 'payment', id: '77' });
   assert.equal(r.plano, 'starter');
   assert.equal(banco.plano.plano, 'starter');
-  assert.ok(new Date(banco.plano.ate) > new Date(Date.now() + 29 * 86_400_000));
+  assert.ok(new Date(banco.plano.ate) > new Date(Date.now() + 14 * 86_400_000));
+  assert.ok(new Date(banco.plano.ate) < new Date(Date.now() + 16 * 86_400_000));
   assert.deepEqual(await pag.processarAviso({ tipo: 'payment', id: '77' }), { ignorado: 'ja_processado' });
 });
 
