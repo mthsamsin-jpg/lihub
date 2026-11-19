@@ -172,7 +172,7 @@ window.LH = window.LH || {};
       </dl>
       <div class="licitacao__info">
         <span>${icone('moeda')} <b class="licitacao__valor">${valorTexto(l)}</b></span>
-        <span>${icone('computador')} ${esc(l.plataforma)}</span>
+        ${siteOficial(l) ? `<a class="plataforma-selo" href="${esc(siteOficial(l))}" target="_blank" rel="noopener noreferrer" title="Portal de disputa: ${esc(l.plataforma)} (abrir site oficial)">${icone('computador')} ${esc(l.plataforma)}</a>` : `<span class="plataforma-selo" title="Portal de disputa">${icone('computador')} ${esc(l.plataforma)}</span>`}
       </div>
       </div>
       <div class="licitacao__lateral" role="group" aria-label="Ações rápidas">
