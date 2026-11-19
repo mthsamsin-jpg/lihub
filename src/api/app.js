@@ -349,5 +349,21 @@ export function criarApp({ repositorio, analisar, obterEdital, pagamentos = null
 
   /** Para testes e desligamento: espera as análises em andamento terminarem. */
   app.aguardarTarefas = () => Promise.allSettled([...tarefas]);
+  /**
+   * Leitura AUTOMÁTICA de um edital do PNCP (sem pessoa pedindo): mesma análise e
+   * mesma cota mensal do plano. Devolve { id }, { cota: true } ou null (não dá).
+   */
+  app.analisarAutomaticamente = async ({ organizacao_id, licitacao_id }) => {
+    const licitacao = await repositorio.licitacaoAdmin(licitacao_id);
+    if (!licitacao || licitacao.fonte !== 'pncp') return null;
+    const { limite, usadas } = await repositorio.cotaMensal(organizacao_id);
+    if (usadas >= limite) return { cota: true };
+    const id = await repositorio.criarAnalise({
+      organizacao_id, licitacao_id, solicitado_por: null, origem: 'pncp', status: 'pendente', automatica: true,
+    });
+    agendar(() => processar({ id, pedido: { organizacao_id }, origem: 'pncp', licitacao, db: null }));
+    return { id };
+  };
+
   return app;
 }

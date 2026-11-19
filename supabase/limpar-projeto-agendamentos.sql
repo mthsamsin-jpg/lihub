@@ -55,7 +55,7 @@ begin
   -- 3. Visões e tabelas do LicitaHub (as do agendamentos não estão na lista)
   drop view if exists public.vw_crm_cards, public.vw_consentimentos_atuais;
   drop table if exists
-    public.robo_concorrentes, public.robo_historico,
+    public.robo_concorrentes, public.robo_historico, public.mercado_resultados, public.mercado_coleta,
     public.auction_live_bids, public.robo_sessoes, public.portal_credentials,
     public.robo_itens, public.documentos, public.propostas, public.radares, public.eventos, public.monitoramentos,
     public.crm_cards, public.favoritos, public.licitacao_observacoes, public.analises_edital, public.licitacao_itens,
@@ -68,6 +68,7 @@ begin
     'public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[])',
     'public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[], text, timestamptz, text, text[], boolean, text[])',
     'public.tipo_objeto(text)',
+    'public.mercado_concorrentes(text, int)', 'public.mercado_concorrente_itens(text, int)', 'public.mercado_precos(text, text[], text, date)',
     'public.radar_contagem(text, text[], text[], int[], date, date)',
     'public.exportar_meus_dados()', 'public.criar_organizacao(text, text)',
     'public.limpar_licitacoes_antigas(int)', 'public.validar_card()', 'public.verificar_limite_empresas()',

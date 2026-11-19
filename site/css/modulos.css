@@ -1193,3 +1193,19 @@ li.item--termo { box-shadow: inset 3px 0 0 #facc15; border-radius: 8px; }
 @media (max-width: 640px) {
   .campo__com-botao { flex-direction: column; }
 }
+
+/* Inteligência de Mercado */
+.metricas { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 6px 0 14px; }
+.metrica { padding: 12px 14px; border-radius: var(--raio-md); background: var(--vidro); border: 1px solid var(--card-borda); display: grid; gap: 4px; }
+.metrica span { font-size: 0.8rem; color: var(--texto-3); }
+.metrica strong { font-size: 1.1rem; color: var(--texto); }
+.faixa-preco { margin: 6px 0 14px; }
+.faixa-preco__trilho { position: relative; height: 12px; border-radius: 999px; background: rgba(148, 197, 255, 0.12); }
+.faixa-preco__miolo { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--gradiente); }
+.faixa-preco__mediana { position: absolute; top: -4px; width: 3px; height: 20px; margin-left: -1px; border-radius: 2px; background: #facc15; }
+.faixa-preco__rotulos { display: flex; justify-content: space-between; gap: 8px; font-size: 0.8rem; color: var(--texto-2); margin-top: 6px; }
+.inteligencia__sub { margin: 16px 0 8px; font-size: 1rem; }
+.interruptor { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; }
+.interruptor input { width: 20px; height: 20px; accent-color: var(--azul); }
+.item-preco { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 0.8rem; }
+.item-preco svg { width: 13px; height: 13px; }

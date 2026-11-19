@@ -200,6 +200,12 @@ function baseCompra({ cnpj, ano, sequencial }) {
   return `${config.pncp.urlIntegracao.replace(/\/$/, '')}/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}`;
 }
 
+/** Resultados (vencedor, valor homologado) de um item da contratação. 204/404 = sem resultado. */
+export async function listarResultadosDoItem(compra, numeroItem, opcoes) {
+  const lista = await obterJson(`${baseCompra(compra)}/itens/${numeroItem}/resultados`, opcoes);
+  return Array.isArray(lista) ? lista : [];
+}
+
 /** Lista os documentos publicados da contratação (edital, termo de referência, anexos). */
 export async function listarArquivos(compra, opcoes) {
   const lista = await obterJson(`${baseCompra(compra)}/arquivos`, opcoes);

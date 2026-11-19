@@ -36,6 +36,7 @@ window.LH = window.LH || {};
       { id: 'declaracoes', rotulo: 'Gerador de declarações' },
     ] },
     { etapa: 6, rotulo: 'Preço e proposta', icone: 'arquivo', filhos: [
+      { id: 'inteligencia', rotulo: 'Inteligência de Mercado', tag: 'Novo' },
       { id: 'pesquisa-precos', rotulo: 'Pesquisa de Preço' },
       { id: 'ia/cotacao', rotulo: 'Cotação Online IA', tag: 'Beta' },
       { id: 'proposta/criar', rotulo: 'Gerador de proposta' },

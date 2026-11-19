@@ -233,6 +233,39 @@ window.LH = window.LH || {};
     },
 
     /** Observações do usuário: ids -> Map(id, texto). */
+    // --- Inteligência de mercado (resultados homologados do PNCP) -------------
+    async mercadoConcorrentes(busca) {
+      const { data, error } = await db().rpc('mercado_concorrentes', { p_busca: busca, p_limite: 30 });
+      if (error?.code === 'PGRST202') throw new Error('Falta a base de inteligência: rode o supabase/atualizar-inteligencia.sql no Supabase.');
+      if (error) throw erroBanco(error, 'Não consegui consultar os concorrentes');
+      return data || [];
+    },
+    async mercadoConcorrenteItens(ni) {
+      const { data, error } = await db().rpc('mercado_concorrente_itens', { p_ni: ni, p_limite: 200 });
+      if (error) throw erroBanco(error, 'Não consegui carregar o histórico do concorrente');
+      return data || [];
+    },
+    async mercadoPrecos(termo, { ufs = [], unidade = '', desde = null } = {}) {
+      const { data, error } = await db().rpc('mercado_precos', { p_termo: termo, p_ufs: ufs.length ? ufs : null, p_unidade: unidade || null, p_desde: desde });
+      if (error?.code === 'PGRST202') throw new Error('Falta a base de inteligência: rode o supabase/atualizar-inteligencia.sql no Supabase.');
+      if (error) throw erroBanco(error, 'Não consegui consultar os preços');
+      return data || { amostras: 0 };
+    },
+    async mercadoResumo() {
+      const { count } = await db().from('mercado_resultados').select('id', { count: 'exact', head: true });
+      const { data } = await db().from('mercado_resultados').select('data_resultado').order('data_resultado', { ascending: false }).limit(1);
+      return { resultados: count ?? 0, ultimo: data?.[0]?.data_resultado || null };
+    },
+    async leituraAutomatica() {
+      const { data, error } = await db().from('organizacoes').select('ia_automatica').eq('id', ctx().organizacao.id).maybeSingle();
+      if (error) return null; // banco sem a coluna ainda
+      return !!data?.ia_automatica;
+    },
+    async definirLeituraAutomatica(ligada) {
+      const { error } = await db().from('organizacoes').update({ ia_automatica: !!ligada }).eq('id', ctx().organizacao.id);
+      if (error) throw erroBanco(error, 'Não consegui mudar a leitura automática');
+    },
+
     async observacoes(ids) {
       const lista = [...new Set(ids.map(Number))].filter(Boolean).slice(0, 200);
       if (!lista.length) return new Map();
@@ -766,6 +799,14 @@ window.LH = window.LH || {};
     licitacoesDoMunicipio: async (f, uf, municipio) => filtrarRadarDemo(f).filter((l) => l.uf === uf && l.municipio === municipio),
     licitacoes: async (ids) => ids.map(LH.dados.licitacao).filter(Boolean),
     // Demonstração: observações neste navegador.
+    // Inteligência de mercado: só com login (dados reais do PNCP).
+    async mercadoConcorrentes() { throw new Error('A inteligência de mercado usa dados reais do PNCP: entre com a sua conta.'); },
+    async mercadoConcorrenteItens() { return []; },
+    async mercadoPrecos() { throw new Error('A inteligência de mercado usa dados reais do PNCP: entre com a sua conta.'); },
+    async mercadoResumo() { return { resultados: 0, ultimo: null }; },
+    async leituraAutomatica() { return null; },
+    async definirLeituraAutomatica() { throw new Error('Entre com a sua conta para ligar a leitura automática.'); },
+
     async observacoes(ids) {
       const todas = LH.estado.obter('observacoes') || {};
       return new Map(ids.filter((id) => todas[id]).map((id) => [Number(id), todas[id]]));

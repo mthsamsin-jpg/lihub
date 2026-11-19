@@ -17,6 +17,8 @@ import { criarCofre } from './cofre.js';
 import { ligarModoReal } from './api/modo-real.js';
 import { ligarPncpAoVivo } from './api/pncp-ao-vivo.js';
 import { criarGerenciador } from '../worker/gerenciador.js';
+import { coletarResultados } from './mercado/coletar.js';
+import { lerEditaisAutomaticamente } from './ia/leitura-automatica.js';
 
 const log = criarLog('servidor');
 
@@ -158,6 +160,47 @@ if (config.servidor.syncIntervaloMin > 0) {
   setTimeout(sincronizarAgora, 15_000).unref();
   setInterval(sincronizarAgora, config.servidor.syncIntervaloMin * 60_000).unref();
   log.info(`Sincronização automática com o PNCP a cada ${config.servidor.syncIntervaloMin} min.`);
+}
+
+// Inteligência de mercado: resultados homologados do PNCP (vencedores e preços).
+// MERCADO_INTERVALO_MIN=0 desliga. Cada rodada consulta até MERCADO_LOTE compras.
+const mercadoMin = Number(process.env.MERCADO_INTERVALO_MIN ?? 30);
+const mercadoLote = Number(process.env.MERCADO_LOTE ?? 25);
+let coletando = false;
+async function coletarMercado() {
+  if (coletando) return;
+  coletando = true;
+  try {
+    const r = await coletarResultados({ lote: mercadoLote }, { supabase: admin, log: criarLog('mercado'), sinal: controleSync.signal });
+    if (r.compras || r.erros) {
+      log.info(`Mercado: ${r.compras} compra(s) consultada(s), ${r.resultados} resultado(s) gravado(s), ${r.semResultado} ainda sem resultado, ${r.erros} erro(s).`);
+    }
+  } catch (e) {
+    if (!controleSync.signal.aborted) log.erro(`Mercado: ${e.message}`);
+  } finally {
+    coletando = false;
+  }
+}
+if (mercadoMin > 0) {
+  setTimeout(coletarMercado, 5 * 60_000).unref();
+  setInterval(coletarMercado, mercadoMin * 60_000).unref();
+  log.info(`Inteligência de mercado: coleta de resultados do PNCP a cada ${mercadoMin} min.`);
+}
+
+// Leitura automática de editais (só organizações que ligaram a opção; respeita a cota).
+const leituraMin = Number(process.env.LEITURA_AUTOMATICA_MIN ?? 20);
+async function lerAutomaticamente() {
+  if (!ia.chaveConfigurada) return;
+  try {
+    const r = await lerEditaisAutomaticamente({}, { supabase: admin, analisar: app.analisarAutomaticamente, log: criarLog('ia-auto') });
+    if (r.iniciadas || r.semCota) {
+      log.info(`Leitura automática: ${r.iniciadas} análise(s) iniciada(s)${r.semCota ? `, ${r.semCota} organização(ões) sem cota` : ''}.`);
+    }
+  } catch (e) { log.erro(e.message); }
+}
+if (leituraMin > 0) {
+  setTimeout(lerAutomaticamente, 2 * 60_000).unref();
+  setInterval(lerAutomaticamente, leituraMin * 60_000).unref();
 }
 
 function encerrar(sinal) {

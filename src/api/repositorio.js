@@ -115,6 +115,17 @@ export function criarRepositorio({ admin, criarClienteDoUsuario }) {
     },
 
     /** Quantas análises a organização já usou no mês (horário de Brasília) e o limite do plano. */
+    /** Licitação lida com a chave do servidor (leitura automática de editais). */
+    async licitacaoAdmin(id) {
+      const { data, error } = await admin
+        .from('licitacoes')
+        .select('id, fonte, numero_controle_pncp, orgao_cnpj, ano_compra, sequencial_compra, objeto, orgao_razao_social, modalidade_nome, sistema_origem')
+        .eq('id', id)
+        .maybeSingle();
+      if (error) falhar('Falha ao buscar a licitação', error);
+      return data;
+    },
+
     async cotaMensal(organizacaoId) {
       const { data: org, error: e1 } = await admin
         .from('organizacoes').select('limite_analises_ia_mes').eq('id', organizacaoId).single();

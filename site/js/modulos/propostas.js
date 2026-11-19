@@ -43,7 +43,8 @@ LH.vistas = LH.vistas || {};
         <td class="col-item"><input name="item" inputmode="numeric" value="${esc(item.numero ?? i + 1)}" aria-label="Número do item"></td>
         <td class="col-qtd"><input name="quantidade" inputmode="decimal" value="${esc(item.quantidade ?? 1)}" aria-label="Quantidade"></td>
         <td class="col-un"><input name="unidade" list="unidades-proposta" value="${esc(item.unidade || 'UN')}" aria-label="Unidade"></td>
-        <td class="col-desc"><textarea name="descricao" rows="2" placeholder="Descrição / especificação conforme o edital" required aria-label="Descrição">${esc(item.descricao || '')}</textarea></td>
+        <td class="col-desc"><textarea name="descricao" rows="2" placeholder="Descrição / especificação conforme o edital" required aria-label="Descrição">${esc(item.descricao || '')}</textarea>
+          <button type="button" class="link-botao item-preco" data-preco title="Preços homologados de itens parecidos no PNCP">${icone('moeda')} Preço de referência</button></td>
         <td class="col-marca"><input name="marca" value="${esc(item.marca || '')}" placeholder="Marca/modelo" aria-label="Marca"></td>
         <td class="col-valor"><input name="unitario" inputmode="decimal" value="${esc(unit)}" placeholder="0,00" aria-label="Valor unitário"></td>
         <td class="numero col-total" data-total>—</td>
@@ -368,6 +369,28 @@ LH.vistas = LH.vistas || {};
       });
       form.codigo.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarCodigo(); } });
       corpo.addEventListener('input', recalcular);
+      // Preço de referência: resultados homologados de itens parecidos (palavras principais da descrição).
+      LH.ao(raiz, 'click', '[data-preco]', async (e, b) => {
+        const tr = b.closest('tr');
+        const descricao = tr.querySelector('[name=descricao]').value;
+        const termo = LH.termos.grupos(descricao)[0]?.filter((w) => w.length >= 3 && !/^\d+$/.test(w)).slice(0, 3).join(' ') || '';
+        if (!termo) return LH.aviso('Escreva a descrição do item primeiro.', 'alerta');
+        const fechar = LH.modal({ titulo: `Preço de referência · ${termo}`, html: `<div data-precos>${LH.carregando('Consultando os resultados homologados...')}</div>` });
+        const caixa = [...document.querySelectorAll('.modal-fundo [data-precos]')].at(-1);
+        try {
+          const uf = form.uf.value;
+          const p = await LH.repo.mercadoPrecos(termo, { ufs: uf ? [uf] : [], unidade: tr.querySelector('[name=unidade]').value.trim() });
+          const semFiltro = !p?.amostras && (uf || tr.querySelector('[name=unidade]').value.trim())
+            ? await LH.repo.mercadoPrecos(termo) : null;
+          caixa.innerHTML = `${semFiltro ? `<p class="fraco">Sem resultados em ${esc(uf || 'nesta unidade')}; mostrando o Brasil inteiro, todas as unidades.</p>` : ''}${LH.painelPrecos?.(semFiltro || p, termo) || ''}
+            ${(semFiltro || p)?.preco_mediano ? `<div class="chips" style="margin-top:10px"><button type="button" class="btn btn--primario" data-usar-preco="${Number((semFiltro || p).preco_mediano)}">Usar a mediana (${fmt.moeda(Number((semFiltro || p).preco_mediano))}) neste item</button></div>` : ''}`;
+          caixa.querySelector('[data-usar-preco]')?.addEventListener('click', (ev) => {
+            tr.querySelector('[name=unitario]').value = Number(ev.currentTarget.dataset.usarPreco).toFixed(2).replace('.', ',');
+            recalcular();
+            fechar();
+          });
+        } catch (erro) { caixa.innerHTML = LH.erroHtml(erro); }
+      });
       LH.ao(raiz, 'click', '[data-remover]', (e, b) => {
         if (corpo.rows.length === 1) return LH.aviso('A proposta precisa de pelo menos um item.', 'alerta');
         b.closest('tr').remove();
@@ -381,6 +404,7 @@ LH.vistas = LH.vistas || {};
           recalcular();
         }
         if (acao === 'buscar-licitacao') buscarCodigo();
+
         if (acao === 'importar') importar();
         if (acao === 'previa') previa().scrollIntoView({ behavior: 'smooth' });
         if (acao === 'pdf' || acao === 'word') {
