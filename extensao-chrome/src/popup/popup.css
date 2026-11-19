@@ -1,0 +1,27 @@
+:root { color-scheme: light dark; --azul: #0284c7; --ok: #16a34a; --conferir: #d97706; --erro: #dc2626; --borda: #94a3b866; }
+* { box-sizing: border-box; }
+body { width: 420px; margin: 0; padding: 12px; font: 13px/1.4 system-ui, sans-serif; background: Canvas; color: CanvasText; }
+.topo { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.topo strong { color: var(--azul); font-size: 15px; }
+.fraco { opacity: .7; font-size: 12px; }
+label { display: grid; gap: 4px; margin-bottom: 8px; }
+label.linha { display: flex; gap: 6px; align-items: center; }
+input, select, button { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--borda); background: Field; color: FieldText; }
+button { cursor: pointer; background: ButtonFace; color: ButtonText; }
+button.primario { background: var(--azul); color: #fff; border-color: var(--azul); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.botoes { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.secundarios button { font-size: 12px; padding: 4px 6px; }
+.alerta { padding: 8px; border-radius: 6px; border: 1px solid var(--conferir); margin: 6px 0; }
+.mensagem { min-height: 1em; margin: 8px 0 0; }
+.mensagem.erro { color: var(--erro); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th, td { text-align: left; padding: 4px; border-bottom: 1px solid var(--borda); vertical-align: top; }
+.st { font-weight: 600; white-space: nowrap; }
+.st-preenchido { color: var(--ok); }
+.st-conferir { color: var(--conferir); }
+.st-nao_encontrado { color: var(--erro); }
+.avancado { margin-top: 10px; }
+.avancado form { display: flex; gap: 6px; }
+.avancado input { flex: 1; }
+ul.avisos { margin: 2px 0 0; padding-left: 16px; }
