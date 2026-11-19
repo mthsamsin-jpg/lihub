@@ -10,7 +10,7 @@ import { CONECTORES, criarObtedor } from './conectores.js';
  * @param {{ supabase: any, obter?: Function, registrar?: typeof registrarMensagens, log?: any, sinal?: AbortSignal }} deps
  */
 export async function monitorarChats({ permitirNaoValidados = false, maxSalas = 30 } = {},
-  { supabase, obter = criarObtedor(), registrar = registrarMensagens, log = console, sinal } = {}) {
+  { supabase, obter = criarObtedor(), registrar = registrarMensagens, conectores = CONECTORES, log = console, sinal } = {}) {
   const total = { salas: 0, novas: 0, relevantes: 0, erros: 0, ignoradas: 0 };
   const { data: monitorados, error } = await supabase.from('monitoramentos')
     .select('organizacao_id, pregoes, portais_publicos').eq('portais_publicos', true);
@@ -22,7 +22,7 @@ export async function monitorarChats({ permitirNaoValidados = false, maxSalas = 
     let perfil = null;
     for (const p of pregoes) {
       if (total.salas >= maxSalas || sinal?.aborted) return total;
-      const conector = CONECTORES[p.portal || 'comprasnet'];
+      const conector = conectores[p.portal || 'comprasnet'];
       const chave = conector?.chave?.(p);
       if (!conector?.listar || !chave || (!conector.validado && !permitirNaoValidados)) { total.ignoradas += 1; continue; }
       total.salas += 1;

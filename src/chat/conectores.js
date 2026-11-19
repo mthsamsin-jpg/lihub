@@ -40,19 +40,18 @@ export function mensagemDoPortal(m) {
   };
 }
 
-const lista = (json) => (Array.isArray(json) ? json : json?.mensagens || json?.content || json?.itens || json?.data || []);
-
 export const CONECTORES = {
   comprasnet: {
     portal: 'comprasnet',
     nome: 'Compras.gov.br',
     validado: false,
-    motivo: 'Endpoint público do chat encontrado (comprasnet-mensagem/v2/chat/{compra}); respondeu sem conteúdo nas compras testadas e limita requisições (429). Falta conferir com um pregão em andamento.',
+    // 19/11/2026: a página pública de acompanhamento só mostra o chat depois de
+    // um CAPTCHA (o pedido a comprasnet-mensagem/v2/chat/{compra} leva o token).
+    // Leitura automática exigiria burlar essa proteção: NÃO fazemos. O chat do
+    // Compras.gov.br chega pela sessão do robô, com a conta do próprio cliente.
+    motivo: 'O chat público é protegido por captcha: não é lido automaticamente. Chega pela sala do Robô Turbo 2.0 (conta do cliente, modo monitorar).',
     chave: chaveComprasnet,
-    async listar(chave, { obter, sinal }) {
-      const json = await obter(`https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-mensagem/v2/chat/${chave}`, { sinal });
-      return lista(json).map(mensagemDoPortal).filter((m) => m.texto);
-    },
+    listar: null,
   },
   bll: { portal: 'bll', nome: 'BLL', validado: false, motivo: 'Chat só dentro da sala logada: use a sessão do Robô Turbo 2.0 (modo monitorar).', chave: () => null, listar: null },
   bnc: { portal: 'bnc', nome: 'BNC', validado: false, motivo: 'Chat só dentro da sala logada: use a sessão do Robô Turbo 2.0 (modo monitorar).', chave: () => null, listar: null },

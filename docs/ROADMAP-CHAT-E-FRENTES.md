@@ -31,15 +31,23 @@ Atualizado em 19/11/2026. Complementa `docs/PLANO-AUTOMACAO.md`. Regra de todas 
 
 **Variáveis**: `CHAT_INTERVALO_MIN` (2; 0 desliga), `CHAT_CONECTORES_NAO_VALIDADOS=permitir` (só para o teste de validação).
 
-### Fase 2: conectores públicos e alertas no celular (2 a 3 semanas)
-Dependências: Fase 1 validada na BLL.
-- Validar o conector Compras.gov.br com um pregão ao vivo e ligar por padrão.
-- **Portal de Compras Públicas**: mapear a página pública de acompanhamento da sessão e criar o conector.
-- BLL, BNC e BBMNET: o chat só existe dentro da sala logada; cobertura pela sessão do robô em modo monitorar (sem lances), com seletores validados portal a portal.
-- **Telegram** (bot oficial, gratuito) e **WhatsApp** pela API oficial da Meta (exige número empresarial verificado e modelos de mensagem aprovados).
-- Respostas rápidas: sugestões prontas por gatilho ("Proposta anexada", "Solicito prorrogação de prazo") que o usuário copia; o envio continua manual.
+### Fase 2: alertas no celular e cobertura dos portais (EM ANDAMENTO)
+**Descoberta de 19/11/2026:** o chat público do Compras.gov.br só aparece depois de um **captcha** (a página pública manda o token no pedido a ). Ler isso automaticamente exigiria burlar a proteção do governo, e o Uso LicitaHub não faz isso. O conector público foi retirado; o Compras.gov.br entra na caixa pela sala do robô, como os demais portais.
 
-Validação: cada conector com teste de formato + 1 sessão real conferida; alerta chega no celular em menos de 30 s.
+**Entregue**
+- Alertas por **Telegram** (Bot API oficial): a tela gera um link  que vale 30 min; o servidor confirma o código (getUpdates, sem endereço público) e guarda até 5 chats por organização.
+- Alertas por **WhatsApp** (Cloud API oficial da Meta) com modelo aprovado de 3 variáveis (motivo, pregão, trecho); até 5 números por organização.
+- Alertador único (webhook + Telegram + WhatsApp): falha de um canal não impede os outros; mensagem marcada como alertada quando pelo menos um canal entregou.
+- **Respostas rápidas** por gatilho (anexo, convocação, prazo, suspensão, resultado, menção) para copiar e colar no portal; o envio continua manual.
+-  (aplicado).
+
+**Falta (depende de ação externa)**
+- Criar o robô no @BotFather e definir  e  no Render.
+- WhatsApp: conta Meta Business verificada, número empresarial, modelo  aprovado (categoria Utility, texto sugerido: "Uso LicitaHub: {{1}} no pregão {{2}}. {{3}}"); então  e .
+- Validar a sala de cada portal (BLL primeiro, depois BNC, BBMNET, Compras.gov.br) com o robô em modo monitorar numa sessão real.
+- Portal de Compras Públicas: verificar se o acompanhamento público da sessão é aberto (sem captcha nem login). Se for protegido, segue o mesmo caminho do Compras.gov.br.
+
+Validação: alerta chega no Telegram/WhatsApp em menos de 30 s depois da mensagem gravada; cada portal com 1 sessão real conferida.
 
 ### Fase 3: inteligência de mercado ampliada (2 a 4 semanas)
 Dependências: base `mercado_resultados` (já em coleta).

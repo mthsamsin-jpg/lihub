@@ -55,7 +55,7 @@ test('caixa: grava sem repetir, marca relevantes e manda só elas ao webhook', a
   const r = await registrarMensagens({
     organizacao_id: 'o1', portal: 'bll', compra_ref: '123/2026', fonte: 'robo',
     mensagens: [{ autor: 'Pregoeiro', texto: 'Bom dia.' }, { autor: 'Pregoeiro', texto: 'Empresa Copiar, anexe a proposta em 30 minutos.' }, { texto: '   ' }],
-  }, { supabase, perfil: { ...PERFIL, webhook: 'https://discord.com/api/webhooks/x' }, enviar: async (url, m) => enviados.push(m.texto), log: {} });
+  }, { supabase, perfil: { ...PERFIL, webhook: 'https://discord.com/api/webhooks/x' }, alertar: async (p, m) => { enviados.push(m.texto); return 1; }, log: {} });
   assert.deepEqual(r, { novas: 2, relevantes: 1 });
   assert.equal(gravadas.length, 2);
   assert.equal(gravadas[1].papel, 'pregoeiro');
@@ -95,6 +95,12 @@ test('obtedor: um pedido por vez e pausa geral depois de 429', async () => {
   t += 1;
 });
 
+test('Compras.gov.br não é lido automaticamente (captcha)', async () => {
+  const { CONECTORES } = await import('../src/chat/conectores.js');
+  assert.equal(CONECTORES.comprasnet.listar, null);
+  assert.match(CONECTORES.comprasnet.motivo, /captcha/);
+});
+
 test('monitor: só conectores validados (ou permitidos), e entrega à caixa', async () => {
   const supabase = {
     from: (t) => {
@@ -104,7 +110,12 @@ test('monitor: só conectores validados (ou permitidos), e entrega à caixa', as
     },
   };
   const lotes = [];
-  const deps = { supabase, log: {}, obter: async () => [{ texto: 'Anexe', remetente: 'Pregoeiro' }], registrar: async (l) => { lotes.push(l); return { novas: 1, relevantes: 0 }; } };
+  // Conector de teste no lugar do Compras.gov.br (o real não lê: chat público protegido por captcha).
+  const conectores = {
+    comprasnet: { portal: 'comprasnet', validado: false, chave: chaveComprasnet, listar: async (chave, { obter }) => (await obter(chave)).map(mensagemDoPortal) },
+    bll: { portal: 'bll', validado: false, chave: () => null, listar: null },
+  };
+  const deps = { supabase, log: {}, conectores, obter: async () => [{ texto: 'Anexe', remetente: 'Pregoeiro' }], registrar: async (l) => { lotes.push(l); return { novas: 1, relevantes: 0 }; } };
   const bloqueado = await monitorarChats({}, deps);
   assert.equal(bloqueado.salas, 0, 'Compras.gov.br ainda não validado: não lê sem permissão');
   const liberado = await monitorarChats({ permitirNaoValidados: true }, deps);

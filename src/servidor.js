@@ -21,6 +21,7 @@ import { coletarResultados } from './mercado/coletar.js';
 import { lerEditaisAutomaticamente } from './ia/leitura-automatica.js';
 import { monitorarChats } from './chat/monitorar.js';
 import { situacaoConectores } from './chat/conectores.js';
+import { canaisDoAmbiente, vincularTelegram } from './chat/alertas.js';
 
 const log = criarLog('servidor');
 
@@ -88,7 +89,11 @@ ligarPncpAoVivo(app);
 
 // Chat unificado: como cada portal chega à caixa de entrada (para a tela).
 const chatNaoValidados = process.env.CHAT_CONECTORES_NAO_VALIDADOS === 'permitir';
-app.get('/api/chat/situacao', (c) => c.json({ conectores: situacaoConectores(), permitirNaoValidados: chatNaoValidados }));
+const canaisChat = canaisDoAmbiente();
+app.get('/api/chat/situacao', (c) => c.json({
+  conectores: situacaoConectores(), permitirNaoValidados: chatNaoValidados,
+  canais: { telegram: canaisChat.telegramToken ? { robo: canaisChat.telegramNome } : null, whatsapp: !!canaisChat.whatsapp },
+}));
 
 // Robô Turbo 2.0, modo real: cofre de credenciais + sessões com Playwright.
 let cofre = null;
@@ -229,6 +234,23 @@ if (chatMin > 0) {
   setTimeout(lerChats, 90_000).unref();
   setInterval(lerChats, chatMin * 60_000).unref();
 }
+
+// Telegram: vincula os chats que abriram o robô com o código da tela (a cada 20 s).
+if (canaisChat.telegramToken) {
+  let offsetTelegram = 0;
+  let vinculando = false;
+  setInterval(async () => {
+    if (vinculando) return;
+    vinculando = true;
+    try {
+      offsetTelegram = await vincularTelegram({ token: canaisChat.telegramToken, supabase: admin, offset: offsetTelegram, log: criarLog('telegram') });
+    } catch (e) { log.aviso(`Telegram: ${e.message}`); } finally { vinculando = false; }
+  }, 20_000).unref();
+  log.info(`Alertas do chat no Telegram ligados${canaisChat.telegramNome ? ` (@${canaisChat.telegramNome})` : ''}.`);
+} else {
+  log.aviso('TELEGRAM_BOT_TOKEN não definida: alertas do chat no Telegram desligados.');
+}
+if (canaisChat.whatsapp) log.info('Alertas do chat no WhatsApp (API oficial da Meta) ligados.');
 
 function encerrar(sinal) {
   log.info(`Encerrando (${sinal})...`);

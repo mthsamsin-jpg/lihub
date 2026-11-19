@@ -12,6 +12,13 @@ const ROTULOS = {
 };
 export const PORTAIS = { comprasnet: 'Compras.gov.br', bll: 'BLL', bnc: 'BNC', pcp: 'Portal de Compras Públicas', bbmnet: 'BBMNET', licitanet: 'Licitanet' };
 
+let padrao = null;
+/** Alertador dos canais do ambiente (carregado sob demanda: alertas.js importa este arquivo). */
+async function alertadorPadrao(log) {
+  if (!padrao) padrao = (await import('./alertas.js')).criarAlertador(undefined, { log });
+  return padrao;
+}
+
 /** Texto curto do alerta. */
 export function textoDoAlerta(m, { site = 'https://usolicitahub.com.br' } = {}) {
   const motivos = m.gatilhos.map((g) => ROTULOS[g]).filter(Boolean).join(', ');
@@ -35,13 +42,15 @@ export async function enviarWebhook(url, mensagem, { fetch: f = fetch } = {}) {
 export async function perfilDaOrganizacao(supabase, organizacaoId) {
   const [{ data: empresas }, { data: mon }] = await Promise.all([
     supabase.from('empresas').select('cnpj, razao_social, nome_fantasia').eq('organizacao_id', organizacaoId).eq('ativo', true),
-    supabase.from('monitoramentos').select('cnpj, nome, palavras, nomes_alerta, webhook_url').eq('organizacao_id', organizacaoId).maybeSingle(),
+    supabase.from('monitoramentos').select('*').eq('organizacao_id', organizacaoId).maybeSingle(),
   ]);
   return {
     cnpjs: [...(empresas || []).map((e) => e.cnpj), mon?.cnpj].filter(Boolean),
     nomes: [...(empresas || []).flatMap((e) => [e.razao_social, e.nome_fantasia]), mon?.nome, ...(mon?.nomes_alerta || [])].filter(Boolean),
     palavras: mon?.palavras || [],
     webhook: mon?.webhook_url || null,
+    telegram: Array.isArray(mon?.telegram_chats) ? mon.telegram_chats : [],
+    whatsapp: mon?.whatsapp_numeros || [],
   };
 }
 
@@ -49,10 +58,11 @@ export async function perfilDaOrganizacao(supabase, organizacaoId) {
  * Registra mensagens de uma sala.
  * @param {{ organizacao_id: string, portal: string, compra_ref: string, licitacao_id?: number|null, fonte?: 'publica'|'robo'|'manual',
  *   mensagens: { autor?: string, texto: string, enviadaEm?: string, idExterno?: string }[] }} lote
- * @param {{ supabase: any, perfil?: object, enviar?: typeof enviarWebhook, log?: any }} deps
+ * @param {{ supabase: any, perfil?: object, alertar?: (perfil: object, m: object) => Promise<number>, log?: any }} deps
+ *   alertar: envia aos canais da organização (padrão: webhook, Telegram e WhatsApp do ambiente).
  * @returns {Promise<{ novas: number, relevantes: number }>}
  */
-export async function registrarMensagens(lote, { supabase, perfil = null, enviar = enviarWebhook, log = console }) {
+export async function registrarMensagens(lote, { supabase, perfil = null, alertar = null, log = console }) {
   const msgs = (lote.mensagens || []).filter((m) => String(m.texto || '').trim());
   if (!msgs.length) return { novas: 0, relevantes: 0 };
   const p = perfil || await perfilDaOrganizacao(supabase, lote.organizacao_id);
@@ -73,12 +83,13 @@ export async function registrarMensagens(lote, { supabase, perfil = null, enviar
   if (error) throw new Error(`Não consegui gravar o chat: ${error.message}`);
   const novas = data || [];
   const relevantes = novas.filter((m) => m.relevante);
-  if (p.webhook) {
+  const temCanal = p.webhook || p.telegram?.length || p.whatsapp?.length;
+  if (relevantes.length && temCanal) {
+    const enviar = alertar || (await alertadorPadrao(log));
     for (const m of relevantes) {
-      try {
-        await enviar(p.webhook, m);
+      if (await enviar(p, m)) {
         await supabase.from('chat_mensagens').update({ alertada_em: new Date().toISOString() }).eq('id', m.id);
-      } catch (e) { log.aviso?.(`Alerta do chat não enviado: ${e.message}`); }
+      }
     }
   }
   return { novas: novas.length, relevantes: relevantes.length };

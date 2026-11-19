@@ -16,6 +16,22 @@ window.LH = window.LH || {};
     anexo: ['Anexo/documento', 'alerta'], prazo: ['Prazo', 'info'], suspensao: ['Suspensão/reabertura', 'alerta'],
     resultado: ['Resultado', 'info'], palavra: ['Palavra de alerta', 'info'],
   };
+  // Respostas rápidas por gatilho: o usuário copia e cola no chat do portal (o envio é sempre dele).
+  const RESPOSTAS = {
+    anexo: ['Prezado(a) Pregoeiro(a), o documento solicitado foi anexado no sistema.', 'Prezado(a) Pregoeiro(a), solicitamos a gentileza de prorrogar o prazo para envio do anexo em 1 (uma) hora.'],
+    convocacao: ['Prezado(a) Pregoeiro(a), ciente da convocação. Encaminharemos dentro do prazo.'],
+    prazo: ['Prezado(a) Pregoeiro(a), ciente do prazo. Atenderemos dentro do horário informado.'],
+    resultado: ['Prezado(a) Pregoeiro(a), ciente. Manifestamos interesse em acompanhar as próximas etapas.'],
+    suspensao: ['Prezado(a) Pregoeiro(a), ciente da suspensão. Aguardaremos a reabertura da sessão.'],
+    mencao_cnpj: ['Prezado(a) Pregoeiro(a), estamos presentes e à disposição.'],
+    mencao_nome: ['Prezado(a) Pregoeiro(a), estamos presentes e à disposição.'],
+  };
+  const respostas = (m) => {
+    const lista = [...new Set((m.gatilhos || []).flatMap((g) => RESPOSTAS[g] || []))].slice(0, 3);
+    return lista.length ? `<details class="respostas-rapidas"><summary>${icone('copiar')} Respostas rápidas</summary>
+      ${lista.map((t) => `<button type="button" class="resposta-rapida" data-copiar="${esc(t)}">${esc(t)}</button>`).join('')}
+      <p class="fraco">Clique para copiar e cole no chat do portal. Revise antes de enviar.</p></details>` : '';
+  };
   const hora = (iso) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const chaveSala = (m) => `${m.portal}|${m.compra_ref}`;
 
@@ -48,9 +64,15 @@ window.LH = window.LH || {};
                 <input name="webhook" type="url" placeholder="https://discord.com/api/webhooks/..."></label>
               <label class="campo"><span class="campo__rotulo">Outros nomes da empresa (separe por vírgula)</span>
                 <input name="nomes" placeholder="ex.: nome fantasia, sigla"></label>
+              <label class="campo" id="campo-whatsapp" hidden><span class="campo__rotulo">${icone('whatsapp')} WhatsApp (até 5, com DDI e DDD)</span>
+                <input name="whatsapp" inputmode="tel" placeholder="ex.: 55 11 91234-5678, 55 21 99876-5432"></label>
               <p class="fraco">O CNPJ, a razão social e o nome fantasia das empresas cadastradas já entram sozinhos. As palavras de alerta ficam no <a href="#/comprasnet">Cadastro Comprasnet</a>.</p>
               <button class="btn btn--primario" type="submit">Salvar alertas</button>
             </form>
+          </section>
+          <section class="card" data-reveal>
+            <div class="card__titulo"><h2>${icone('telegram')} Telegram</h2></div>
+            <div id="telegram" class="form"><p class="fraco">Carregando...</p></div>
           </section>
           <section class="card" data-reveal>
             <div class="card__titulo"><h2>${icone('plugue')} Portais</h2></div>
@@ -95,6 +117,7 @@ window.LH = window.LH || {};
                 <header><strong>${esc(m.autor || 'Pregoeiro')}</strong><span>${hora(m.enviada_em)}${m.fonte === 'robo' ? ' · via robô' : ''}</span></header>
                 <p>${marcar(m.texto)}</p>
                 ${m.gatilhos?.length ? `<div class="chips">${selos(m)}</div>` : ''}
+                ${m.relevante ? respostas(m) : ''}
                 ${m.relevante && !m.lida ? `<button type="button" class="link-botao" data-lida="${m.id}">${icone('check')} Marcar como lida</button>` : ''}
               </div>`).join('')}
           </article>`).join('');
@@ -111,12 +134,19 @@ window.LH = window.LH || {};
         cfg = c || {};
         form.webhook.value = cfg.webhook_url || '';
         form.nomes.value = (cfg.nomes_alerta || []).join(', ');
+        form.whatsapp.value = (cfg.whatsapp_numeros || []).join(', ');
+        desenharTelegram();
         desenhar();
       }).catch(() => {});
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
           cfg = { ...cfg, webhook_url: form.webhook.value.trim(), nomes_alerta: form.nomes.value.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 20) };
+          if (!raiz.querySelector('#campo-whatsapp').hidden) {
+            const numeros = form.whatsapp.value.split(',').map((n) => n.replace(/\D/g, '')).filter(Boolean);
+            if (numeros.some((n) => n.length < 12 || n.length > 13)) return LH.aviso('Confira os números de WhatsApp: DDI + DDD + número (ex.: 55 11 91234-5678).', 'alerta');
+            cfg.whatsapp_numeros = numeros.slice(0, 5);
+          }
           await LH.repo.salvarMonitoramento(cfg);
           LH.aviso('Alertas salvos.', 'sucesso');
         } catch (erro) { LH.aviso(erro.message, 'perigo'); }
@@ -131,7 +161,41 @@ window.LH = window.LH || {};
       });
 
       // Situação dos conectores por portal.
+      // Telegram: chats vinculados e botão para vincular mais um.
+      let canais = null;
+      function desenharTelegram() {
+        const caixaTg = raiz.querySelector('#telegram');
+        if (!canais) return;
+        if (!canais.telegram) {
+          caixaTg.innerHTML = '<p class="fraco">O Telegram ainda não foi ligado no servidor (falta o robô do Uso LicitaHub: TELEGRAM_BOT_TOKEN).</p>';
+          return;
+        }
+        const chats = Array.isArray(cfg.telegram_chats) ? cfg.telegram_chats : [];
+        caixaTg.innerHTML = `
+          ${chats.length ? `<ul class="lista-portais">${chats.map((c, i) => `<li>${icone('check')} ${esc(c.nome || 'Telegram')}
+            <button type="button" class="link-botao" data-tirar-tg="${i}">remover</button></li>`).join('')}</ul>` : '<p class="fraco">Nenhum Telegram conectado.</p>'}
+          <button type="button" class="btn" data-acao="telegram">${icone('telegram')} Conectar um Telegram</button>
+          <div id="tg-link"></div>`;
+      }
+      LH.ao(raiz, 'click', '[data-acao="telegram"]', async () => {
+        try {
+          const codigo = await LH.repo.codigoTelegram();
+          const link = `https://t.me/${encodeURIComponent(canais.telegram.robo || '')}?start=${codigo}`;
+          raiz.querySelector('#tg-link').innerHTML = `<p>1. Abra <a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a> no celular.<br>2. Toque em <b>Iniciar</b>.<br>3. Em até 1 minuto chega a confirmação lá. O link vale 30 minutos.</p>`;
+        } catch (erro) { LH.aviso(erro.message, 'perigo'); }
+      });
+      LH.ao(raiz, 'click', '[data-tirar-tg]', async (e, b) => {
+        const chats = (cfg.telegram_chats || []).filter((_, i) => i !== Number(b.dataset.tirarTg));
+        try { await LH.repo.salvarMonitoramento({ ...cfg, telegram_chats: chats }); cfg.telegram_chats = chats; desenharTelegram(); } catch (erro) { LH.aviso(erro.message, 'perigo'); }
+      });
+      LH.ao(raiz, 'click', '[data-copiar]', async (e, b) => {
+        try { await navigator.clipboard.writeText(b.dataset.copiar); LH.aviso('Resposta copiada. Cole no chat do portal.', 'sucesso'); } catch { LH.aviso('Não consegui copiar: selecione o texto e copie.', 'alerta'); }
+      });
+
       LH.repo.chatSituacao().then((s) => {
+        canais = s?.canais || { telegram: null, whatsapp: false };
+        raiz.querySelector('#campo-whatsapp').hidden = !canais.whatsapp;
+        desenharTelegram();
         const ul = raiz.querySelector('#portais');
         if (!s?.conectores) { ul.innerHTML = '<li class="fraco">Indisponível agora.</li>'; return; }
         ul.innerHTML = s.conectores.map((c) => {

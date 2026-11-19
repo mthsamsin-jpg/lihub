@@ -1217,3 +1217,8 @@ li.item--termo { box-shadow: inset 3px 0 0 #facc15; border-radius: 8px; }
 .chat__msg--nao-lida { box-shadow: inset 3px 0 0 #facc15; }
 .lista-portais { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; font-size: 0.88rem; }
 .lista-portais .selo { margin-left: 6px; }
+.respostas-rapidas { margin-top: 6px; font-size: 0.86rem; }
+.respostas-rapidas summary { cursor: pointer; color: var(--ciano); display: inline-flex; gap: 6px; align-items: center; }
+.respostas-rapidas summary svg { width: 14px; height: 14px; }
+.resposta-rapida { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--card-borda); background: var(--vidro); color: var(--texto); cursor: pointer; font: inherit; }
+.resposta-rapida:hover { border-color: var(--ciano); }
