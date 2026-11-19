@@ -24,9 +24,6 @@ import { ligarPncpAoVivo } from './api/pncp-ao-vivo.js';
 import { criarGerenciador } from '../worker/gerenciador.js';
 import { coletarResultados } from './mercado/coletar.js';
 import { lerEditaisAutomaticamente } from './ia/leitura-automatica.js';
-import { monitorarChats } from './chat/monitorar.js';
-import { situacaoConectores } from './chat/conectores.js';
-import { canaisDoAmbiente, vincularTelegram } from './chat/alertas.js';
 
 const log = criarLog('servidor');
 
@@ -92,13 +89,6 @@ const app = criarApp({
 // Busca ao vivo no PNCP (por palavra) e itens de cada compra.
 ligarPncpAoVivo(app);
 
-// Chat unificado: como cada portal chega à caixa de entrada (para a tela).
-const chatNaoValidados = process.env.CHAT_CONECTORES_NAO_VALIDADOS === 'permitir';
-const canaisChat = canaisDoAmbiente();
-app.get('/api/chat/situacao', (c) => c.json({
-  conectores: situacaoConectores(), permitirNaoValidados: chatNaoValidados,
-  canais: { telegram: canaisChat.telegramToken ? { robo: canaisChat.telegramNome } : null, whatsapp: !!canaisChat.whatsapp },
-}));
 
 // Robô Turbo 2.0, modo real: cofre de credenciais + sessões com Playwright.
 let cofre = null;
@@ -272,44 +262,6 @@ if (leituraMin > 0) {
   setTimeout(lerAutomaticamente, 2 * 60_000).unref();
   setInterval(lerAutomaticamente, leituraMin * 60_000).unref();
 }
-
-// Chat público dos pregões cadastrados (conectores de leitura pública).
-// CHAT_INTERVALO_MIN=0 desliga. Conectores ainda não validados só com CHAT_CONECTORES_NAO_VALIDADOS=permitir.
-const chatMin = Number(process.env.CHAT_INTERVALO_MIN ?? 2);
-let lendoChat = false;
-async function lerChats() {
-  if (lendoChat) return;
-  lendoChat = true;
-  try {
-    const r = await monitorarChats({ permitirNaoValidados: chatNaoValidados }, { supabase: admin, log: criarLog('chat'), sinal: controleSync.signal });
-    if (r.novas || r.erros) log.info(`Chat: ${r.salas} sala(s) lida(s), ${r.novas} mensagem(ns) nova(s), ${r.relevantes} relevante(s), ${r.erros} erro(s).`);
-  } catch (e) {
-    if (!controleSync.signal.aborted) log.erro(e.message);
-  } finally {
-    lendoChat = false;
-  }
-}
-if (chatMin > 0) {
-  setTimeout(lerChats, 90_000).unref();
-  setInterval(lerChats, chatMin * 60_000).unref();
-}
-
-// Telegram: vincula os chats que abriram o robô com o código da tela (a cada 20 s).
-if (canaisChat.telegramToken) {
-  let offsetTelegram = 0;
-  let vinculando = false;
-  setInterval(async () => {
-    if (vinculando) return;
-    vinculando = true;
-    try {
-      offsetTelegram = await vincularTelegram({ token: canaisChat.telegramToken, supabase: admin, offset: offsetTelegram, log: criarLog('telegram') });
-    } catch (e) { log.aviso(`Telegram: ${e.message}`); } finally { vinculando = false; }
-  }, 20_000).unref();
-  log.info(`Alertas do chat no Telegram ligados${canaisChat.telegramNome ? ` (@${canaisChat.telegramNome})` : ''}.`);
-} else {
-  log.aviso('TELEGRAM_BOT_TOKEN não definida: alertas do chat no Telegram desligados.');
-}
-if (canaisChat.whatsapp) log.info('Alertas do chat no WhatsApp (API oficial da Meta) ligados.');
 
 function encerrar(sinal) {
   log.info(`Encerrando (${sinal})...`);

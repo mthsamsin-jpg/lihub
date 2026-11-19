@@ -649,64 +649,17 @@ window.LH = window.LH || {};
 
     // --- Monitoramento (Cadastro Comprasnet) ------------------------------------
     async monitoramento() {
-      const ler = (colunas) => db().from('monitoramentos').select(colunas).eq('organizacao_id', ctx().organizacao.id).maybeSingle();
-      let { data, error } = await ler('cnpj, nome, pregoes, palavras, webhook_url, nomes_alerta, telegram_chats, whatsapp_numeros');
-      if (error?.code === '42703') ({ data, error } = await ler('cnpj, nome, pregoes, palavras, webhook_url, nomes_alerta')); // sem atualizar-chat-alertas.sql
-      if (error?.code === '42703') ({ data, error } = await ler('cnpj, nome, pregoes, palavras')); // sem atualizar-chat.sql
+      const { data, error } = await db().from('monitoramentos').select('cnpj, nome, pregoes, palavras').eq('organizacao_id', ctx().organizacao.id).maybeSingle();
       if (error) throw erroBanco(error, 'Não consegui carregar o monitoramento');
       const emp = real.empresaPerfil();
       return data ?? { cnpj: emp.cnpj || '', nome: emp.razao || '', pregoes: [], palavras: [emp.razao, 'convoca', 'anexo', 'prazo'].filter(Boolean) };
     },
     async salvarMonitoramento(cfg) {
-      const linha = {
+      const { error } = await db().from('monitoramentos').upsert({
         organizacao_id: ctx().organizacao.id, cnpj: LH.cnpj.limpar(cfg.cnpj) || null, nome: cfg.nome || null,
         pregoes: cfg.pregoes || [], palavras: cfg.palavras || [],
-      };
-      if ('webhook_url' in cfg) linha.webhook_url = String(cfg.webhook_url || '').trim() || null;
-      if ('nomes_alerta' in cfg) linha.nomes_alerta = cfg.nomes_alerta || [];
-      if ('whatsapp_numeros' in cfg) linha.whatsapp_numeros = (cfg.whatsapp_numeros || []).map((n) => String(n).replace(/\D/g, '')).filter((n) => n.length >= 12).slice(0, 5);
-      if ('telegram_chats' in cfg) linha.telegram_chats = cfg.telegram_chats || [];
-      const { error } = await db().from('monitoramentos').upsert(linha, { onConflict: 'organizacao_id' });
-      if (error?.code === '23514') throw new Error('O webhook precisa ser um endereço https:// válido.');
-      if (error) throw erroBanco(error, 'Não consegui salvar o monitoramento');
-    },
-
-    // --- Chat unificado (caixa de entrada) ----------------------------------------
-    async chatMensagens({ somenteRelevantes = false, portal = '', limite = 300 } = {}) {
-      let q = db().from('chat_mensagens').select('id, portal, compra_ref, licitacao_id, fonte, autor, papel, texto, enviada_em, gatilhos, relevante, lida')
-        .eq('organizacao_id', ctx().organizacao.id).order('enviada_em', { ascending: false }).limit(limite);
-      if (somenteRelevantes) q = q.eq('relevante', true);
-      if (portal) q = q.eq('portal', portal);
-      const { data, error } = await q;
-      if (error?.code === '42P01' || error?.code === 'PGRST205') throw new Error('Falta a caixa de entrada do chat: rode o supabase/atualizar-chat.sql no Supabase.');
-      if (error) throw erroBanco(error, 'Não consegui carregar o chat');
-      return data || [];
-    },
-    async marcarChatLido(ids) {
-      const lista = (ids || []).map(Number).filter(Boolean);
-      if (!lista.length) return;
-      const { error } = await db().from('chat_mensagens').update({ lida: true }).in('id', lista);
-      if (error) throw erroBanco(error, 'Não consegui marcar como lida');
-    },
-    /** Mensagens novas em tempo real. Devolve a função que cancela. */
-    assinarChat(aoChegar) {
-      const canal = db().channel(`chat-${ctx().organizacao.id}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_mensagens', filter: `organizacao_id=eq.${ctx().organizacao.id}` }, (p) => aoChegar(p.new))
-        .subscribe();
-      return () => { db().removeChannel(canal); };
-    },
-    /** Código de vínculo do Telegram (vale 30 min). */
-    async codigoTelegram() {
-      const bytes = crypto.getRandomValues(new Uint8Array(12));
-      const codigo = [...bytes].map((b) => 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'[b % 57]).join('');
-      const { error } = await db().from('monitoramentos').upsert({
-        organizacao_id: ctx().organizacao.id, telegram_codigo: codigo, telegram_codigo_ate: new Date(Date.now() + 30 * 60_000).toISOString(),
       }, { onConflict: 'organizacao_id' });
-      if (error) throw erroBanco(error, 'Não consegui gerar o código do Telegram');
-      return codigo;
-    },
-    async chatSituacao() {
-      try { return await LH.nuvem.api('/api/chat/situacao'); } catch { return null; }
+      if (error) throw erroBanco(error, 'Não consegui salvar o monitoramento');
     },
 
     // --- Robô Turbo 2.0 ---
@@ -975,12 +928,6 @@ window.LH = window.LH || {};
     async removerEvento(id) { LH.estado.salvar('eventos', LH.estado.obter('eventos').filter((e) => e.id !== id)); },
 
     monitoramento: async () => LH.estado.obter('comprasnet'),
-    // Chat unificado na demonstração: a tela usa as conversas de exemplo (LH.dados.sessoesChat).
-    chatMensagens: async () => null,
-    marcarChatLido: async () => {},
-    assinarChat: () => () => {},
-    chatSituacao: async () => null,
-    codigoTelegram: async () => { throw new Error('Entre com a sua conta para conectar o Telegram.'); },
     async salvarMonitoramento(cfg) { LH.estado.salvar('comprasnet', { ...LH.estado.obter('comprasnet'), ...cfg, cnpj: LH.cnpj.limpar(cfg.cnpj) }); },
 
     // Robô Turbo 2.0 (demonstração: neste navegador)

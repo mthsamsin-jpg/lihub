@@ -14,7 +14,7 @@ LH.vistas = LH.vistas || {};
   const normalizar = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
   // --- Monitoramento de Chat ----------------------------------------------------------
-  const chatDemo = {
+  LH.vistas.chat = {
     titulo: 'Monitoramento de Chat',
     local: 'As mensagens do chat ainda são simuladas: a leitura das sessões públicas do Compras.gov.br entra numa próxima etapa. As palavras de alerta já ficam salvas na sua conta.',
     render: () => `
@@ -169,13 +169,6 @@ LH.vistas = LH.vistas || {};
       const relogio = setInterval(novaMensagem, 20000);
       return () => clearInterval(relogio); // o roteador chama ao sair da tela
     },
-  };
-
-  LH.vistas.chat = {
-    titulo: 'Monitoramento de Chat',
-    get local() { return LH.repo?.modo === 'real' ? null : chatDemo.local; },
-    render: (p) => (LH.repo.modo === 'real' ? LH.chatUnificado.render(p) : chatDemo.render(p)),
-    montar: (raiz, p) => (LH.repo.modo === 'real' ? LH.chatUnificado.montar(raiz, p) : chatDemo.montar(raiz, p)),
   };
 
   // --- Cadastro Comprasnet -------------------------------------------------------------
