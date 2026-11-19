@@ -62,7 +62,6 @@ LH.vistas = LH.vistas || {};
             <label><input type="radio" name="tipo" value="material"><span>${icone('caixa')} Materiais / Produtos</span></label>
             <label><input type="radio" name="tipo" value="servico"><span>${icone('engrenagem')} Serviços</span></label>
           </fieldset>
-          <p class="fraco busca-avancada__dica">${icone('info')}<span>Separe produtos por vírgula (<b>copo, papel A4</b>). As licitações mais próximas do termo aparecem primeiro; as demais seguem abaixo, em "Outras licitações".</span></p>
         </div>
 
         <fieldset class="plataformas">

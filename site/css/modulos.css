@@ -1156,10 +1156,6 @@ mark.marca-termo {
 .segmentado span:hover { color: var(--texto); border-color: var(--ciano); }
 .segmentado input:checked + span { color: #04121f; background: var(--gradiente); border-color: transparent; }
 .segmentado input:focus-visible + span { outline: 2px solid var(--ciano); outline-offset: 2px; }
-/* Dica da busca: só 2 itens flex (ícone + texto); o texto quebra linha normalmente. */
-.busca-avancada__dica { margin: 0; font-size: 0.82rem; line-height: 1.45; display: flex; gap: 6px; align-items: flex-start; flex-basis: 100%; max-width: 100%; }
-.busca-avancada__dica svg { width: 15px; height: 15px; flex: none; margin-top: 2px; }
-.busca-avancada__dica > span { flex: 1 1 auto; min-width: 0; }
 
 .selo--tipo { display: inline-flex; align-items: center; gap: 4px; }
 .selo--tipo svg { width: 13px; height: 13px; }
