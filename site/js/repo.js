@@ -251,6 +251,19 @@ window.LH = window.LH || {};
       if (error) throw erroBanco(error, 'Não consegui consultar os preços');
       return data || { amostras: 0 };
     },
+    /** Pesquisa de Preço: registros reais (resultados homologados) de um item. */
+    async mercadoPesquisa(termo, { uf = '', municipio = '', meses = 12 } = {}) {
+      const { data, error } = await db().rpc('mercado_pesquisa', { p_termo: termo, p_ufs: uf ? [uf] : null, p_municipio: municipio || null, p_meses: meses, p_limite: 300 });
+      if (error?.code === 'PGRST202') throw new Error('Falta a Fase 3 da inteligência: rode o supabase/atualizar-mercado-fase3.sql no Supabase.');
+      if (error) throw erroBanco(error, 'Não consegui consultar os preços');
+      return (data || []).map((r) => ({ ...r, unitario: Number(r.unitario), quantidade: r.quantidade == null ? null : Number(r.quantidade), fonte: 'PNCP' }));
+    },
+    /** Painel do concorrente: evolução mensal, órgãos, estados e portais (24 meses). */
+    async mercadoConcorrentePainel(ni) {
+      const { data, error } = await db().rpc('mercado_concorrente_painel', { p_ni: ni });
+      if (error) return null; // sem a Fase 3 no banco: a tela mostra só o histórico
+      return data;
+    },
     async mercadoResumo() {
       const { count } = await db().from('mercado_resultados').select('id', { count: 'exact', head: true });
       const { data } = await db().from('mercado_resultados').select('data_resultado').order('data_resultado', { ascending: false }).limit(1);
@@ -804,6 +817,8 @@ window.LH = window.LH || {};
     async mercadoConcorrenteItens() { return []; },
     async mercadoPrecos() { throw new Error('A inteligência de mercado usa dados reais do PNCP: entre com a sua conta.'); },
     async mercadoResumo() { return { resultados: 0, ultimo: null }; },
+    mercadoPesquisa: null, // demonstração: a Pesquisa de Preço usa registros de exemplo
+    async mercadoConcorrentePainel() { return null; },
     async leituraAutomatica() { return null; },
     async definirLeituraAutomatica() { throw new Error('Entre com a sua conta para ligar a leitura automática.'); },
 

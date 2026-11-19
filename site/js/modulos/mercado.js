@@ -2,7 +2,8 @@
    Uso LicitaHub · Pesquisa de Preço
    Preços praticados em compras públicas para um item do catálogo, com
    estatísticas, gráfico por período e a tabela de registros.
-   Nesta demonstração os registros são simulados (na versão real: PNCP).
+   Com login: resultados homologados reais do PNCP (mercado_pesquisa).
+   Na demonstração: registros simulados.
    ============================================================================= */
 window.LH = window.LH || {};
 LH.vistas = LH.vistas || {};
@@ -76,14 +77,16 @@ LH.vistas = LH.vistas || {};
       </svg>`;
   }
 
+  const real = () => typeof LH.repo?.mercadoPesquisa === 'function';
+
   LH.vistas['pesquisa-precos'] = {
     titulo: 'Pesquisa de Preço',
-    local: 'A Pesquisa de Preço ainda usa preços de exemplo: a consulta aos preços praticados em compras públicas entra numa próxima etapa.',
+    get local() { return real() ? null : 'Na demonstração a Pesquisa de Preço usa preços de exemplo. Com login, ela usa os preços homologados reais do PNCP.'; },
     render: () => `
       ${LH.cabecalho({
         titulo: 'Pesquisa de Preço',
         texto: 'Veja quanto o governo pagou por um item em compras públicas e use a referência para formar o seu preço.',
-        acoes: '<span class="selo">Dados de exemplo</span>',
+        acoes: real() ? '<span class="selo selo--sucesso">Preços homologados · PNCP</span>' : '<span class="selo">Dados de exemplo</span>',
       })}
       <form class="card spot form" id="form-preco" data-reveal autocomplete="off">
         <div class="alternador" role="group" aria-label="Tipo de item">
@@ -91,7 +94,7 @@ LH.vistas = LH.vistas || {};
           <button type="button" data-tipo="servico">Serviço</button>
         </div>
         <div class="form__linha">
-          <label class="campo" style="grid-column:1 / -1"><span class="campo__rotulo">Item do Catálogo</span>
+          <label class="campo" style="grid-column:1 / -1"><span class="campo__rotulo">${real() ? 'Item (palavras da descrição; vírgula separa alternativas)' : 'Item do Catálogo'}</span>
             <input name="item" list="catalogo-preco" required placeholder="Comece a digitar: papel A4, notebook, limpeza...">
             <datalist id="catalogo-preco"></datalist></label>
         </div>
@@ -124,18 +127,34 @@ LH.vistas = LH.vistas || {};
         form.municipio.disabled = !form.uf.value;
       });
 
-      form.addEventListener('submit', (e) => {
+      form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const item = form.item.value.trim();
         if (!item) return form.item.focus();
         const meses = Number(form.meses.value);
-        const todos = registros({ item, uf: form.uf.value, municipio: form.municipio.value, meses });
+        let todos;
+        if (real()) {
+          saida.innerHTML = LH.carregando('Consultando os preços homologados...');
+          try {
+            todos = await LH.repo.mercadoPesquisa(item, { uf: form.uf.value, municipio: form.municipio.value, meses });
+          } catch (erro) { saida.innerHTML = LH.erroHtml(erro); return; }
+          if (!todos.length) {
+            saida.innerHTML = LH.vazio('grafico', 'Ainda sem preços para esse item', 'A base de preços homologados cresce todos os dias (e, de madrugada, busca 12 meses para trás das palavras dos seus radares). Tente outras palavras, outro estado ou um período maior.');
+            return;
+          }
+        } else {
+          todos = registros({ item, uf: form.uf.value, municipio: form.municipio.value, meses });
+        }
         const med0 = mediana(todos.map((r) => r.unitario));
         // IN SEGES/ME nº 65/2021: desconsiderar valores inexequíveis e excessivamente elevados
         const validos = todos.filter((r) => r.unitario >= med0 * 0.5 && r.unitario <= med0 * 1.7);
         const fora = todos.length - validos.length;
         const v = validos.map((r) => r.unitario);
-        const unidade = LH.dados.catalogo.find((c) => c.nome === item)?.unidade || 'unidade';
+        const contagem = {};
+        for (const r of todos) if (r.unidade) contagem[r.unidade] = (contagem[r.unidade] || 0) + 1;
+        const unidadeReal = Object.entries(contagem).sort((a, b) => b[1] - a[1])[0]?.[0];
+        const unidade = unidadeReal || LH.dados.catalogo.find((c) => c.nome === item)?.unidade || 'unidade';
+        const variasUnidades = Object.keys(contagem).length > 1;
         const est = (rotulo, valor, destaque) => `<div class="card card--compacto estat ${destaque ? 'estat--destaque' : ''}" data-reveal><strong>${valor}</strong><span>${rotulo}</span></div>`;
 
         saida.innerHTML = `
@@ -153,15 +172,15 @@ LH.vistas = LH.vistas || {};
           <article class="card spot" data-reveal style="margin-top:18px">
             <div class="card__titulo"><h2>${icone('arquivo')} Registros de compras</h2></div>
             <div class="tabela-rolagem"><table class="tabela">
-              <thead><tr><th>Data</th><th>Comprador</th><th>Local</th><th class="numero">Quantidade</th><th class="numero">Valor unitário</th><th>Fonte</th></tr></thead>
+              <thead><tr><th>Data</th>${real() ? '<th>Item</th><th>Un.</th>' : ''}<th>Comprador</th><th>Local</th><th class="numero">Quantidade</th><th class="numero">Valor unitário</th>${real() ? '<th>Vencedor</th>' : ''}<th>Fonte</th></tr></thead>
               <tbody>${todos.map((r) => {
                 const foraDaCurva = !validos.includes(r);
-                return `<tr${foraDaCurva ? ' style="opacity:.5"' : ''}><td>${fmt.data(r.data)}</td><td>${esc(r.orgao)}</td><td>${esc(r.municipio)}/${esc(r.uf)}</td>
-                  <td class="numero">${fmt.numero(r.quantidade)}</td><td class="numero">${fmt.moeda(r.unitario)}${foraDaCurva ? ' <span class="selo selo--alerta">fora da curva</span>' : ''}</td><td>${esc(r.fonte)}</td></tr>`;
+                return `<tr${foraDaCurva ? ' style="opacity:.5"' : ''}><td>${fmt.data(r.data)}</td>${real() ? `<td>${LH.termos ? LH.termos.destacar(r.item || '', LH.termos.grupos(item)) : esc(r.item || '')}</td><td>${esc(r.unidade || '')}</td>` : ''}<td>${esc(r.orgao || '—')}</td><td>${esc(r.municipio || '')}/${esc(r.uf || '')}</td>
+                  <td class="numero">${r.quantidade == null ? '—' : fmt.numero(r.quantidade)}</td><td class="numero">${fmt.moeda(r.unitario)}${foraDaCurva ? ' <span class="selo selo--alerta">fora da curva</span>' : ''}</td>${real() ? `<td>${esc(r.fornecedor || '—')}</td>` : ''}<td>${esc(r.fonte)}</td></tr>`;
               }).join('')}</tbody>
             </table></div>
           </article>
-          <p class="nota" data-reveal style="margin-top:18px">${icone('info')} Pela IN SEGES/ME nº 65/2021, o preço estimado pode usar a média, a mediana ou o menor valor de pelo menos 3 preços, desconsiderando os inexequíveis, os inconsistentes e os excessivamente elevados. Aqui, os valores abaixo de 50% ou acima de 170% da mediana ficam de fora do cálculo.</p>`;
+          <p class="nota" data-reveal style="margin-top:18px">${icone('info')} Pela IN SEGES/ME nº 65/2021, o preço estimado pode usar a média, a mediana ou o menor valor de pelo menos 3 preços, desconsiderando os inexequíveis, os inconsistentes e os excessivamente elevados. Aqui, os valores abaixo de 50% ou acima de 170% da mediana ficam de fora do cálculo.${v.length < 3 ? ' <strong>Atenção: menos de 3 preços válidos; amplie o período ou tire o filtro de local.</strong>' : ''}${variasUnidades ? ` Há registros em mais de uma unidade (${Object.keys(contagem).map(esc).join(', ')}): confira antes de usar a referência.` : ''}</p>`;
         LH.revelar(saida);
         saida.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });

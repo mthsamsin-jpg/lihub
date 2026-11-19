@@ -23,6 +23,7 @@ import { ligarModoReal } from './api/modo-real.js';
 import { ligarPncpAoVivo } from './api/pncp-ao-vivo.js';
 import { criarGerenciador } from '../worker/gerenciador.js';
 import { coletarResultados } from './mercado/coletar.js';
+import { descobrirRetro, dentroDaJanela, termosRetro } from './mercado/retro.js';
 import { lerEditaisAutomaticamente } from './ia/leitura-automatica.js';
 
 const log = criarLog('servidor');
@@ -227,13 +228,29 @@ if (config.servidor.syncIntervaloMin > 0 && !config.coletores.cron) {
 const mercadoMin = Number(process.env.MERCADO_INTERVALO_MIN ?? 30);
 const mercadoLote = Number(process.env.MERCADO_LOTE ?? 25);
 let coletando = false;
+const retroLigada = process.env.MERCADO_RETRO !== '0';
+const retroHoras = process.env.MERCADO_RETRO_HORAS ?? '0-6';
+const retroMeses = Number(process.env.MERCADO_RETRO_MESES ?? 12);
+const retroLimiteMb = Number(process.env.MERCADO_LIMITE_MB ?? 400);
+const retroTermosExtras = (process.env.MERCADO_RETRO_TERMOS || '').split(',').map((t) => t.trim()).filter(Boolean);
+let ultimaDescoberta = 0;
 async function coletarMercado() {
   if (coletando) return;
   coletando = true;
   try {
-    const r = await coletarResultados({ lote: mercadoLote }, { supabase: admin, log: criarLog('mercado'), sinal: controleSync.signal });
+    // Fase 3: de madrugada (MERCADO_RETRO_HORAS), descobre compras antigas dos termos dos
+    // clientes (no máximo 1 vez por hora) e completa os lotes com a fila retroativa.
+    const noturno = retroLigada && dentroDaJanela(retroHoras);
+    if (noturno && Date.now() - ultimaDescoberta >= 60 * 60_000) {
+      ultimaDescoberta = Date.now();
+      const termos = await termosRetro(admin, { extras: retroTermosExtras });
+      const d = await descobrirRetro({ termos, meses: retroMeses, limiteMb: retroLimiteMb }, { supabase: admin, log: criarLog('mercado'), sinal: controleSync.signal });
+      if (d.parado) logColeta.erro('ALERTA_COLETA', { origem: 'mercado-retro', status: 'parado', primeiraFalha: d.parado });
+      else if (d.paginas) log.info(`Mercado retro: ${d.termos} termo(s), ${d.paginas} página(s), ${d.enfileiradas} compra(s) nova(s) na fila.`);
+    }
+    const r = await coletarResultados({ lote: noturno ? mercadoLote * 2 : mercadoLote, retro: noturno }, { supabase: admin, log: criarLog('mercado'), sinal: controleSync.signal });
     if (r.compras || r.erros) {
-      log.info(`Mercado: ${r.compras} compra(s) consultada(s), ${r.resultados} resultado(s) gravado(s), ${r.semResultado} ainda sem resultado, ${r.erros} erro(s).`);
+      log.info(`Mercado: ${r.compras} compra(s) consultada(s) (${r.retro} retroativa(s)), ${r.resultados} resultado(s) gravado(s), ${r.semResultado} ainda sem resultado, ${r.erros} erro(s).`);
     }
   } catch (e) {
     if (!controleSync.signal.aborted) log.erro(`Mercado: ${e.message}`);

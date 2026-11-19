@@ -1209,3 +1209,7 @@ li.item--termo { box-shadow: inset 3px 0 0 #facc15; border-radius: 8px; }
 .interruptor input { width: 20px; height: 20px; accent-color: var(--azul); }
 .item-preco { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 0.8rem; }
 .item-preco svg { width: 13px; height: 13px; }
+
+/* Inteligência de mercado · painel do concorrente (Fase 3) */
+.lista-ranking { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 0.88rem; }
+.lista-ranking li span { display: block; }

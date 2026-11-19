@@ -15,6 +15,8 @@ Atualizado em 19/11/2026. Complementa `docs/PLANO-AUTOMACAO.md`. Regra de todas 
 
 ## 2. Fases
 
+> **19/11/2026: o Chat Unificado foi retirado do produto a pedido (pausado).** O código das Fases 1 e 2 está no histórico do git (commits 364d5c2 e 48ba658), e a tela "Monitoramento de Chat" voltou à demonstração. A tabela `chat_mensagens` e as colunas de alerta em `monitoramentos` continuam no banco, sem uso.
+
 ### Fase 1: caixa de entrada unificada + base dos conectores (ENTREGUE)
 **Entregas**
 - Tabela `chat_mensagens` (uma caixa por organização, todos os portais), com identidade da mensagem para não repetir, gatilhos, relevância, lida/não lida e tempo real (`supabase/atualizar-chat.sql`, aplicado).
@@ -49,7 +51,30 @@ Atualizado em 19/11/2026. Complementa `docs/PLANO-AUTOMACAO.md`. Regra de todas 
 
 Validação: alerta chega no Telegram/WhatsApp em menos de 30 s depois da mensagem gravada; cada portal com 1 sessão real conferida.
 
-### Fase 3: inteligência de mercado ampliada (2 a 4 semanas)
+### Fase 3: inteligência de mercado ampliada (ENTREGUE em 19/11/2026)
+Migração: `supabase/atualizar-mercado-fase3.sql` (aplicada).
+
+**Entregue**
+- **Coleta retroativa direcionada (12 meses).** Para cada termo dos radares ativos (mais `MERCADO_RETRO_TERMOS`), a busca do PNCP lista as compras encerradas. As publicadas nos últimos 12 meses entram na fila (`mercado_coleta`, origem `retro`), e o coletor de vencedores lê os resultados delas.
+  - Roda só de madrugada (`MERCADO_RETRO_HORAS=0-6`), com no máximo 20 páginas de busca por hora, e continua de onde parou (`mercado_retro_termos`).
+  - Uma compra sem resultado em 3 tentativas é abandonada.
+- **Trava de espaço:** a coleta retroativa não cresce a base com o banco acima de `MERCADO_LIMITE_MB` (400). Nesse caso gera `ALERTA_COLETA`.
+- **Pesquisa de Preço com a base real** (`mercado_pesquisa`):
+  - mesmas regras de palavra da busca, filtro de UF, município e período;
+  - gráfico, mediana e regra da IN 65/2021;
+  - colunas de item, unidade e vencedor, e aviso quando há menos de 3 preços ou unidades misturadas.
+- **Painel do concorrente** (`mercado_concorrente_painel`): evolução mês a mês (valor e desconto mediano), órgãos onde mais vence, estados e portais (24 meses).
+
+**Avaliado e não feito**
+- Atas e contratos do PNCP não são gravados em massa: são cerca de 9 mil contratos por dia (3,3 milhões por ano), o que não cabe no plano gratuito, e não trazem preço por item. O preço de cada item de uma ata é o próprio resultado homologado da compra, que já é coletado.
+- Materialização dos agregados: com cerca de 4 mil resultados as consultas já respondem em menos de 1 s. Revisar quando a base passar de cerca de 200 mil linhas.
+
+**Validação**
+- [x] Testes automáticos (`testes/mercado-fase3.test.js`), incluindo o SQL das consultas novas.
+- [x] Teste real em 19/11: o termo "papel a4" colocou 18 compras na fila; 4 coletadas deram 363 preços novos.
+- [ ] Conferir à mão, com o PNCP, o preço mediano de 10 itens comuns.
+
+### Fase 3 (planejamento original)
 Dependências: base `mercado_resultados` (já em coleta).
 - Atas de registro de preço do PNCP (`/v1/atas`) e contratos, para preço praticado fora do pregão.
 - Coleta retroativa (12 meses) em lotes noturnos; índices e materialização dos agregados por fornecedor.

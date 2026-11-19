@@ -61,7 +61,36 @@ LH.vistas = LH.vistas || {};
       <p class="fraco">Preços homologados publicados no PNCP. Use como referência: confira a especificação e a unidade antes de formar o seu preço.</p>`;
   };
 
-  function painelConcorrente(c, itens) {
+  /** Evolução mensal (barras = valor homologado; rótulo = desconto mediano) + onde mais vence. */
+  function painelEvolucao(pn) {
+    if (!pn?.mensal?.length) return '';
+    const meses = pn.mensal.slice(-12);
+    const max = Math.max(...meses.map((m) => Number(m.valor) || 0), 1);
+    const L = 600, A = 220, base = 180, topo = 18, larg = (L - 40) / meses.length;
+    const nomeMes = (m) => new Date(`${m}-15T12:00:00`).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '');
+    const barras = meses.map((m, i) => {
+      const v = Number(m.valor) || 0;
+      const h = ((base - topo) * v) / max;
+      const x = 30 + i * larg + larg * 0.18, w = larg * 0.64;
+      return `<rect class="barra-g" x="${x.toFixed(1)}" y="${(base - h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="5"><title>${nomeMes(m.mes)}: ${moeda(v)} · ${m.compras} compra(s) · ${m.itens} item(ns) · desconto mediano ${pct(m.desconto_mediano)}</title></rect>
+        <text x="${(x + w / 2).toFixed(1)}" y="${base + 16}" text-anchor="middle">${nomeMes(m.mes)}</text>
+        ${m.desconto_mediano == null ? '' : `<text x="${(x + w / 2).toFixed(1)}" y="${(base - h - 5).toFixed(1)}" text-anchor="middle" style="fill:var(--texto-2);font-size:10px">${pct(m.desconto_mediano)}</text>`}`;
+    }).join('');
+    const lista = (titulo, linhas) => (linhas?.length ? `<div><h3 class="inteligencia__sub">${titulo}</h3><ol class="lista-ranking">${linhas}</ol></div>` : '');
+    return `
+      <h3 class="inteligencia__sub">Evolução mês a mês (valor homologado; acima da barra, o desconto mediano)</h3>
+      <svg class="grafico" viewBox="0 0 ${L} ${A}" role="img" aria-label="Valor homologado por mês">
+        <defs><linearGradient id="grad-barra" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0284c7" stop-opacity=".55"/></linearGradient></defs>
+        <line x1="24" x2="${L - 8}" y1="${base}" y2="${base}" stroke="rgba(148,197,255,.18)"/>${barras}
+      </svg>
+      <div class="grade" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px">
+        ${lista('Órgãos onde mais vence', (pn.orgaos || []).map((o) => `<li><span>${esc(o.orgao || o.orgao_cnpj || '—')}${o.uf ? ` · ${esc(o.uf)}` : ''}</span><span class="fraco">${fmt.numero(o.compras)} compra(s) · ${moeda(o.valor)}</span></li>`).join(''))}
+        ${lista('Estados', (pn.ufs || []).map((u) => `<li><span>${esc(u.uf)}</span><span class="fraco">${fmt.numero(u.itens)} item(ns) · ${moeda(u.valor)}</span></li>`).join(''))}
+        ${lista('Portais', (pn.portais || []).map((p) => `<li><span>${esc(p.portal)}</span><span class="fraco">${fmt.numero(p.itens)} item(ns)</span></li>`).join(''))}
+      </div>`;
+  }
+
+  function painelConcorrente(c, itens, painel) {
     return `
       <div class="metricas">
         <div class="metrica"><span>Compras vencidas</span><strong>${fmt.numero(c.compras_vencidas)}</strong></div>
@@ -69,6 +98,8 @@ LH.vistas = LH.vistas || {};
         <div class="metrica"><span>Valor homologado</span><strong>${moeda(c.valor_total)}</strong></div>
         <div class="metrica"><span>Desconto médio / mediano</span><strong>${pct(c.desconto_medio)} / ${pct(c.desconto_mediano)}</strong></div>
       </div>
+      ${painelEvolucao(painel)}
+      <h3 class="inteligencia__sub">Itens vencidos</h3>
       <p class="fraco">${esc(c.fornecedor_porte || 'Porte não informado')} · ${fmt.numero(c.orgaos)} órgão(s) · UFs: ${esc((c.ufs || []).join(', ') || '—')} · de ${data(c.primeira)} a ${data(c.ultima)}</p>
       <div class="tabela-rolagem"><table class="tabela"><thead><tr><th>Data</th><th>Item</th><th>Un.</th><th class="numero">Qtd.</th><th class="numero">Estimado</th><th class="numero">Homologado</th><th class="numero">Desconto</th><th>Órgão</th><th>Portal</th></tr></thead>
       <tbody>${itens.map((r) => `<tr><td>${data(r.data_resultado)}</td><td>${esc(r.item_descricao || '')}</td><td>${esc(r.unidade || '')}</td>
@@ -153,8 +184,11 @@ LH.vistas = LH.vistas || {};
       const abrirConcorrente = async (c) => {
         resC.innerHTML = LH.carregando('Carregando o histórico...');
         try {
-          const itens = await LH.repo.mercadoConcorrenteItens(c.fornecedor_ni);
-          resC.innerHTML = `<div class="card__titulo"><h2>${esc(c.fornecedor_nome || '—')}</h2><span class="selo">${esc(doc(c.fornecedor_ni))}</span></div>${painelConcorrente(c, itens)}`;
+          const [itens, painel] = await Promise.all([
+            LH.repo.mercadoConcorrenteItens(c.fornecedor_ni),
+            LH.repo.mercadoConcorrentePainel ? LH.repo.mercadoConcorrentePainel(c.fornecedor_ni).catch(() => null) : null,
+          ]);
+          resC.innerHTML = `<div class="card__titulo"><h2>${esc(c.fornecedor_nome || '—')}</h2><span class="selo">${esc(doc(c.fornecedor_ni))}</span></div>${painelConcorrente(c, itens, painel)}`;
         } catch (erro) { resC.innerHTML = LH.erroHtml(erro); }
       };
       let encontrados = [];

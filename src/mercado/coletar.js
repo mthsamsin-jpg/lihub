@@ -75,16 +75,18 @@ export async function coletarCompra(lic, { itens = listarItens, resultados = lis
   return { itens: lista.length, comResultado: comResultado.length, linhas };
 }
 
+const COLUNAS_RETRO = 'numero_controle_pncp, situacao, tentativas, proxima_em, orgao_cnpj, ano_compra, sequencial_compra, orgao_nome, uf, municipio, modalidade_nome, portal, objeto, encerrada_em';
 const COLUNAS_LIC = 'id, numero_controle_pncp, orgao_cnpj, ano_compra, sequencial_compra, orgao_razao_social, uf, municipio, '
   + 'modalidade_id, modalidade_nome, sistema_origem, objeto, data_encerramento_proposta';
 
 /**
  * Uma rodada de coleta: escolhe até `lote` compras encerradas ainda sem resultado
  * coletado (ou cuja nova tentativa venceu) e grava o que o PNCP já publicou.
- * @param {{ lote?: number, diasMax?: number }} opcoes
+ * @param {{ lote?: number, diasMax?: number, retro?: boolean }} opcoes
+ *   retro: também processa a fila retroativa (Fase 3) quando sobra espaço no lote
  * @param {{ supabase: any, log?: any, sinal?: AbortSignal, coletar?: typeof coletarCompra, agora?: number }} deps
  */
-export async function coletarResultados({ lote = 25, diasMax = 75 } = {}, { supabase, log = console, sinal, coletar = coletarCompra, agora = Date.now() } = {}) {
+export async function coletarResultados({ lote = 25, diasMax = 75, retro = false } = {}, { supabase, log = console, sinal, coletar = coletarCompra, agora = Date.now() } = {}) {
   const ateQuando = new Date(agora - DIA).toISOString(); // sessão encerrada há pelo menos 1 dia
   const desde = new Date(agora - diasMax * DIA).toISOString();
 
@@ -93,25 +95,44 @@ export async function coletarResultados({ lote = 25, diasMax = 75 } = {}, { supa
     .eq('fonte', 'pncp').lt('data_encerramento_proposta', ateQuando).gte('data_encerramento_proposta', desde)
     .order('data_encerramento_proposta', { ascending: true }).limit(lote * 8);
   if (error) throw new Error(`Não consegui ler o catálogo: ${error.message}`);
-  if (!candidatas?.length) return { compras: 0, resultados: 0, semResultado: 0, erros: 0 };
 
-  const numeros = candidatas.map((l) => l.numero_controle_pncp);
-  const { data: controle, error: e2 } = await supabase.from('mercado_coleta')
-    .select('numero_controle_pncp, situacao, tentativas, proxima_em').in('numero_controle_pncp', numeros);
+  const numeros = (candidatas || []).map((l) => l.numero_controle_pncp);
+  const { data: controle, error: e2 } = numeros.length
+    ? await supabase.from('mercado_coleta').select('numero_controle_pncp, situacao, tentativas, proxima_em').in('numero_controle_pncp', numeros)
+    : { data: [], error: null };
   if (e2) throw new Error(`Não consegui ler o controle da coleta: ${e2.message}`);
   const porNumero = new Map((controle || []).map((c) => [c.numero_controle_pncp, c]));
   const agoraIso = new Date(agora).toISOString();
-  const fila = candidatas.filter((l) => {
+  const fila = (candidatas || []).filter((l) => {
     const c = porNumero.get(l.numero_controle_pncp);
     return !c || (['pendente', 'sem_resultado', 'erro'].includes(c.situacao) && c.proxima_em <= agoraIso);
   }).slice(0, lote);
 
-  const total = { compras: 0, resultados: 0, semResultado: 0, erros: 0 };
+  // Retroativas (Fase 3): completam o lote com compras da fila que não estão no catálogo.
+  if (retro && fila.length < lote) {
+    const { data: rs, error: e4 } = await supabase.from('mercado_coleta').select(COLUNAS_RETRO)
+      .eq('origem', 'retro').in('situacao', ['pendente', 'sem_resultado', 'erro']).lte('proxima_em', agoraIso)
+      .order('proxima_em', { ascending: true }).limit(lote - fila.length);
+    if (e4) throw new Error(`Não consegui ler a fila retroativa: ${e4.message}`);
+    for (const c of rs || []) {
+      porNumero.set(c.numero_controle_pncp, c);
+      fila.push({
+        retro: true, id: null, numero_controle_pncp: c.numero_controle_pncp, orgao_cnpj: c.orgao_cnpj, ano_compra: c.ano_compra,
+        sequencial_compra: c.sequencial_compra, orgao_razao_social: c.orgao_nome, uf: c.uf, municipio: c.municipio,
+        modalidade_id: null, modalidade_nome: c.modalidade_nome, sistema_origem: c.portal, objeto: c.objeto,
+        data_encerramento_proposta: c.encerrada_em,
+      });
+    }
+  }
+
+  const total = { compras: 0, resultados: 0, semResultado: 0, erros: 0, retro: fila.filter((l) => l.retro).length };
   for (const lic of fila) {
     if (sinal?.aborted) break;
     const anterior = porNumero.get(lic.numero_controle_pncp);
     const tentativas = (anterior?.tentativas ?? 0) + 1;
-    const marca = { numero_controle_pncp: lic.numero_controle_pncp, licitacao_id: lic.id, tentativas, atualizado_em: agoraIso };
+    // licitacao_id só nas do catálogo; origem preservada (retro continua retro)
+    const marca = { numero_controle_pncp: lic.numero_controle_pncp, tentativas, atualizado_em: agoraIso, origem: lic.retro ? 'retro' : 'catalogo' };
+    if (!lic.retro) marca.licitacao_id = lic.id;
     try {
       const { itens, comResultado = itens, linhas } = await coletar(lic, { sinal });
       if (linhas.length) {
@@ -120,8 +141,9 @@ export async function coletarResultados({ lote = 25, diasMax = 75 } = {}, { supa
         if (e3) throw new Error(e3.message);
       }
       // Todos os itens homologados: pronto. Parte deles: volta depois para buscar o resto.
-      const encerradaHa = (agora - new Date(lic.data_encerramento_proposta).getTime()) / DIA;
-      const ultima = tentativas >= 8 || encerradaHa > diasMax - 5;
+      // Retroativa (compra antiga): o resultado já devia ter saído; desiste mais cedo.
+      const encerradaHa = (agora - new Date(lic.data_encerramento_proposta || agora).getTime()) / DIA;
+      const ultima = lic.retro ? tentativas >= 3 : tentativas >= 8 || encerradaHa > diasMax - 5;
       const completa = linhas.length && (comResultado >= itens || ultima);
       const desistir = !linhas.length && ultima;
       await supabase.from('mercado_coleta').upsert({
