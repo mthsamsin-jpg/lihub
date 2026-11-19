@@ -11,7 +11,7 @@ Atualizado em 19/11/2026. Complementa `docs/PLANO-AUTOMACAO.md`. Regra de todas 
 | Robô modo real (`worker/`) | Sessão Playwright com a conta do cliente; o adaptador já emite `{ tipo: 'mensagem', autor, texto }` do chat da sala e grava em `auction_live_bids` | **Fonte real de chat** de BLL, BNC, BBMNET e Compras.gov.br logados |
 | Adaptadores | BLL com classe própria (login com teclado virtual); demais por mapa de seletores; **nenhum validado** em sessão real | Contrato `watchBids` + seletores `sala.linhaMensagem/...` |
 | Alertas | E-mail (Resend) para eventos do robô; notificação do navegador na tela | Notificador e preferência `alerta_email` |
-| Leitura pública Compras.gov.br | Não existia | Endpoint `comprasnet-mensagem/v2/chat/{compra}` encontrado em 19/11 (responde 204 vazio nas compras testadas; 429 após poucos pedidos) |
+| Leitura pública Compras.gov.br | Não existia | **Inviável**: o chat público exige captcha (ver Fase 2) |
 
 ## 2. Fases
 
@@ -27,23 +27,23 @@ Atualizado em 19/11/2026. Complementa `docs/PLANO-AUTOMACAO.md`. Regra de todas 
 **Validação (critérios de aceite)**
 - [x] Testes automáticos de detecção, caixa, webhook, conector e monitor (`testes/chat.test.js`).
 - [ ] Sessão real do robô em modo "só monitorar" numa sala da BLL: mensagens do pregoeiro aparecem na caixa em até 10 s e a menção ao CNPJ gera alerta no webhook.
-- [ ] Compras.gov.br: um pregão **em andamento** cadastrado devolve mensagens no endpoint público; então `validado: true` no conector.
+- [x] Compras.gov.br: verificado em 19/11 que o chat público exige captcha; coberto pela sala do robô.
 
 **Variáveis**: `CHAT_INTERVALO_MIN` (2; 0 desliga), `CHAT_CONECTORES_NAO_VALIDADOS=permitir` (só para o teste de validação).
 
 ### Fase 2: alertas no celular e cobertura dos portais (EM ANDAMENTO)
-**Descoberta de 19/11/2026:** o chat público do Compras.gov.br só aparece depois de um **captcha** (a página pública manda o token no pedido a ). Ler isso automaticamente exigiria burlar a proteção do governo, e o Uso LicitaHub não faz isso. O conector público foi retirado; o Compras.gov.br entra na caixa pela sala do robô, como os demais portais.
+**Descoberta de 19/11/2026:** o chat público do Compras.gov.br só aparece depois de um **captcha** (a página pública manda o token no pedido a `comprasnet-mensagem/v2/chat/{compra}`). Ler isso automaticamente exigiria burlar a proteção do governo, e o Uso LicitaHub não faz isso. O conector público foi retirado; o Compras.gov.br entra na caixa pela sala do robô, como os demais portais.
 
 **Entregue**
-- Alertas por **Telegram** (Bot API oficial): a tela gera um link  que vale 30 min; o servidor confirma o código (getUpdates, sem endereço público) e guarda até 5 chats por organização.
+- Alertas por **Telegram** (Bot API oficial): a tela gera um link `t.me/<robô>?start=<código>` que vale 30 min; o servidor confirma o código (getUpdates, sem endereço público) e guarda até 5 chats por organização.
 - Alertas por **WhatsApp** (Cloud API oficial da Meta) com modelo aprovado de 3 variáveis (motivo, pregão, trecho); até 5 números por organização.
 - Alertador único (webhook + Telegram + WhatsApp): falha de um canal não impede os outros; mensagem marcada como alertada quando pelo menos um canal entregou.
 - **Respostas rápidas** por gatilho (anexo, convocação, prazo, suspensão, resultado, menção) para copiar e colar no portal; o envio continua manual.
--  (aplicado).
+- `supabase/atualizar-chat-alertas.sql` (aplicado).
 
 **Falta (depende de ação externa)**
-- Criar o robô no @BotFather e definir  e  no Render.
-- WhatsApp: conta Meta Business verificada, número empresarial, modelo  aprovado (categoria Utility, texto sugerido: "Uso LicitaHub: {{1}} no pregão {{2}}. {{3}}"); então  e .
+- Criar o robô no @BotFather e definir `TELEGRAM_BOT_TOKEN` e `TELEGRAM_BOT_NOME` no Render.
+- WhatsApp: conta Meta Business verificada, número empresarial, modelo `alerta_pregao` aprovado (categoria Utility, texto sugerido: "Uso LicitaHub: {{1}} no pregão {{2}}. {{3}}"); então `WHATSAPP_TOKEN` e `WHATSAPP_NUMERO_ID`.
 - Validar a sala de cada portal (BLL primeiro, depois BNC, BBMNET, Compras.gov.br) com o robô em modo monitorar numa sessão real.
 - Portal de Compras Públicas: verificar se o acompanhamento público da sessão é aberto (sem captcha nem login). Se for protegido, segue o mesmo caminho do Compras.gov.br.
 
