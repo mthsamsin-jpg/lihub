@@ -143,6 +143,48 @@ window.LH = window.LH || {};
         .map((g) => semAcento(g).split(/[^a-z0-9]+/).filter(Boolean))
         .filter((g) => g.length);
     },
+    /**
+     * Camada da pirâmide de relevância (MESMAS regras da função buscar_licitacoes do banco;
+     * mude as duas juntas). 1 exata · 2 termo principal · 3 relacionada · 4 restante.
+     * Devolve { camada, nota }; sem palavras buscadas = camada 0 (ordem normal).
+     * @param {{ objeto: string, secundario?: string }} campos  secundario = itens + órgão
+     */
+    camada({ objeto, secundario = '' }, grupos) {
+      const gs = (grupos || []).map((g) => g.filter((w) => !LH.termos.PALAVRAS_VAZIAS.has(w)).map(LH.termos.radical)).filter((g) => g.length);
+      if (!gs.length) return { camada: 0, nota: 0 };
+      const obj = semAcento(objeto);
+      const sec = semAcento(secundario);
+      const tem = (t, r) => new RegExp(`(^|[^a-z0-9])${r}`).test(t);
+      let melhor = { camada: 4, nota: 0 };
+      for (const g of gs) {
+        const frase = new RegExp(`(^|[^a-z0-9])${g.join('[a-z0-9]*[^a-z0-9]+')}`).test(obj);
+        const todasObj = g.every((r) => tem(obj, r));
+        const todasQualquer = g.every((r) => tem(`${obj} ${sec}`, r));
+        const nucleoObj = tem(obj, g[0]);
+        const nucleoSec = tem(sec, g[0]);
+        const secObj = g.slice(1).filter((r) => tem(obj, r)).length;
+        const secSec = g.slice(1).filter((r) => tem(sec, r)).length;
+        const correl = g.flatMap((r) => LH.termos.CORRELATOS[r] || []).filter((c) => tem(`${obj} ${sec}`, LH.termos.radical(c))).length;
+        const camada = frase || todasObj ? 1 : nucleoObj || todasQualquer || nucleoSec ? 2 : secObj || secSec || correl ? 3 : 4;
+        const nota = (frase ? 3 : 0) + (todasObj ? 2 : 0) + (nucleoObj ? 3 : 0) + (todasQualquer ? 2 : 0) + (nucleoSec ? 1 : 0) + 2 * secObj + secSec + 0.5 * correl;
+        if (camada < melhor.camada || (camada === melhor.camada && nota > melhor.nota)) melhor = { camada, nota };
+      }
+      return melhor;
+    },
+    /** Radical leve da palavra buscada (plural/singular); igual a public.radical_busca. */
+    radical(p) {
+      const regras = [[/veis$/, 've', 0], [/vel$/, 've', 0], [/(oes|aes|aos)$/, '', 4], [/ao$/, '', 4], [/([ae])is$/, '$1', 4],
+        [/([ae])l$/, '$1', 4], [/(r|z)es$/, '$1', 4], [/s$/, '', 3]];
+      for (const [re, troca, min] of regras) {
+        if (p.length > min && re.test(p)) { const r = p.replace(re, troca); return r.length >= 3 ? r : p; }
+      }
+      return p;
+    },
+    PALAVRAS_VAZIAS: new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'no', 'na', 'nos', 'nas', 'para', 'por', 'com', 'a', 'o', 'as', 'os', 'um', 'uma', 'ao', 'aos', 'sem', 'sob', 'tipo']),
+    /** Termos relacionados (camada 3) no modo demonstração; no banco: tabela busca_correlatos. */
+    CORRELATOS: { copo: ['caneca', 'taca', 'xicara'], pape: ['sulfite', 'resma'], computador: ['notebook', 'desktop'], caneta: ['esferografica'], limpeza: ['higienizacao', 'conservacao'], toner: ['cartucho'] },
+    /** Rótulo da faixa de cada camada na lista de resultados. */
+    ROTULOS_CAMADA: { 1: 'Correspondência exata', 2: 'Termo principal', 3: 'Relacionadas', 4: 'Outras licitações' },
     /** O texto tem todas as palavras de pelo menos uma alternativa? (sem palavras = sim) */
     casa(texto, grupos) {
       if (!grupos?.length) return true;

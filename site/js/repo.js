@@ -212,7 +212,9 @@ window.LH = window.LH || {};
         const { data: extra } = await db().from('licitacoes').select('id, orgao_esfera, unidade_codigo, numero_compra, ano_compra, municipio_ibge').in('id', data.map((r) => r.id));
         for (const e of extra || []) esferas.set(Number(e.id), e);
       }
-      const lista = (data || []).map((r) => normalizar({ ...r, ...esferas.get(Number(r.id)), id: r.id }));
+      // camada (1 exata, 2 principal, 3 relacionada, 4 restante; 0 = sem termo) e quantas há nela
+      const lista = (data || []).map((r) => Object.assign(normalizar({ ...r, ...esferas.get(Number(r.id)), id: r.id }),
+        { camada: r.camada ?? 0, totalCamada: r.total_camada == null ? null : Number(r.total_camada) }));
       await anexarCapag(lista);
       return { lista, total: data?.length ? Number(data[0].total) : null, porPagina: POR_PAGINA };
     },
@@ -800,14 +802,13 @@ window.LH = window.LH || {};
     modalidades: LH.MODALIDADES.map(([, nome]) => [nome, nome]),
 
     async buscar(f, offset = 0) {
-      // "a, b" ou "a or b": basta uma alternativa; dentro dela, todas as palavras (no objeto).
+      // Pirâmide de relevância (LH.termos.camada): nada some; as camadas ordenam primeiro.
       const grupos = LH.termos.grupos(f.termo);
       const municipios = (f.municipios?.length ? f.municipios : [f.municipio]).filter(Boolean).map(sem);
       const ufs = f.ufs?.length ? f.ufs : (f.uf ? [f.uf] : []);
       const modalidades = f.modalidades?.length ? f.modalidades : (f.modalidade ? [f.modalidade] : []);
       const lista = LH.dados.licitacoes.filter((l) => {
-        return LH.termos.casa(l.objeto, grupos)
-          && (!f.tipo || !l.tipo || (f.tipo === 'material') === (l.tipo === 'Material'))
+        return (!f.tipo || !l.tipo || (f.tipo === 'material') === (l.tipo === 'Material'))
           && (!f.orgao || sem(l.orgao).includes(sem(f.orgao)))
           && (!municipios.length || municipios.includes(sem(l.municipio)) || (!f.municipios?.length && sem(l.municipio).includes(municipios[0])))
           && (!modalidades.length || modalidades.includes(l.modalidade))
@@ -817,8 +818,13 @@ window.LH = window.LH || {};
           && (!f.ate || l.abertura <= f.ate)
           && (!f.de || l.abertura >= f.de)
           && (!f.plataformas?.length || f.plataformas.includes(LH.plataformaDe(l.plataforma)));
-      }).sort(ordens[f.ordem] || ordens.prazo);
-      return { lista: lista.slice(offset, offset + POR_PAGINA), total: lista.length, porPagina: POR_PAGINA };
+      }).map((l) => ({ l, c: LH.termos.camada({ objeto: l.objeto, secundario: l.orgao }, grupos) }));
+      const ordem = ordens[f.ordem] || ordens.prazo;
+      lista.sort((a, b) => a.c.camada - b.c.camada || (f.ordem === 'relevancia' ? b.c.nota - a.c.nota : 0) || ordem(a.l, b.l) || String(a.l.id).localeCompare(String(b.l.id)));
+      const porCamada = {};
+      for (const x of lista) porCamada[x.c.camada] = (porCamada[x.c.camada] || 0) + 1;
+      const pagina = lista.slice(offset, offset + POR_PAGINA).map((x) => ({ ...x.l, camada: x.c.camada, totalCamada: porCamada[x.c.camada] }));
+      return { lista: pagina, total: lista.length, porPagina: POR_PAGINA };
     },
     async radarContagem(f) {
       const contagem = new Map();

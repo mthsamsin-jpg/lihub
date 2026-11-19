@@ -33,6 +33,7 @@ as $$
   end from t;
 $$;
 
+drop function if exists public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[], text, timestamptz, text, text[], boolean, text[]);
 create or replace function public.buscar_licitacoes(
   p_termo                  text        default null,
   p_ufs                    text[]      default null,

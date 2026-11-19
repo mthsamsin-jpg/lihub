@@ -119,6 +119,7 @@ LH.vistas = LH.vistas || {};
       const cidade = form.municipio;
       let favs = new Set();
       let offset = 0;
+      let ultimaCamada = null; // última faixa de camada desenhada (continua no "Carregar mais")
       let total = 0;
       let pedido = 0; // ignora respostas de buscas antigas
 
@@ -140,6 +141,7 @@ LH.vistas = LH.vistas || {};
         LH.termosBusca = LH.termos.grupos(f.termo);
         if (!continuar) {
           offset = 0;
+          ultimaCamada = null;
           mais.hidden = true;
           if (!plataformasMarcadas().length) {
             caixa.innerHTML = LH.vazio('computador', 'Nenhuma plataforma marcada', 'Marque ao menos um portal no filtro "Plataforma".');
@@ -158,11 +160,19 @@ LH.vistas = LH.vistas || {};
           if (meu !== pedido) return;
           if (!continuar) total = r.total ?? 0;
           // Numeração contínua entre páginas ("Carregar mais" segue de onde parou).
-          const html = r.lista.map((l, k) => LH.cartaoLicitacao(l, favs, { n: offset + k + 1, total: Math.max(total, offset + r.lista.length) })).join('');
+          // Com termo, uma faixa abre cada camada da pirâmide (exata, principal, relacionadas, outras).
+          const html = r.lista.map((l, k) => {
+            let faixa = '';
+            if (l.camada > 0 && l.camada !== ultimaCamada) {
+              ultimaCamada = l.camada;
+              faixa = `<div class="camada-faixa camada-faixa--${l.camada}" role="separator">${esc(LH.termos.ROTULOS_CAMADA[l.camada])}${l.totalCamada != null ? ` <span>${fmt.numero(l.totalCamada)}</span>` : ''}</div>`;
+            }
+            return faixa + LH.cartaoLicitacao(l, favs, { n: offset + k + 1, total: Math.max(total, offset + r.lista.length) });
+          }).join('');
           if (continuar) caixa.insertAdjacentHTML('beforeend', html);
           else caixa.innerHTML = html || LH.vazio('busca', 'Nada encontrado', 'Tente outras palavras ou tire alguns filtros.');
           offset += r.lista.length;
-          raiz.querySelector('#contagem').innerHTML = `<strong>${fmt.numero(total)}</strong> licitação(ões) aberta(s)${resumoFiltros(f)}${offset < total ? ` · mostrando ${fmt.numero(offset)}` : ''}`;
+          raiz.querySelector('#contagem').innerHTML = `<strong>${fmt.numero(total)}</strong> licitação(ões) aberta(s)${resumoFiltros(f)}${LH.termosBusca.length ? ' · as mais próximas do termo primeiro' : ''}${offset < total ? ` · mostrando ${fmt.numero(offset)}` : ''}`;
           mais.hidden = offset >= total || r.lista.length < r.porPagina;
           LH.revelar(caixa);
         } catch (e) {

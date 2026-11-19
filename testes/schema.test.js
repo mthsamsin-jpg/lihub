@@ -144,11 +144,13 @@ test('catálogo PNCP: leitura para todos, gravação só pelo sincronizador', as
        'Aquisição de notebooks para a secretaria de educação', 80000,
        now() - interval '1 day', now() + interval '5 days')`);
 
+  // Busca em camadas: a que casa vem no topo (camada 1); a outra continua na lista, na base (camada 4).
   const busca = await como(ids.b,
-    `select objeto, link_pncp, total from public.buscar_licitacoes(p_termo => 'manutencao ar condicionado')`);
-  assert.equal(busca.rows.length, 1, 'busca sem acento encontra texto com acento');
-  assert.equal(busca.rows[0].link_pncp, 'https://pncp.gov.br/app/editais/46395000000139/2026/10');
-  assert.equal(Number(busca.rows[0].total), 1);
+    `select objeto, link_pncp, total, camada, total_camada from public.buscar_licitacoes(p_termo => 'manutencao de ar condicionado')`);
+  assert.equal(busca.rows.length, 2);
+  assert.equal(busca.rows[0].link_pncp, 'https://pncp.gov.br/app/editais/46395000000139/2026/10', 'busca sem acento encontra texto com acento');
+  assert.deepEqual(busca.rows.map((r) => [r.camada, Number(r.total_camada)]), [[1, 1], [4, 1]]);
+  assert.equal(Number(busca.rows[0].total), 2);
 
   const filtro = await como(ids.b,
     `select uf from public.buscar_licitacoes(p_ufs => array['RJ'], p_modalidades => array[8])`);
@@ -183,6 +185,46 @@ test('catálogo PNCP: leitura para todos, gravação só pelo sincronizador', as
 
   const vistoPorB = await como(ids.b, `select id from public.licitacoes where id = $1`, [ids.licManualA]);
   assert.equal(vistoPorB.rows.length, 0, 'licitação manual é privada da organização');
+});
+
+test('busca em camadas: pirâmide, radical, correlatos e paginação estável', async () => {
+  const objetos = [
+    ['AC-1', 'Aquisição de COPOS DESCARTÁVEIS 200 ml'],          // 1 frase
+    ['AC-2', 'Copo para água, material descartável'],            // 1 todas no objeto
+    ['AC-3', 'Aquisição de copos de vidro'],                     // 2 termo principal
+    ['AC-4', 'Pratos e talheres descartáveis'],                  // 3 secundária
+    ['AC-5', 'Canecas de porcelana'],                            // 3 correlato (caneca)
+    ['AC-6', 'Material de copa e cozinha'],                      // 4 ("copo" não casa "copa")
+    ['AC-7', 'Serviço de vigilância'],                           // 4
+  ];
+  for (const [k, [num, objeto]] of objetos.entries()) {
+    await db.query(`insert into public.licitacoes (fonte, numero_controle_pncp, uf, municipio, modalidade_id, objeto, data_encerramento_proposta)
+      values ('pncp', $1, 'AC', 'Rio Branco', 6, $2, now() + make_interval(days => $3))`, [`camadas-${num}`, objeto, 10 - k]);
+  }
+  const todas = await como(ids.b, `select numero_controle_pncp as n, camada, total_camada, total
+    from public.buscar_licitacoes(p_termo => 'copo descartável', p_ufs => array['AC'], p_limite => 100)`);
+  assert.deepEqual(todas.rows.map((r) => [r.n.replace('camadas-', ''), r.camada]),
+    [['AC-1', 1], ['AC-2', 1], ['AC-3', 2], ['AC-4', 3], ['AC-5', 3], ['AC-7', 4], ['AC-6', 4]]);
+  assert.equal(Number(todas.rows[0].total), 7, 'nada some da lista');
+  assert.deepEqual(todas.rows.map((r) => Number(r.total_camada)), [2, 2, 1, 2, 2, 2, 2]);
+
+  // páginas de 3: sem repetir nem pular
+  const paginas = [];
+  for (const offset of [0, 3, 6]) {
+    const p = await como(ids.b, `select numero_controle_pncp as n from public.buscar_licitacoes(p_termo => 'copo descartável', p_ufs => array['AC'], p_limite => 3, p_offset => $1)`, [offset]);
+    paginas.push(...p.rows.map((r) => r.n));
+  }
+  assert.deepEqual(paginas, todas.rows.map((r) => r.n));
+
+  // sem termo: ordem normal (prazo), camada 0
+  const semTermo = await como(ids.b, `select camada from public.buscar_licitacoes(p_ufs => array['AC'], p_ordem => 'prazo', p_limite => 100)`);
+  assert.ok(semTermo.rows.every((r) => r.camada === 0));
+
+  // a tabela de busca acompanha a edição da licitação (gatilho)
+  await db.query(`update public.licitacoes set objeto = 'Copos descartáveis biodegradáveis' where numero_controle_pncp = 'camadas-AC-7'`);
+  const editada = await como(ids.b, `select camada from public.buscar_licitacoes(p_termo => 'copo descartável', p_ufs => array['AC'], p_limite => 100) where numero_controle_pncp = 'camadas-AC-7'`);
+  assert.equal(editada.rows[0].camada, 1);
+  await db.query(`delete from public.licitacoes where numero_controle_pncp like 'camadas-%'`);
 });
 
 test('CRM: cards consistentes com a organização', async () => {
