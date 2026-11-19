@@ -19,6 +19,8 @@ import { ligarPncpAoVivo } from './api/pncp-ao-vivo.js';
 import { criarGerenciador } from '../worker/gerenciador.js';
 import { coletarResultados } from './mercado/coletar.js';
 import { lerEditaisAutomaticamente } from './ia/leitura-automatica.js';
+import { monitorarChats } from './chat/monitorar.js';
+import { situacaoConectores } from './chat/conectores.js';
 
 const log = criarLog('servidor');
 
@@ -83,6 +85,10 @@ const app = criarApp({
 // O site (pasta site/) sai pelo mesmo endereço da API.
 // Busca ao vivo no PNCP (por palavra) e itens de cada compra.
 ligarPncpAoVivo(app);
+
+// Chat unificado: como cada portal chega à caixa de entrada (para a tela).
+const chatNaoValidados = process.env.CHAT_CONECTORES_NAO_VALIDADOS === 'permitir';
+app.get('/api/chat/situacao', (c) => c.json({ conectores: situacaoConectores(), permitirNaoValidados: chatNaoValidados }));
 
 // Robô Turbo 2.0, modo real: cofre de credenciais + sessões com Playwright.
 let cofre = null;
@@ -201,6 +207,27 @@ async function lerAutomaticamente() {
 if (leituraMin > 0) {
   setTimeout(lerAutomaticamente, 2 * 60_000).unref();
   setInterval(lerAutomaticamente, leituraMin * 60_000).unref();
+}
+
+// Chat público dos pregões cadastrados (conectores de leitura pública).
+// CHAT_INTERVALO_MIN=0 desliga. Conectores ainda não validados só com CHAT_CONECTORES_NAO_VALIDADOS=permitir.
+const chatMin = Number(process.env.CHAT_INTERVALO_MIN ?? 2);
+let lendoChat = false;
+async function lerChats() {
+  if (lendoChat) return;
+  lendoChat = true;
+  try {
+    const r = await monitorarChats({ permitirNaoValidados: chatNaoValidados }, { supabase: admin, log: criarLog('chat'), sinal: controleSync.signal });
+    if (r.novas || r.erros) log.info(`Chat: ${r.salas} sala(s) lida(s), ${r.novas} mensagem(ns) nova(s), ${r.relevantes} relevante(s), ${r.erros} erro(s).`);
+  } catch (e) {
+    if (!controleSync.signal.aborted) log.erro(e.message);
+  } finally {
+    lendoChat = false;
+  }
+}
+if (chatMin > 0) {
+  setTimeout(lerChats, 90_000).unref();
+  setInterval(lerChats, chatMin * 60_000).unref();
 }
 
 function encerrar(sinal) {

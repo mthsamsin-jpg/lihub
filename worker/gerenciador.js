@@ -5,6 +5,7 @@
 import { criarAdaptador, situacaoDosPortais } from './adaptadores/index.js';
 import { SessaoReal } from './sessao.js';
 import { canaisDoAmbiente, criarNotificador } from './notificacoes.js';
+import { registrarMensagens } from '../src/chat/caixa.js';
 
 export class ErroModoReal extends Error {
   constructor(mensagem, status = 400, codigo = 'modo_real') {
@@ -96,9 +97,19 @@ export function criarGerenciador({
       const base = { sessao_id: sessao.id, organizacao_id: item.organizacaoId, robo_item_id: item.id };
       const s = new SessaoReal({
         sessao, item, adaptador, log,
-        gravar: (ev) => falhaBanco(admin.from('auction_live_bids').insert({
-          ...base, tipo: ev.tipo, autor: ev.autor ?? null, porte: ev.porte ?? null, valor: ev.valor ?? null, fase: ev.fase ?? null, texto: ev.texto ?? null,
-        }), 'Falha ao gravar o evento'),
+        gravar: async (ev) => {
+          // Mensagem do pregoeiro: também vai para a caixa de entrada unificada do chat
+          // (detecção de menção/prazo/anexo e alertas). Falha aqui nunca derruba o robô.
+          if (ev.tipo === 'mensagem' && ev.texto) {
+            registrarMensagens({
+              organizacao_id: item.organizacaoId, portal: item.plataforma, compra_ref: pregao, licitacao_id: linhaItem.licitacao_id ?? null,
+              fonte: 'robo', mensagens: [{ autor: ev.autor || 'Pregoeiro', texto: ev.texto, enviadaEm: ev.hora || null }],
+            }, { supabase: admin, log }).catch((e) => log.aviso?.(`Chat unificado: ${e.message}`));
+          }
+          return falhaBanco(admin.from('auction_live_bids').insert({
+            ...base, tipo: ev.tipo, autor: ev.autor ?? null, porte: ev.porte ?? null, valor: ev.valor ?? null, fase: ev.fase ?? null, texto: ev.texto ?? null,
+          }), 'Falha ao gravar o evento');
+        },
         atualizarSessao: (campos) => falhaBanco(admin.from('robo_sessoes').update(campos).eq('id', sessao.id), 'Falha ao atualizar a sessão'),
         atualizarItem: (campos) => falhaBanco(admin.from('robo_itens').update(campos).eq('id', item.id), 'Falha ao atualizar o item'),
         historico,

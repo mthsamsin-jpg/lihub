@@ -55,7 +55,7 @@ begin
   -- 3. Visões e tabelas do LicitaHub (as do agendamentos não estão na lista)
   drop view if exists public.vw_crm_cards, public.vw_consentimentos_atuais;
   drop table if exists
-    public.robo_concorrentes, public.robo_historico, public.mercado_resultados, public.mercado_coleta,
+    public.robo_concorrentes, public.robo_historico, public.mercado_resultados, public.mercado_coleta, public.chat_mensagens,
     public.auction_live_bids, public.robo_sessoes, public.portal_credentials,
     public.robo_itens, public.documentos, public.propostas, public.radares, public.eventos, public.monitoramentos,
     public.crm_cards, public.favoritos, public.licitacao_observacoes, public.analises_edital, public.licitacao_itens,
