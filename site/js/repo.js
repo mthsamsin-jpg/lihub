@@ -220,13 +220,14 @@ window.LH = window.LH || {};
       let q = db().from('licitacoes').select(COLUNAS)
         .eq('uf', uf).eq('municipio', municipio)
         .gte('data_encerramento_proposta', new Date().toISOString());
-      if (f.termo) q = q.textSearch('busca', f.termo, { type: 'websearch', config: 'portugues_sem_acento' });
       if (f.modalidades?.length) q = q.in('modalidade_id', f.modalidades.map(Number));
       if (f.de) q = q.gte('data_abertura_proposta', `${f.de}T00:00:00-03:00`);
       if (f.ate) q = q.lte('data_abertura_proposta', `${f.ate}T23:59:59-03:00`);
-      const { data, error } = await q.order('data_encerramento_proposta', { ascending: true }).limit(100);
+      // Palavras: mesmas regras da busca (começo de palavra; vírgula ou "or" = alternativas).
+      const grupos = LH.termos.grupos(f.termo);
+      const { data, error } = await q.order('data_encerramento_proposta', { ascending: true }).limit(grupos.length ? 1000 : 100);
       if (error) throw erroBanco(error, 'Não consegui carregar as licitações do município');
-      return data.map(normalizar);
+      return data.filter((r) => LH.termos.casa(r.objeto, grupos)).slice(0, 100).map(normalizar);
     },
 
     /** Observações do usuário: ids -> Map(id, texto). */
@@ -700,11 +701,10 @@ window.LH = window.LH || {};
 
   /** Demonstração: aplica os filtros do Radar aos dados de exemplo. */
   function filtrarRadarDemo(f) {
-    const alternativas = sem(f.termo).split(/\s+or\s+/).map((t) => t.replace(/"/g, '').split(/\s+/).filter(Boolean)).filter((t) => t.length);
+    const grupos = LH.termos.grupos(f.termo);
     const municipios = new Set((f.municipios || []).map(sem));
     return LH.dados.licitacoes.filter((l) => {
-      const texto = sem(`${l.objeto} ${l.orgao}`);
-      return (!alternativas.length || alternativas.some((ps) => ps.every((t) => texto.includes(t))))
+      return LH.termos.casa(l.objeto, grupos)
         && (!f.ufs?.length || f.ufs.includes(l.uf))
         && (!municipios.size || municipios.has(sem(l.municipio)))
         && (!f.modalidades?.length || f.modalidades.map(LH.nomeModalidade).includes(l.modalidade))

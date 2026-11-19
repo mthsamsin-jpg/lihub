@@ -536,6 +536,7 @@ LH.vistas = LH.vistas || {};
         areaMun.scrollIntoView({ behavior: 'smooth', block: 'start' });
         try {
           const [favs, lista] = await Promise.all([LH.repo.favoritos(), LH.repo.licitacoesDoMunicipio(ultima.filtros, uf, municipio)]);
+          LH.termosBusca = LH.termos.grupos(ultima.filtros.termo); // marca-texto nos cards do município
           caixaMun.innerHTML = lista.length ? lista.map((l) => LH.cartaoLicitacao(l, favs)).join('')
             : LH.vazio('busca', 'Nada encontrado', 'As licitações deste município podem ter encerrado agora há pouco.');
           LH.revelar(caixaMun);

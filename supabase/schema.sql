@@ -1256,7 +1256,7 @@ as $$
   with grupos as (
     -- cada alternativa (entre vírgulas) vira uma lista de padrões de palavra
     select g.n, array_agg('\m' || w) as padroes
-    from unnest(string_to_array(lower(extensions.unaccent(coalesce(p_termo, ''))), ',')) with ordinality as g(txt, n)
+    from regexp_split_to_table(lower(extensions.unaccent(coalesce(p_termo, ''))), '[[:space:]]+or[[:space:]]+|,') with ordinality as g(txt, n)
     cross join lateral regexp_split_to_table(g.txt, '[^a-z0-9]+') as w
     where w <> ''
     group by g.n
@@ -1264,7 +1264,7 @@ as $$
   consulta as (
     select (select count(*) from grupos) as n_grupos,
            case when nullif(btrim(coalesce(p_termo, '')), '') is null then null::tsquery
-                else websearch_to_tsquery('public.portugues_sem_acento', replace(p_termo, ',', ' or ')) end as q
+                else websearch_to_tsquery('public.portugues_sem_acento', regexp_replace(p_termo, '[[:space:]]*,[[:space:]]*', ' or ', 'g')) end as q
   ),
   base as (
     select l.*, lower(extensions.unaccent(
@@ -1336,26 +1336,36 @@ stable
 security invoker
 set search_path = ''
 as $$
-  with consulta as (
-    select case
-             when nullif(btrim(coalesce(p_termo, '')), '') is null then null::tsquery
-             else websearch_to_tsquery('public.portugues_sem_acento', p_termo)
-           end as q
+  -- Mesmas regras de palavra da buscar_licitacoes: "a or b" / "a, b" = alternativas;
+  -- cada palavra casa com o começo de uma palavra do objeto ou dos itens (sem radical).
+  with grupos as (
+    select g.n, array_agg('\m' || w) as padroes
+    from regexp_split_to_table(lower(extensions.unaccent(coalesce(p_termo, ''))), '[[:space:]]+or[[:space:]]+|,') with ordinality as g(txt, n)
+    cross join lateral regexp_split_to_table(g.txt, '[^a-z0-9]+') as w
+    where w <> ''
+    group by g.n
+  ),
+  base as (
+    select l.uf, l.municipio, lower(extensions.unaccent(
+             coalesce(l.objeto, '') || ' ' ||
+             coalesce((select string_agg(i.descricao, ' ') from public.licitacao_itens i where i.licitacao_id = l.id), '')
+           )) as texto
+    from public.licitacoes l
+    where l.municipio is not null
+      and l.data_encerramento_proposta >= now()
+      and (p_ufs is null or cardinality(p_ufs) = 0 or l.uf = any (p_ufs))
+      and (p_municipios is null or cardinality(p_municipios) = 0
+           or lower(extensions.unaccent(l.municipio)) = any (
+                select lower(extensions.unaccent(btrim(m))) from unnest(p_municipios) as m))
+      and (p_modalidades is null or cardinality(p_modalidades) = 0 or l.modalidade_id = any (p_modalidades))
+      and (p_abertura_de is null or l.data_abertura_proposta >= p_abertura_de::timestamptz)
+      and (p_abertura_ate is null or l.data_abertura_proposta < (p_abertura_ate + 1)::timestamptz)
   )
-  select l.uf, l.municipio, count(*) as total
-  from public.licitacoes l
-  cross join consulta c
-  where (c.q is null or l.busca @@ c.q)
-    and l.municipio is not null
-    and l.data_encerramento_proposta >= now()
-    and (p_ufs is null or cardinality(p_ufs) = 0 or l.uf = any (p_ufs))
-    and (p_municipios is null or cardinality(p_municipios) = 0
-         or lower(extensions.unaccent(l.municipio)) = any (
-              select lower(extensions.unaccent(btrim(m))) from unnest(p_municipios) as m))
-    and (p_modalidades is null or cardinality(p_modalidades) = 0 or l.modalidade_id = any (p_modalidades))
-    and (p_abertura_de is null or l.data_abertura_proposta >= p_abertura_de::timestamptz)
-    and (p_abertura_ate is null or l.data_abertura_proposta < (p_abertura_ate + 1)::timestamptz)
-  group by l.uf, l.municipio
+  select b.uf, b.municipio, count(*) as total
+  from base b
+  where not exists (select 1 from grupos)
+     or exists (select 1 from grupos g where (select bool_and(b.texto ~ p) from unnest(g.padroes) as p))
+  group by b.uf, b.municipio
   order by total desc
   limit 5000;
 $$;
