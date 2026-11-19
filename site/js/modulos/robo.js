@@ -549,7 +549,7 @@ LH.vistas = LH.vistas || {};
         descricao: `${l.edital ? `Pregão ${l.edital} · ` : ''}${l.objeto}`.slice(0, 300),
         plataforma: CHAVES_ROBO.has(LH.roboFeed.chaveDoPortal(l)) ? LH.roboFeed.chaveDoPortal(l) : 'outros',
         licitacaoId: l.id, pregaoRef: l.edital || l.numero, quantidade: 1, nossoPorte: 'demais',
-        teto: l.valor ?? null, piso: comPiso ? (l.valor ?? null) : null, custo: null, decremento: 0.01, intervaloSeg: 20,
+        teto: l.valor > 0 ? l.valor : null, piso: comPiso && l.valor > 0 ? l.valor : null, custo: null, decremento: 0.01, intervaloSeg: 20,
       });
       const rolarAte = (id) => requestAnimationFrame(() => caixa.querySelector(`[data-item="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
       const comecar = (i, { monitorar }) => {
@@ -561,8 +561,8 @@ LH.vistas = LH.vistas || {};
       const monitorar = async (l) => {
         const existente = itemDaLicitacao(l);
         if (existente) { comecar(existente, { monitorar: true }); return; }
-        if (l.valor == null) {
-          LH.aviso('O valor estimado deste pregão é sigiloso: informe o teto para o robô acompanhar.', 'info', 6000);
+        if (!(Number(l.valor) > 0)) {
+          LH.aviso('Este pregão não informa o valor estimado (sigiloso): informe o teto para o robô acompanhar.', 'info', 6000);
           abrirForm(doFeed(l, { comPiso: false }), false, { depois: (i) => comecar(i, { monitorar: true }) });
           return;
         }

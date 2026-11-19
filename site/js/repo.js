@@ -31,7 +31,8 @@ window.LH = window.LH || {};
       uf: r.uf || '—',
       municipio: r.municipio || '',
       modalidade: r.modalidade_nome || 'Licitação',
-      valor: r.valor_estimado == null ? null : Number(r.valor_estimado),
+      // O PNCP manda 0 quando o órgão não informa o valor (ou ele é sigiloso): vira "sem valor".
+      valor: Number(r.valor_estimado) > 0 ? Number(r.valor_estimado) : null,
       abertura: prazo ? LH.datas.paraIso(prazo) : null,
       hora: prazo ? `${dois(prazo.getHours())}:${dois(prazo.getMinutes())}` : '',
       plataforma: r.sistema_origem || 'Não informada',
@@ -72,8 +73,26 @@ window.LH = window.LH || {};
   }
 
   /** Erro do banco em português (sem detalhes técnicos para o usuário). */
+  // Regras (CHECK) do banco com mensagem útil para quem usa.
+  const REGRAS = {
+    robo_itens_max_price_check: 'O preço teto precisa ser maior que zero.',
+    robo_itens_min_floor_price_check: 'O preço mínimo (piso) precisa ser maior que zero.',
+    robo_itens_piso_teto: 'O piso não pode ser maior que o preço teto.',
+    robo_itens_piso_custo: 'O piso não pode ser menor que o seu custo.',
+    robo_itens_descricao_check: 'A descrição do item precisa ter de 1 a 300 caracteres.',
+    robo_itens_pregao_ref: 'O número do pregão está longo demais (máximo 120 caracteres).',
+    robo_itens_quantidade: 'A quantidade precisa ser de 1 a 100 milhões.',
+  };
+
   function erroBanco(error, contexto = 'Não foi possível concluir') {
     const msg = String(error?.message || '');
+    // Detalhe técnico só no console (ajuda o suporte); a pessoa vê o aviso em português.
+    try { console.error(`[LicitaHub] ${contexto}`, { code: error?.code, message: msg, details: error?.details, hint: error?.hint }); } catch { /* sem console */ }
+    if (error?.code === '23514') {
+      const regra = Object.keys(REGRAS).find((r) => msg.includes(`"${r}"`));
+      if (regra) return new Error(REGRAS[regra]);
+      return new Error(`${contexto}: algum valor está fora do permitido. Confira os campos.`);
+    }
     if (error?.code === '23505') return new Error('Esse registro já existe.');
     if (error?.code === '42501') return new Error('Você não tem permissão para fazer isso nesta organização.');
     if (/Failed to fetch|NetworkError/i.test(msg)) return new Error('Sem conexão com o banco de dados. Confira a internet.');
@@ -964,5 +983,6 @@ window.LH = window.LH || {};
   };
 
   LH.repos = { real, demo };
+  LH.repoInterno = { normalizar, erroBanco }; // usado pelos testes automáticos
   LH.repo = demo;
 })();
