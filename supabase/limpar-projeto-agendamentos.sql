@@ -67,7 +67,7 @@ begin
     'public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int)',
     'public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[])',
     'public.buscar_licitacoes(text, text[], int[], numeric, numeric, timestamptz, boolean, text, int, int, text[], text, timestamptz, text, text[], boolean, text[])',
-    'public.tipo_objeto(text)', 'public.mercado_pesquisa(text, text[], text, int, int)', 'public.mercado_concorrente_painel(text)', 'public.banco_tamanho_mb()', 'public.licitacoes_external_id()',
+    'public.tipo_objeto(text)', 'public.radar_novidades(text, text[], text[], int[], timestamptz, int)', 'public.radar_destinatarios(uuid[])', 'public.mercado_pesquisa(text, text[], text, int, int)', 'public.mercado_concorrente_painel(text)', 'public.banco_tamanho_mb()', 'public.licitacoes_external_id()',
     'public.mercado_concorrentes(text, int)', 'public.mercado_concorrente_itens(text, int)', 'public.mercado_precos(text, text[], text, date)',
     'public.radar_contagem(text, text[], text[], int[], date, date)',
     'public.exportar_meus_dados()', 'public.criar_organizacao(text, text)',

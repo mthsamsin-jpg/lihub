@@ -562,7 +562,7 @@ LH.vistas = LH.vistas || {};
               <label class="chave"><input type="checkbox" data-alternar="${r.id}" ${r.ativo ? 'checked' : ''}> ${r.ativo ? 'Ligado' : 'Desligado'}</label>
             </div>
             <div class="chips">${r.palavras.map((p) => `<span class="chip">${esc(p)}</span>`).join('') || '<span class="fraco">Todos os objetos</span>'}</div>
-            <p class="fraco" style="margin-top:10px">${esc(regiao)} · ${r.modalidades.length ? esc(r.modalidades.join(', ')) : 'Todas as modalidades'}</p>
+            <p class="fraco" style="margin-top:10px">${esc(regiao)} · ${r.modalidades.length ? esc(r.modalidades.join(', ')) : 'Todas as modalidades'}${r.ativo && r.canais?.email !== false ? ` · ${LH.icone('email')} aviso diário por e-mail` : ''}</p>
             <div class="card__rodape">
               <span class="selo selo--info">${qtd == null ? 'Sem conexão' : `${fmt.numero(qtd)} aberta(s) agora`}</span>
               <button class="btn btn--pequeno btn--primario" type="button" data-abrir="${r.id}">${LH.icone('local')} Ver no mapa</button>
@@ -592,12 +592,10 @@ LH.vistas = LH.vistas || {};
         LH.modal({
           titulo: 'Salvar como radar',
           html: `
-            <p>Você recebe alertas de novas licitações ${ultima.cidade ? `nos ${fmt.numero(municipios.length)} município(s) deste raio` : `em ${esc(NOMES_UF[ultima.uf])}`}.</p>
+            <p>Todo dia de manhã você recebe por e-mail as licitações novas ${ultima.cidade ? `nos ${fmt.numero(municipios.length)} município(s) deste raio` : `em ${esc(NOMES_UF[ultima.uf])}`} que ainda estão recebendo propostas.</p>
             <label class="campo"><span class="campo__rotulo">Nome do radar</span><input id="radar-nome" maxlength="120" value="${esc(sugestao.slice(0, 120))}"></label>
             <div class="chips">
-              <label class="chave"><input type="checkbox" id="radar-email" checked> E-mail</label>
-              <label class="chave"><input type="checkbox" id="radar-telegram"> Telegram</label>
-              <label class="chave"><input type="checkbox" id="radar-computador" checked> Computador</label>
+              <label class="chave"><input type="checkbox" id="radar-email" checked> Aviso diário por e-mail</label>
             </div>`,
           acoes: [
             { rotulo: 'Cancelar', classe: 'btn--fantasma' },
@@ -608,10 +606,10 @@ LH.vistas = LH.vistas || {};
                 await LH.repo.salvarRadar({
                   nome, ativo: true, palavras: ultima.termos, ufs: ultima.filtros.ufs, municipios,
                   modalidades: modalidadesMarcadas(),
-                  canais: ['email', 'telegram', 'computador'].reduce((c, k) => ({ ...c, [k]: fundo.querySelector(`#radar-${k}`).checked }), {}),
+                  canais: { email: fundo.querySelector('#radar-email').checked, telegram: false, computador: false },
                 });
                 fechar();
-                LH.aviso('Radar salvo. Você será avisado das novas licitações.', 'sucesso');
+                LH.aviso(fundo.querySelector('#radar-email')?.checked !== false ? 'Radar salvo. As licitações novas chegam no seu e-mail todo dia de manhã.' : 'Radar salvo.', 'sucesso');
                 desenharRadares();
               } catch (erro) { LH.aviso(erro.message, 'perigo'); }
             } },

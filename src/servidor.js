@@ -24,6 +24,8 @@ import { ligarPncpAoVivo } from './api/pncp-ao-vivo.js';
 import { criarGerenciador } from '../worker/gerenciador.js';
 import { coletarResultados } from './mercado/coletar.js';
 import { descobrirRetro, dentroDaJanela, termosRetro } from './mercado/retro.js';
+import { avisarRadares, enviadorDoAmbiente } from './radar/avisos.js';
+import { canaisDoAmbiente as canaisDeEmail } from '../worker/notificacoes.js';
 import { lerEditaisAutomaticamente } from './ia/leitura-automatica.js';
 
 const log = criarLog('servidor');
@@ -262,6 +264,33 @@ if (mercadoMin > 0) {
   setTimeout(coletarMercado, 5 * 60_000).unref();
   setInterval(coletarMercado, mercadoMin * 60_000).unref();
   log.info(`Inteligência de mercado: coleta de resultados do PNCP a cada ${mercadoMin} min.`);
+}
+
+// Aviso por e-mail dos NOVOS editais de cada radar (resumo diário).
+// RADAR_AVISO=0 desliga; RADAR_AVISO_CRON muda o horário (Brasília; padrão 7h).
+if (process.env.RADAR_AVISO !== '0') {
+  const canaisEmail = canaisDeEmail();
+  const enviarRadar = enviadorDoAmbiente(canaisEmail);
+  if (!enviarRadar) {
+    log.aviso('RESEND_API_KEY não definida: avisos do Radar por e-mail desligados.');
+  } else {
+    const agendaRadar = process.env.RADAR_AVISO_CRON || '0 7 * * *';
+    let avisando = false;
+    try {
+      agendarCron(agendaRadar, async () => {
+        if (avisando) return;
+        avisando = true;
+        try {
+          const r = await avisarRadares({ supabase: admin, enviar: enviarRadar, site: canaisEmail.site, log: criarLog('radar') });
+          log.info(`Radar: ${r.emails} e-mail(s) enviado(s), ${r.licitacoes} licitação(ões) nova(s) em ${r.comNovidade} de ${r.radares} radar(es), ${r.falhas} falha(s).`);
+          if (r.falhas) logColeta.erro('ALERTA_COLETA', { origem: 'radar-avisos', status: 'parcial', falhas: r.falhas, emails: r.emails });
+        } catch (e) {
+          logColeta.erro('ALERTA_COLETA', { origem: 'radar-avisos', status: 'erro', primeiraFalha: e.message });
+        } finally { avisando = false; }
+      }, { log: logColeta });
+      log.info(`Avisos do Radar por e-mail: ${agendaRadar} (horário de Brasília).`);
+    } catch (e) { log.erro(`RADAR_AVISO_CRON inválido: ${e.message}`); }
+  }
 }
 
 // Leitura automática de editais (só organizações que ligaram a opção; respeita a cota).
