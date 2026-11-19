@@ -38,7 +38,7 @@ window.LH = window.LH || {};
     { etapa: 6, rotulo: 'Preço e proposta', icone: 'arquivo', filhos: [
       { id: 'pesquisa-precos', rotulo: 'Pesquisa de Preço' },
       { id: 'ia/cotacao', rotulo: 'Cotação Online IA', tag: 'Beta' },
-      { id: 'proposta/criar', rotulo: 'Criar proposta' },
+      { id: 'proposta/criar', rotulo: 'Gerador de proposta' },
       { id: 'proposta/minhas', rotulo: 'Minhas propostas' },
     ] },
     { etapa: 7, rotulo: 'Disputa', icone: 'chat', filhos: [

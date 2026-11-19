@@ -1171,3 +1171,25 @@ tr.item--termo td:first-child { box-shadow: inset 3px 0 0 #facc15; }
 li.item--termo { box-shadow: inset 3px 0 0 #facc15; border-radius: 8px; }
 .pncp-vivo__achado { margin: 4px 0 8px; font-size: 0.85rem; display: flex; gap: 6px; align-items: center; color: var(--texto-2); }
 .pncp-vivo__achado svg { width: 15px; height: 15px; flex: none; }
+
+/* Gerador de proposta: itens com Item / Qtd. / Unid. / Descrição / Marca / Valor */
+.itens-proposta td { vertical-align: top; }
+.itens-proposta input, .itens-proposta textarea { width: 100%; }
+.itens-proposta textarea { min-height: 40px; resize: vertical; }
+.itens-proposta .col-item { width: 64px; }
+.itens-proposta .col-qtd { width: 84px; }
+.itens-proposta .col-un { width: 90px; }
+.itens-proposta .col-desc { min-width: 260px; }
+.itens-proposta .col-marca { width: 140px; }
+.itens-proposta .col-valor { width: 120px; }
+.itens-proposta .col-total { white-space: nowrap; padding-top: 14px; }
+.campo__com-botao { display: flex; gap: 8px; }
+.campo__com-botao input { flex: 1; min-width: 0; }
+.exportar { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.importar-itens { list-style: none; padding: 0; margin: 8px 0 0; max-height: 52vh; overflow: auto; display: grid; gap: 6px; }
+.importar-itens label { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--card-borda); cursor: pointer; }
+.importar-itens label:hover { border-color: var(--ciano); }
+.importar-itens input { margin-top: 3px; }
+@media (max-width: 640px) {
+  .campo__com-botao { flex-direction: column; }
+}

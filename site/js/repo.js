@@ -12,7 +12,7 @@ window.LH = window.LH || {};
   const sem = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const COLUNAS = 'id, fonte, numero_controle_pncp, objeto, orgao_razao_social, uf, municipio, modalidade_nome, '
     + 'valor_estimado, data_publicacao, data_encerramento_proposta, sistema_origem, link_sistema_origem, link_pncp, orgao_esfera, '
-    + 'unidade_codigo, numero_compra, ano_compra, municipio_ibge';
+    + 'unidade_codigo, numero_compra, ano_compra, municipio_ibge, processo';
   const EXTRAS = ['ie', 'im', 'regime', 'endereco', 'cep', 'representante', 'cpfRepresentante', 'cargo', 'banco', 'agencia', 'conta'];
   const POR_PAGINA = 20;
 
@@ -38,6 +38,8 @@ window.LH = window.LH || {};
       publicada: r.data_publicacao ? LH.datas.paraIso(new Date(r.data_publicacao)) : null,
       fonte: r.fonte === 'manual' ? 'Manual' : 'PNCP',
       linkPncp: r.link_pncp || null,
+      numeroControle: r.numero_controle_pncp || null,
+      processo: r.processo || null,
       linkDisputa: r.link_sistema_origem || null,
       esfera: r.orgao_esfera && r.orgao_esfera !== 'N' ? r.orgao_esfera : null,
       edital: r.numero_compra ? [r.numero_compra, r.ano_compra].filter(Boolean).join('/') : null,
@@ -253,6 +255,20 @@ window.LH = window.LH || {};
       if (error) throw erroBanco(error, 'Não consegui salvar a observação');
     },
 
+    /** Licitação pelo ID do LicitaHub, nº de controle PNCP ou link do PNCP (.../editais/CNPJ/ANO/SEQ). */
+    async licitacaoPorCodigo(texto) {
+      const t = String(texto || '').trim();
+      if (/^\d{1,12}$/.test(t)) return (await real.licitacoes([Number(t)]))[0] || null;
+      let q = null;
+      const controle = /(\d{14})-\d+-(\d+)\/(\d{4})/.exec(t);
+      const link = /(\d{14})\/(\d{4})\/(\d+)/.exec(t);
+      if (controle) q = db().from('licitacoes').select(COLUNAS).eq('numero_controle_pncp', controle[0]);
+      else if (link) q = db().from('licitacoes').select(COLUNAS).eq('orgao_cnpj', link[1]).eq('ano_compra', Number(link[2])).eq('sequencial_compra', Number(link[3]));
+      else throw new Error('Use o ID (número), o nº de controle PNCP (ex.: 04628376000104-1-000060/2026) ou o link do PNCP.');
+      const { data, error } = await q.limit(1);
+      if (error) throw erroBanco(error, 'Não consegui procurar a licitação');
+      return data?.[0] ? (await anexarCapag([normalizar(data[0])]))[0] : null;
+    },
     async licitacoes(ids) {
       const lista = [...new Set(ids.map(Number))].filter(Boolean);
       if (!lista.length) return [];
@@ -535,7 +551,7 @@ window.LH = window.LH || {};
       const linha = {
         numero: p.numero, status: p.status || 'Rascunho', licitacao_id: p.licitacaoId || null, licitacao_resumo: p.licitacao || null,
         validade_dias: Number(p.validade) || null, prazo: p.prazo || null, pagamento: p.pagamento || null,
-        observacoes: p.observacoes || null, itens: p.itens || [], total: Number(p.total) || 0, empresa_id: ctx().empresaAtual || null,
+        observacoes: p.observacoes || null, itens: p.itens || [], total: Number(p.total) || 0, empresa_id: p.empresaId || ctx().empresaAtual || null,
       };
       const r = p.id
         ? await db().from('propostas').update(linha).eq('id', p.id).select('id').single()
@@ -679,6 +695,7 @@ window.LH = window.LH || {};
       id: r.id, numero: r.numero, status: r.status, licitacaoId: r.licitacao_id, licitacao: r.licitacao_resumo,
       criada: LH.datas.paraIso(new Date(r.criado_em)), validade: r.validade_dias || 60, prazo: r.prazo || '',
       pagamento: r.pagamento || '', observacoes: r.observacoes || '', itens: r.itens || [], total: Number(r.total) || 0,
+      empresaId: r.empresa_id || null,
     };
   }
 
@@ -843,6 +860,10 @@ window.LH = window.LH || {};
     async removerDocumento(doc) { LH.estado.salvar('documentos', LH.estado.obter('documentos').filter((d) => d.id !== doc.id)); },
     abrirArquivo: async () => { throw new Error('Na demonstração o arquivo não fica guardado.'); },
 
+    async licitacaoPorCodigo(texto) {
+      const t = String(texto || '').trim();
+      return LH.dados.licitacoes.find((l) => String(l.id) === t || String(l.numero) === t) || null;
+    },
     propostas: async () => LH.estado.obter('propostas'),
     proposta: async (id) => LH.estado.obter('propostas').find((p) => p.id === id) ?? null,
     proximoNumeroProposta: async () => `PROP-${new Date().getFullYear()}-${String(LH.estado.obter('propostas').length + 14).padStart(3, '0')}`,

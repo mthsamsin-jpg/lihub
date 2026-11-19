@@ -17,39 +17,64 @@ LH.vistas = LH.vistas || {};
   const licitacaoDe = (p) => p.licitacao || LH.licitacaoEmCache(p.licitacaoId) || null;
 
   // --- Criar proposta ------------------------------------------------------------
+  // Cabeçalho da licitação (preenchido sozinho e editável), empresa proponente,
+  // itens com Item / Qtd / Unid. / Descrição / Marca / Valor unitário, totais em
+  // tempo real e exportação em PDF (impressão) ou Word (.doc).
+  const UNIDADES = ['UN', 'SV', 'CX', 'PCT', 'KG', 'G', 'L', 'ML', 'M', 'M²', 'M³', 'RL', 'FD', 'GL', 'PÇ', 'PAR', 'JG', 'KIT', 'RESMA', 'DZ', 'HORA', 'DIÁRIA', 'MÊS', 'ANO'];
+  const CAMPOS_LIC = ['orgao', 'uf', 'municipio', 'modalidade', 'numero', 'processo', 'objeto', 'publicacao', 'abertura', 'hora', 'idPncp'];
+
+  /** Licitação da tela -> cabeçalho da proposta. */
+  const cabecalhoDe = (l) => (l ? {
+    orgao: l.orgao || '', uf: l.uf && l.uf !== '—' ? l.uf : '', municipio: l.municipio || '', modalidade: l.modalidade || '',
+    numero: l.edital || numeroCurto(l.numero) || '', processo: l.processo || '', objeto: l.objeto || '',
+    publicacao: l.publicada || '', abertura: l.abertura || '', hora: l.hora || '', idPncp: l.numeroControle || l.numero || '',
+  } : null);
+
+  /** Empresa proponente: a escolhida na proposta, senão a empresa ativa. */
+  const empresaDe = (p) => {
+    const lista = LH.repo.empresas?.() || [];
+    return lista.find((e) => String(e.id) === String(p.empresaId)) || empresa();
+  };
+
   function linhaItem(item = {}, i = 0) {
+    const unit = item.unitario ? String(item.unitario).replace('.', ',') : '';
     return `
       <tr>
-        <td>${i + 1}</td>
-        <td><input name="descricao" value="${esc(item.descricao || '')}" placeholder="Descrição do item conforme o edital" required></td>
-        <td class="col-un"><input name="unidade" value="${esc(item.unidade || 'un')}"></td>
-        <td class="col-qtd"><input name="quantidade" inputmode="decimal" value="${esc(item.quantidade ?? 1)}"></td>
-        <td class="col-valor"><input name="unitario" inputmode="decimal" value="${esc(item.unitario ? String(item.unitario).replace('.', ',') : '')}" placeholder="0,00"></td>
-        <td class="numero" data-total>—</td>
+        <td class="col-item"><input name="item" inputmode="numeric" value="${esc(item.numero ?? i + 1)}" aria-label="Número do item"></td>
+        <td class="col-qtd"><input name="quantidade" inputmode="decimal" value="${esc(item.quantidade ?? 1)}" aria-label="Quantidade"></td>
+        <td class="col-un"><input name="unidade" list="unidades-proposta" value="${esc(item.unidade || 'UN')}" aria-label="Unidade"></td>
+        <td class="col-desc"><textarea name="descricao" rows="2" placeholder="Descrição / especificação conforme o edital" required aria-label="Descrição">${esc(item.descricao || '')}</textarea></td>
+        <td class="col-marca"><input name="marca" value="${esc(item.marca || '')}" placeholder="Marca/modelo" aria-label="Marca"></td>
+        <td class="col-valor"><input name="unitario" inputmode="decimal" value="${esc(unit)}" placeholder="0,00" aria-label="Valor unitário"></td>
+        <td class="numero col-total" data-total>—</td>
         <td><button class="btn-icone btn-icone--pequeno" type="button" data-remover aria-label="Remover item">${icone('lixeira')}</button></td>
       </tr>`;
   }
 
   function folhaProposta(p) {
-    const e = empresa();
-    const l = licitacaoDe(p);
+    const e = empresaDe(p);
+    const l = p.licitacao || {};
     const total = p.itens.reduce((s, it) => s + it.quantidade * it.unitario, 0);
+    const local = [l.municipio, l.uf].filter(Boolean).join('/');
+    const ref = [l.modalidade, l.numero && `nº ${l.numero}`].filter(Boolean).join(' ');
+    const temMarca = p.itens.some((it) => it.marca);
     return `
       <div class="folha">
         <h2>PROPOSTA COMERCIAL</h2>
         <p class="fraco" style="text-align:center">${esc(p.numero)} · ${esc(fmt.dataLonga(p.criada || LH.datas.hoje()))}</p>
-        <h3>Ao(À) ${esc(l ? l.orgao : 'órgão licitante')}</h3>
-        <p>Ref.: ${esc(l ? `${l.modalidade} nº ${numeroCurto(l.numero)}` : 'edital')}${l ? ` — ${esc(l.objeto)}` : ''}</p>
+        <h3>Ao(À) ${esc(l.orgao || 'órgão licitante')}${local ? ` · ${esc(local)}` : ''}</h3>
+        <p>Ref.: ${esc(ref || 'edital')}${l.processo ? ` · Processo ${esc(l.processo)}` : ''}${l.abertura ? ` · Abertura em ${esc(fmt.data(l.abertura))}${l.hora ? ` às ${esc(l.hora)}` : ''}` : ''}</p>
+        ${l.objeto ? `<p><strong>Objeto:</strong> ${esc(l.objeto)}</p>` : ''}
         <h3>Proponente</h3>
-        <p><strong>${esc(e.razao || '—')}</strong> · CNPJ ${esc(e.cnpj ? LH.cnpj.mascara(e.cnpj) : 'não informado')}<br>
+        <p><strong>${esc(e.razao || '—')}</strong> · CNPJ ${esc(e.cnpj ? LH.cnpj.mascara(e.cnpj) : 'não informado')}${e.ie ? ` · IE ${esc(e.ie)}` : ''}<br>
         ${esc([e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.cep].filter(Boolean).join(' · ') || 'Endereço não informado')}<br>
         ${esc([e.email, e.telefone].filter(Boolean).join(' · '))}</p>
         <h3>Itens</h3>
         <table>
-          <thead><tr><th>#</th><th>Descrição</th><th>Un.</th><th class="numero">Qtd.</th><th class="numero">Valor unitário</th><th class="numero">Valor total</th></tr></thead>
-          <tbody>${p.itens.map((it, i) => `<tr><td>${i + 1}</td><td>${esc(it.descricao)}</td><td>${esc(it.unidade)}</td>
+          <thead><tr><th>Item</th><th>Descrição / especificação</th>${temMarca ? '<th>Marca</th>' : ''}<th>Un.</th><th class="numero">Qtd.</th><th class="numero">Valor unitário</th><th class="numero">Valor total</th></tr></thead>
+          <tbody>${p.itens.map((it, i) => `<tr><td>${esc(it.numero ?? i + 1)}</td><td>${esc(it.descricao)}</td>${temMarca ? `<td>${esc(it.marca || '')}</td>` : ''}<td>${esc(it.unidade)}</td>
             <td class="numero">${fmt.numero(it.quantidade)}</td><td class="numero">${fmt.moeda(it.unitario)}</td><td class="numero">${fmt.moeda(it.quantidade * it.unitario)}</td></tr>`).join('')}</tbody>
-          <tfoot><tr><th colspan="5" class="numero">Valor global</th><th class="numero">${fmt.moeda(total)}</th></tr></tfoot>
+          <tfoot><tr><th colspan="${temMarca ? 6 : 5}" class="numero">Valor global</th><th class="numero">${fmt.moeda(total)}</th></tr></tfoot>
         </table>
         <p style="margin-top:8px"><strong>Valor global:</strong> ${fmt.moeda(total)} (${esc(LH.porExtenso(total))}).</p>
         <h3>Condições</h3>
@@ -59,49 +84,138 @@ LH.vistas = LH.vistas || {};
         <p>Declaramos que os preços propostos incluem todos os custos e despesas, como tributos, encargos sociais, trabalhistas, fretes e seguros, necessários ao cumprimento integral do objeto.</p>
         ${p.observacoes ? `<p>${esc(p.observacoes)}</p>` : ''}
         ${e.banco ? `<p>Dados bancários: ${esc(e.banco)}, agência ${esc(e.agencia)}, conta ${esc(e.conta)}.</p>` : ''}
-        <div class="folha__assinatura"><span></span>${esc(e.representante || 'Representante legal')}<br>${esc(e.cargo || '')} · ${esc(e.razao || '')}</div>
+        <div class="folha__assinatura"><span></span>${esc(e.representante || 'Representante legal')}${e.cpfRepresentante ? ` · CPF ${esc(e.cpfRepresentante)}` : ''}<br>${esc(e.cargo || '')} · ${esc(e.razao || '')}</div>
       </div>`;
   }
 
+  /** Proposta em Word (.doc): HTML com estilos de impressão, que o Word abre e edita. */
+  function baixarWord(p) {
+    const estilos = `body{font-family:Arial,sans-serif;font-size:11pt;color:#000}h2{text-align:center;font-size:15pt}h3{font-size:12pt;margin:14pt 0 4pt}
+      table{border-collapse:collapse;width:100%}th,td{border:1px solid #444;padding:4pt;font-size:10pt;vertical-align:top}th{background:#e8e8e8}
+      .numero{text-align:right}.fraco{color:#444}.folha__assinatura{margin-top:48pt;text-align:center}.folha__assinatura span{display:block;width:60%;margin:0 auto 4pt;border-top:1px solid #000}`;
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${esc(p.numero)}</title><style>${estilos}</style></head><body>${folhaProposta(p)}</body></html>`;
+    const url = URL.createObjectURL(new Blob(['﻿', html], { type: 'application/msword' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: `Proposta-${String(p.numero).replace(/[^\w-]+/g, '_')}.doc` });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
+  /** Janela para escolher quais itens do edital entram na proposta. */
+  function escolherItensDoEdital(itens, aoConfirmar) {
+    const grupos = LH.termosBusca || [];
+    LH.modal({
+      titulo: 'Importar itens do edital',
+      html: `<p class="fraco">${fmt.numero(itens.length)} item(ns) publicados no PNCP. Marque os que você vai cotar.</p>
+        <label class="itens-termo__so" style="margin:6px 0"><input type="checkbox" data-todos checked> Marcar todos</label>
+        <ul class="importar-itens">${itens.map((it, k) => `<li><label>
+          <input type="checkbox" data-k="${k}" checked>
+          <span><b>Item ${esc(it.numero ?? k + 1)}</b> · ${LH.termos.destacar(it.descricao, grupos)}<br>
+          <small class="fraco">${it.quantidade == null ? '—' : fmt.numero(it.quantidade)} ${esc(it.unidade || '')}${it.valorUnitario ? ` · estimado ${fmt.moeda(it.valorUnitario)}/un.` : ''}</small></span></label></li>`).join('')}</ul>`,
+      acoes: [
+        { rotulo: 'Cancelar', classe: 'btn--fantasma' },
+        {
+          rotulo: 'Adicionar à proposta', classe: 'btn--primario',
+          acao: (fechar, fundo) => {
+            const marcados = [...fundo.querySelectorAll('[data-k]:checked')].map((c) => itens[Number(c.dataset.k)]);
+            if (!marcados.length) return LH.aviso('Marque pelo menos um item.', 'alerta');
+            fechar();
+            aoConfirmar(marcados);
+          },
+        },
+      ],
+    });
+    const fundo = [...document.querySelectorAll('.modal-fundo')].at(-1);
+    fundo.querySelector('[data-todos]').addEventListener('change', (e) => {
+      fundo.querySelectorAll('[data-k]').forEach((c) => { c.checked = e.target.checked; });
+    });
+  }
+
+  /** Item do PNCP -> item da proposta (o valor estimado NÃO vira o preço: o preço é do licitante). */
+  const itemDoEdital = (it, k) => ({
+    numero: it.numero ?? k + 1, descricao: it.descricao || '', unidade: String(it.unidade || 'UN').toUpperCase().slice(0, 12),
+    quantidade: Number(it.quantidade) || 1, unitario: 0, marca: '',
+  });
+
   LH.vistas['proposta/criar'] = {
-    titulo: 'Criar proposta',
+    titulo: 'Gerador de proposta',
     trilha: 'Gerador de proposta',
     render: (p) => `
       ${LH.cabecalho({
-        titulo: p.id ? 'Proposta' : 'Criar proposta',
-        texto: 'Monte a proposta comercial com os itens do edital. O valor total e o valor por extenso são calculados sozinhos.',
+        titulo: p.id ? 'Proposta' : 'Gerador de proposta',
+        texto: 'Escolha a licitação (ou preencha à mão), a empresa e os itens. Totais e valor por extenso são calculados sozinhos; exporte em PDF ou Word.',
         acoes: `<a class="btn" href="#/proposta/minhas">${icone('arquivo')} Minhas propostas</a>`,
       })}
-      ${!empresa().cnpj ? `<p class="nota" data-reveal style="margin-bottom:18px">${icone('info')} Complete os dados da sua empresa em <a href="#/empresa">Sua empresa</a>: eles entram automaticamente na proposta.</p>` : ''}
       <form class="grade" id="form-proposta" autocomplete="off">
+        <datalist id="unidades-proposta">${UNIDADES.map((u) => `<option value="${u}"></option>`).join('')}</datalist>
         <section class="card spot form" data-reveal>
-          <div class="card__titulo"><h2>${icone('arquivo')} Licitação e condições</h2><span class="selo" id="numero-proposta">…</span></div>
-          <label class="campo"><span class="campo__rotulo">Licitação</span>
-            <select name="licitacaoId" required><option value="">Carregando...</option></select></label>
+          <div class="card__titulo"><h2>${icone('arquivo')} Licitação</h2><span class="selo" id="numero-proposta">…</span></div>
+          <div class="form__linha">
+            <label class="campo"><span class="campo__rotulo">Minhas licitações (favoritas e CRM)</span>
+              <select name="licitacaoId"><option value="">Carregando...</option></select></label>
+            <label class="campo"><span class="campo__rotulo">ou ID / nº de controle PNCP / link do PNCP</span>
+              <span class="campo__com-botao"><input name="codigo" placeholder="ex.: 12345 ou 04628376000104-1-000060/2026">
+              <button class="btn" type="button" data-acao="buscar-licitacao">${icone('busca')} Buscar</button></span></label>
+          </div>
+          <p class="fraco" id="lic-status" aria-live="polite">Os campos abaixo são preenchidos sozinhos e podem ser editados (ou preenchidos à mão).</p>
+          <div class="form__linha">
+            <label class="campo"><span class="campo__rotulo">Órgão</span><input name="orgao" maxlength="200" placeholder="ex.: Prefeitura Municipal de Campinas"></label>
+            <label class="campo"><span class="campo__rotulo">UF</span><select name="uf">${LH.opcoesUf('')}</select></label>
+            <label class="campo"><span class="campo__rotulo">Cidade</span><input name="municipio" maxlength="120"></label>
+          </div>
+          <div class="form__linha">
+            <label class="campo"><span class="campo__rotulo">Modalidade</span><input name="modalidade" maxlength="80" placeholder="ex.: Pregão Eletrônico"></label>
+            <label class="campo"><span class="campo__rotulo">Nº da compra / edital</span><input name="numero" maxlength="60" placeholder="ex.: 90010/2026"></label>
+            <label class="campo"><span class="campo__rotulo">Processo</span><input name="processo" maxlength="80"></label>
+          </div>
+          <div class="form__linha">
+            <label class="campo"><span class="campo__rotulo">Publicação</span><input type="date" name="publicacao"></label>
+            <label class="campo"><span class="campo__rotulo">Abertura da sessão</span><input type="date" name="abertura"></label>
+            <label class="campo"><span class="campo__rotulo">Hora</span><input type="time" name="hora"></label>
+          </div>
+          <label class="campo"><span class="campo__rotulo">Objeto</span><textarea name="objeto" rows="2" maxlength="2000"></textarea></label>
+          <input type="hidden" name="idPncp">
+        </section>
+
+        <section class="card spot form" data-reveal>
+          <div class="card__titulo"><h2>${icone('predio')} Empresa e condições</h2></div>
+          <div class="form__linha">
+            <label class="campo"><span class="campo__rotulo">Empresa proponente</span><select name="empresaId"></select></label>
+            <p class="fraco" id="empresa-resumo" style="align-self:end"></p>
+          </div>
           <div class="form__linha">
             <label class="campo"><span class="campo__rotulo">Validade da proposta (dias)</span><input name="validade" inputmode="numeric" value="60"></label>
             <label class="campo"><span class="campo__rotulo">Prazo de entrega/execução</span><input name="prazo" maxlength="200" placeholder="ex.: 15 dias após o pedido"></label>
             <label class="campo"><span class="campo__rotulo">Condições de pagamento</span><input name="pagamento" maxlength="200" placeholder="ex.: 30 dias após o aceite"></label>
           </div>
         </section>
+
         <section class="card spot" data-reveal>
           <div class="card__titulo"><h2>${icone('etiqueta')} Itens</h2>
-            <button class="btn btn--pequeno" type="button" data-acao="item">${icone('mais')} Adicionar item</button></div>
+            <span class="chips">
+              <button class="btn btn--pequeno" type="button" data-acao="importar">${icone('baixar')} Importar itens do edital</button>
+              <button class="btn btn--pequeno" type="button" data-acao="item">${icone('mais')} Adicionar item</button>
+            </span></div>
           <div class="tabela-rolagem">
-            <table class="tabela itens">
-              <thead><tr><th>#</th><th>Descrição</th><th>Unid.</th><th>Qtd.</th><th>Valor unit. (R$)</th><th class="numero">Total</th><th></th></tr></thead>
+            <table class="tabela itens itens-proposta">
+              <thead><tr><th>Item</th><th>Qtd.</th><th>Unid.</th><th>Descrição / especificação</th><th>Marca</th><th>Valor unit. (R$)</th><th class="numero">Total</th><th></th></tr></thead>
               <tbody id="itens">${linhaItem({}, 0)}</tbody>
             </table>
           </div>
           <div class="total-geral"><span class="suave">Valor global</span><strong id="total">R$ 0,00</strong></div>
           <p class="fraco" id="extenso" style="text-align:right"></p>
           <label class="campo" style="margin-top:14px"><span class="campo__rotulo">Observações (opcional)</span>
-            <textarea name="observacoes" maxlength="2000" placeholder="Marca/modelo, garantia, assistência técnica..."></textarea></label>
+            <textarea name="observacoes" maxlength="2000" placeholder="Garantia, assistência técnica, frete..."></textarea></label>
           <div class="card__rodape">
             <button class="btn btn--primario" type="submit">${icone('check')} Salvar proposta</button>
             <button class="btn" type="button" data-acao="previa">${icone('olho')} Pré-visualizar</button>
-            <button class="btn" type="button" data-acao="imprimir">${icone('impressora')} Imprimir / PDF</button>
+            <span class="exportar" role="group" aria-label="Exportar">
+              <button class="btn" type="button" data-acao="pdf">${icone('impressora')} Baixar PDF</button>
+              <button class="btn" type="button" data-acao="word">${icone('arquivo')} Baixar Word</button>
+            </span>
           </div>
+          <p class="fraco nao-imprimir">PDF: na janela de impressão, escolha <b>Salvar como PDF</b>. Word: o arquivo .doc abre no Word, LibreOffice ou Google Docs para ajustes finais.</p>
         </section>
       </form>
       ${AVISO_RESPONSABILIDADE}
@@ -109,29 +223,33 @@ LH.vistas = LH.vistas || {};
     montar(raiz, p) {
       const form = raiz.querySelector('#form-proposta');
       const corpo = raiz.querySelector('#itens');
+      const status = raiz.querySelector('#lic-status');
       let atual = null; // proposta aberta (ao editar)
       let numero = '';
+      let lista = []; // licitações do usuário (favoritas/CRM)
 
       const ler = () => {
-        const itens = [...corpo.rows].map((tr) => ({
+        const itens = [...corpo.rows].map((tr, i) => ({
+          numero: tr.querySelector("[name=item]").value.trim() || String(i + 1),
           descricao: tr.querySelector('[name=descricao]').value.trim(),
-          unidade: tr.querySelector('[name=unidade]').value.trim() || 'un',
+          marca: tr.querySelector('[name=marca]').value.trim(),
+          unidade: tr.querySelector('[name=unidade]').value.trim() || 'UN',
           quantidade: fmt.lerNumero(tr.querySelector('[name=quantidade]').value),
           unitario: fmt.lerNumero(tr.querySelector('[name=unitario]').value),
         }));
         const total = itens.reduce((s, it) => s + it.quantidade * it.unitario, 0);
-        const l = LH.licitacaoEmCache(form.licitacaoId.value) || atual?.licitacao || null;
+        const licitacao = Object.fromEntries(CAMPOS_LIC.map((k) => [k, String(form[k].value || '').trim()]));
         return {
           id: atual?.id, numero, criada: atual?.criada || LH.datas.hoje(), status: atual?.status || 'Rascunho',
-          licitacaoId: Number(form.licitacaoId.value) || null,
-          licitacao: l ? { numero: l.numero, objeto: l.objeto, orgao: l.orgao, modalidade: l.modalidade } : null,
+          licitacaoId: Number(form.licitacaoId.value) || atual?.licitacaoId || null,
+          licitacao: Object.values(licitacao).some(Boolean) ? licitacao : null,
+          empresaId: form.empresaId.value || null,
           validade: form.validade.value || 60, prazo: form.prazo.value.trim(), pagamento: form.pagamento.value.trim(),
           observacoes: form.observacoes.value.trim(), itens, total,
         };
       };
       const recalcular = () => {
-        [...corpo.rows].forEach((tr, i) => {
-          tr.cells[0].textContent = i + 1;
+        [...corpo.rows].forEach((tr) => {
           const q = fmt.lerNumero(tr.querySelector('[name=quantidade]').value);
           const u = fmt.lerNumero(tr.querySelector('[name=unitario]').value);
           tr.querySelector('[data-total]').textContent = q && u ? fmt.moeda(q * u) : '—';
@@ -145,6 +263,68 @@ LH.vistas = LH.vistas || {};
         caixa.innerHTML = `<div class="secao__titulo nao-imprimir"><h2>Pré-visualização</h2></div>${folhaProposta(ler())}`;
         return caixa;
       };
+      const preencherLicitacao = (cab) => {
+        if (!cab) return;
+        for (const k of CAMPOS_LIC) if (cab[k] != null && form[k]) form[k].value = cab[k];
+      };
+      const usarLicitacao = (l) => {
+        preencherLicitacao(cabecalhoDe(l));
+        if (l?.id && lista.some((x) => x.id === l.id)) form.licitacaoId.value = String(l.id);
+        status.textContent = l ? `Dados de "${(l.objeto || '').slice(0, 80)}" preenchidos. Confira e ajuste se precisar.` : '';
+      };
+      const adicionarItens = (itens) => {
+        const vazia = corpo.rows.length === 1 && !corpo.querySelector('[name=descricao]').value.trim();
+        if (vazia) corpo.innerHTML = '';
+        corpo.insertAdjacentHTML('beforeend', itens.map((it, k) => linhaItem(it, corpo.rows.length + k)).join(''));
+        recalcular();
+        LH.aviso(`${itens.length} item(ns) na proposta. Agora preencha a marca e o seu valor unitário.`, 'sucesso');
+      };
+      const mostrarEmpresa = () => {
+        const e = empresaDe({ empresaId: form.empresaId.value });
+        raiz.querySelector('#empresa-resumo').innerHTML = e.cnpj
+          ? `${esc(LH.cnpj.mascara(e.cnpj))}${e.banco ? ` · banco ${esc(e.banco)} ag. ${esc(e.agencia)} c/c ${esc(e.conta)}` : ' · <a href="#/empresa">cadastre os dados bancários</a>'}`
+          : `${icone('info')} <a href="#/empresa">Complete os dados da empresa</a>: eles entram na proposta.`;
+      };
+
+      // Empresas da conta (a ativa vem marcada).
+      const empresas = LH.repo.empresas?.() || [];
+      form.empresaId.innerHTML = empresas.length
+        ? LH.opcoes(empresas.map((e) => [e.id, `${e.razao || 'Empresa sem nome'}${e.cnpj ? ` · ${LH.cnpj.mascara(e.cnpj)}` : ''}`]), LH.repo.empresaAtualId?.() || '')
+        : '<option value="">Nenhuma empresa cadastrada</option>';
+      form.empresaId.addEventListener('change', mostrarEmpresa);
+      mostrarEmpresa();
+
+      // Busca a licitação pelo ID, nº de controle ou link do PNCP.
+      const buscarCodigo = async () => {
+        const codigo = form.codigo.value.trim();
+        if (!codigo) return LH.aviso('Informe o ID, o nº de controle ou o link do PNCP.', 'alerta');
+        status.textContent = 'Procurando a licitação...';
+        try {
+          const l = await LH.repo.licitacaoPorCodigo(codigo);
+          if (!l) { status.textContent = 'Não achei essa licitação no Uso LicitaHub. Preencha os campos à mão.'; return; }
+          if (!lista.some((x) => x.id === l.id)) {
+            lista = [l, ...lista];
+            form.licitacaoId.innerHTML = LH.opcoes(lista.map((x) => [x.id, `${x.numero} · ${x.objeto.slice(0, 70)}`]), l.id, 'Escolha a licitação');
+          }
+          usarLicitacao(l);
+        } catch (e) { status.textContent = e.message; }
+      };
+
+      // Itens do edital (PNCP) da licitação escolhida.
+      const importar = async () => {
+        const id = Number(form.licitacaoId.value) || atual?.licitacaoId;
+        if (!id) return LH.aviso('Escolha ou busque a licitação primeiro.', 'alerta');
+        if (LH.repo.modo === 'demo') return LH.aviso('Na demonstração não há itens do governo. Entre com a sua conta.', 'alerta');
+        const botao = raiz.querySelector('[data-acao=importar]');
+        botao.disabled = true;
+        const original = botao.innerHTML;
+        botao.textContent = 'Lendo os itens no PNCP...';
+        try {
+          const { itens } = await LH.nuvem.api(`/api/licitacoes/${id}/itens`, { limiteMs: 50_000 });
+          if (!itens?.length) return LH.aviso('O PNCP não tem itens publicados para esta licitação. Adicione à mão.', 'alerta');
+          escolherItensDoEdital(itens, (marcados) => adicionarItens(marcados.map(itemDoEdital)));
+        } catch (e) { LH.aviso(e.message, 'perigo'); } finally { botao.disabled = false; botao.innerHTML = original; }
+      };
 
       // Carrega a proposta (ao editar) ou o próximo número, e as licitações do usuário.
       (async () => {
@@ -157,6 +337,8 @@ LH.vistas = LH.vistas || {};
             form.prazo.value = atual.prazo;
             form.pagamento.value = atual.pagamento;
             form.observacoes.value = atual.observacoes;
+            if (atual.empresaId && empresas.some((e) => String(e.id) === String(atual.empresaId))) form.empresaId.value = atual.empresaId;
+            mostrarEmpresa();
             if (atual.itens?.length) corpo.innerHTML = atual.itens.map(linhaItem).join('');
             raiz.querySelector('h1').textContent = `Proposta ${atual.numero}`;
           } else {
@@ -165,13 +347,26 @@ LH.vistas = LH.vistas || {};
           raiz.querySelector('#numero-proposta').textContent = numero;
           recalcular();
           const escolhida = Number(atual?.licitacaoId || p.licitacao) || null;
-          let lista = await LH.repo.licitacoesDoUsuario();
+          lista = await LH.repo.licitacoesDoUsuario();
           if (escolhida && !lista.some((l) => l.id === escolhida)) lista = [...(await LH.repo.licitacoes([escolhida])), ...lista];
           form.licitacaoId.innerHTML = LH.opcoes(lista.map((l) => [l.id, `${l.numero} · ${l.objeto.slice(0, 70)}`]), escolhida || '',
-            lista.length ? 'Escolha a licitação' : 'Favorite ou acompanhe uma licitação primeiro');
+            lista.length ? 'Escolha a licitação' : 'Nenhuma favorita: busque pelo ID ao lado');
+          if (atual?.licitacao) preencherLicitacao({ ...cabecalhoDe(LH.licitacaoEmCache(escolhida)), ...atual.licitacao });
+          else if (escolhida) usarLicitacao(LH.licitacaoEmCache(escolhida) || lista.find((l) => l.id === escolhida));
+          // Veio da janela "Ver itens" com itens marcados.
+          const pendente = LH.propostaPendente;
+          if (!p.id && pendente && Number(pendente.licitacaoId) === escolhida && pendente.itens?.length) {
+            LH.propostaPendente = null;
+            adicionarItens(pendente.itens.map(itemDoEdital));
+          }
         } catch (e) { LH.aviso(e.message, 'perigo'); }
       })();
 
+      form.licitacaoId.addEventListener('change', () => {
+        const id = Number(form.licitacaoId.value);
+        if (id) usarLicitacao(LH.licitacaoEmCache(id) || lista.find((l) => l.id === id));
+      });
+      form.codigo.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarCodigo(); } });
       corpo.addEventListener('input', recalcular);
       LH.ao(raiz, 'click', '[data-remover]', (e, b) => {
         if (corpo.rows.length === 1) return LH.aviso('A proposta precisa de pelo menos um item.', 'alerta');
@@ -179,16 +374,25 @@ LH.vistas = LH.vistas || {};
         recalcular();
       });
       LH.ao(raiz, 'click', '[data-acao]', (e, b) => {
-        if (b.dataset.acao === 'item') {
+        const acao = b.dataset.acao;
+        if (acao === 'item') {
           corpo.insertAdjacentHTML('beforeend', linhaItem({}, corpo.rows.length));
-          corpo.rows[corpo.rows.length - 1].querySelector('input').focus();
+          corpo.rows[corpo.rows.length - 1].querySelector('textarea').focus();
           recalcular();
         }
-        if (b.dataset.acao === 'previa') previa().scrollIntoView({ behavior: 'smooth' });
-        if (b.dataset.acao === 'imprimir') {
+        if (acao === 'buscar-licitacao') buscarCodigo();
+        if (acao === 'importar') importar();
+        if (acao === 'previa') previa().scrollIntoView({ behavior: 'smooth' });
+        if (acao === 'pdf' || acao === 'word') {
           if (!form.reportValidity()) return;
+          const proposta = ler();
+          if (!proposta.total) return LH.aviso('Preencha a quantidade e o valor unitário dos itens.', 'alerta');
+          if (acao === 'word') return baixarWord(proposta);
           previa();
+          const titulo = document.title;
+          document.title = `Proposta ${proposta.numero}`; // nome sugerido do arquivo PDF
           window.print();
+          setTimeout(() => { document.title = titulo; }, 1000);
         }
       });
       form.addEventListener('submit', async (e) => {

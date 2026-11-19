@@ -247,6 +247,7 @@ window.LH = window.LH || {};
           <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="itens" data-id="${l.id}">${icone('caixa')} Ver itens</button>
           <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="ler-ia" data-id="${l.id}">${icone('brilho')} Ler com IA</button>
           <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="crm" data-id="${l.id}">${icone('kanban')} CRM</button>
+          <button type="button" class="btn btn--pequeno btn--fantasma" data-acao="proposta" data-id="${l.id}">${icone('arquivo')} Gerar proposta</button>
         </div>
       </div>
     </article>`;
@@ -384,7 +385,10 @@ window.LH = window.LH || {};
                 <td>${i.valorTotal == null ? 'Sigiloso' : fmt.moeda(i.valorTotal)}</td>
               </tr>`).join('')}</tbody>
           </table>
-        </div>`;
+        </div>
+        <div class="chips" style="margin-top:12px"><button type="button" class="btn btn--primario" data-proposta-itens="${Number(id)}">${icone('arquivo')} Gerar proposta com os itens visíveis</button>
+          <span class="fraco">Use o filtro ou "Mostrar só esses" para levar só os itens que você vai cotar.</span></div>`;
+      LH.itensAbertos = { id: Number(id), itens };
       return html;
     });
   };
@@ -408,6 +412,20 @@ window.LH = window.LH || {};
 
   // Filtro da janela de itens: só esconde linhas, nunca renumera (o "Item N" é o oficial).
   // Número puro ("12") acha exatamente o Item 12; texto procura na descrição.
+  // "Gerar proposta com os itens visíveis": leva para o gerador só as linhas que estão à mostra.
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest?.('[data-proposta-itens]');
+    if (!b) return;
+    const corpo = b.closest('[data-corpo]');
+    const id = Number(b.dataset.propostaItens);
+    const todos = LH.itensAbertos?.id === id ? LH.itensAbertos.itens : [];
+    const visiveis = new Set([...corpo.querySelectorAll('[data-item-busca]')].filter((tr) => !tr.hidden).map((tr) => tr.dataset.itemNum));
+    const itens = todos.filter((i) => visiveis.has(String(i.numero ?? '')));
+    LH.propostaPendente = { licitacaoId: id, itens: itens.length ? itens : todos };
+    b.closest('.modal-fundo')?.remove();
+    LH.ir(`proposta/criar?licitacao=${id}`);
+  });
+
   // "Mostrar só esses" deixa só os itens com a palavra da busca.
   const filtrarItens = (corpo) => {
     const campo = corpo.querySelector('[data-itens-filtro]');
@@ -476,6 +494,7 @@ window.LH = window.LH || {};
         case 'itens': LH.itensLicitacao(id); break;
         case 'ler-ia': LH.ir(`ia/leitor?id=${id}`); break;
         case 'crm': LH.enviarParaCrm(id); break;
+        case 'proposta': LH.ir(`proposta/criar?licitacao=${id}`); break;
         default: break;
       }
     });
