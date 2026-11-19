@@ -116,6 +116,9 @@ export function criarPagamentos({ token, segredoWebhook = null, urlSite, reposit
     async criarCheckout({ organizacao, usuario, plano, forma = 'avulso' }) {
       const p = PLANOS[plano];
       if (!p?.precos?.mensal) throw new ErroPagamento('Plano inválido.', { codigo: 'plano_invalido' });
+      // Crédito automático desativado: novas assinaturas só no avulso. Avisos de
+      // assinaturas antigas (recorrente) continuam sendo processados.
+      if (forma !== 'avulso') throw new ErroPagamento('Forma de pagamento indisponível.', { codigo: 'forma_invalida' });
       if (!FORMAS.includes(forma)) throw new ErroPagamento('Forma de pagamento inválida.', { codigo: 'forma_invalida' });
       if (organizacao.isento === true) throw new ErroPagamento('Conta isenta: nada a pagar.', { status: 409, codigo: 'conta_isenta' });
       const valor = p.precos.mensal / 100;

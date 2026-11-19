@@ -67,7 +67,7 @@ window.LH = window.LH || {};
             ${robo ? '' : `<div class="paywall__plano"><strong>Pro</strong><span>R$ ${PRECOS.pro}/15 dias</span><small>Prospecção completa e todo o resto, menos o robô</small></div>`}
             <div class="paywall__plano paywall__plano--destaque"><strong>Max</strong><span>R$ ${PRECOS.max}/15 dias</span><small>Tudo, incluindo o Robô Turbo 2.0</small></div>
           </div>
-          <p class="fraco">Pague pelo <strong>Mercado Pago</strong>: Pix, cartão de crédito ou débito (libera 15 dias), ou crédito automático a cada 15 dias.</p>
+          <p class="fraco">Pague pelo <strong>Mercado Pago</strong>: Pix, cartão de crédito ou débito (cada pagamento libera 15 dias).</p>
           <p class="fraco">Seu plano atual: ${LH.esc(LH.plano.nomeAtual())}.</p>`,
         acoes: [
           { rotulo: 'Agora não' },

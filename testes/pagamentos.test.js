@@ -49,13 +49,10 @@ test('checkout avulso: Pix, crédito e débito (sem boleto), valor do plano e av
   assert.equal(corpo.notification_url, 'https://site.test/mercadopago/webhook');
 });
 
-test('checkout recorrente: assinatura a cada 15 dias no crédito; conta isenta nunca é cobrada', async () => {
-  const { pag, pedidos } = montar({ '/preapproval': { id: 'sub1', init_point: 'https://mp/sub' } });
-  const r = await pag.criarCheckout({ organizacao: { id: ORG }, usuario: { email: 'a@b.c' }, plano: 'starter', forma: 'recorrente' });
-  assert.equal(r.url, 'https://mp/sub');
-  assert.equal(pedidos[0].corpo.auto_recurring.transaction_amount, 97);
-  assert.equal(pedidos[0].corpo.auto_recurring.frequency_type, 'days');
-  assert.equal(pedidos[0].corpo.auto_recurring.frequency, 15);
+test('crédito automático desativado; conta isenta nunca é cobrada', async () => {
+  const { pag, pedidos } = montar({});
+  await assert.rejects(pag.criarCheckout({ organizacao: { id: ORG }, usuario: { email: 'a@b.c' }, plano: 'starter', forma: 'recorrente' }), /indisponível/);
+  assert.equal(pedidos.length, 0);
   await assert.rejects(pag.criarCheckout({ organizacao: { id: ORG, isento: true }, usuario: { email: 'a@b.c' }, plano: 'max' }), /isenta/);
 });
 

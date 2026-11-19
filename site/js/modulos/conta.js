@@ -183,13 +183,12 @@ LH.vistas = LH.vistas || {};
               <strong>${max ? 'Max' : 'Pro'} · R$ ${LH.plano.PRECOS[max ? 'max' : 'pro']}/15 dias</strong>
               <p class="fraco">${max ? 'Tudo do Pro + Robô Turbo 2.0, até 20 empresas e 60 leituras por IA por mês.' : 'Prospecção completa (Busca, Radar, Petronect, Favoritas), até 10 empresas e 30 leituras de edital por IA por mês.'}</p>
               <button class="btn ${max ? 'btn--primario' : ''} btn--bloco" type="button" data-acao="assinar" data-plano="${p}" data-forma="avulso">${icone('raio')} Pix, crédito ou débito · 15 dias</button>
-              <button class="btn btn--fantasma btn--bloco btn--pequeno" type="button" data-acao="assinar" data-plano="${p}" data-forma="recorrente">${icone('moeda')} Crédito automático a cada 15 dias</button>
             </div>`;
           }).join('') : ''}
           ${pago && nivel === 'pro' ? '<p class="fraco">Ao assinar o Max, os 15 dias começam na hora do pagamento.</p>' : ''}
           ${pago && c.assinatura?.forma === 'recorrente' && c.assinatura?.status === 'authorized' ? `<button class="btn btn--bloco" type="button" data-acao="cancelar">${icone('fechar')} Cancelar crédito automático</button>` : ''}
           ${!podeGerenciar ? '<p class="nota">Só o dono ou um administrador da organização pode cuidar da assinatura.</p>' : ''}
-          <p class="fraco">Pagamento seguro pelo Mercado Pago (Pix, crédito ou débito). Cada pagamento libera 15 dias; no crédito automático, cancele quando quiser e use até o fim dos dias pagos.</p>
+          <p class="fraco">Pagamento seguro pelo Mercado Pago (Pix, crédito ou débito). Cada pagamento libera 15 dias, sem renovação automática.</p>
         </aside>
       </div>`;
     },
@@ -289,7 +288,7 @@ LH.vistas = LH.vistas || {};
 
   // --- Ajuda -------------------------------------------------------------------------
   const FAQ = [
-    ['Como funciona o pagamento?', 'Pelo Mercado Pago: Pix, cartão de crédito ou débito liberam o plano por 15 dias. No crédito automático, a cobrança se repete a cada 15 dias até você cancelar.'],
+    ['Como funciona o pagamento?', 'Pelo Mercado Pago: Pix, cartão de crédito ou débito liberam o plano por 15 dias. Não há cobrança automática: para renovar, é só pagar de novo.'],
     ['Como cancelo a assinatura?', 'Em Meu Perfil > Gerenciar assinatura. O cancelamento vale no fim do período já pago e não tem multa.'],
     ['A IA substitui a leitura do edital?', 'Não. Ela adianta o trabalho e aponta riscos e divergências, mas pode errar. Confira sempre o edital original antes de enviar a proposta.'],
     ['De onde vêm as licitações?', 'Do PNCP (Portal Nacional de Contratações Públicas), atualizadas automaticamente várias vezes ao dia.'],
