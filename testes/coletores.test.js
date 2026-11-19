@@ -19,24 +19,53 @@ const bruto = (n, extra = {}) => ({
   linkSistemaOrigem: 'https://portal.exemplo/edital', ...extra,
 });
 
-function supabaseFalso({ falharUpsert = 0 } = {}) {
-  const tabelas = { licitacoes: new Map(), sync_execucoes: [] };
-  const chamadas = { upserts: [] };
+// Supabase simulado: licitacoes (upsert), sync_execucoes (insert/update/delete com filtros,
+// índice único "uma executando por fonte e tipo") e rpc de limpeza.
+function supabaseFalso({ falharUpsert = 0, execucoes = [] } = {}) {
+  const tabelas = { licitacoes: new Map(), sync_execucoes: execucoes.map((e, i) => ({ id: i + 1, ultimo_sinal: new Date().toISOString(), ...e })) };
+  const chamadas = { upserts: [], rpc: [] };
+  const tipo = (e) => `${e.fonte}|${String(e.modo).startsWith('coletor:')}`;
+  function consulta(acao, valor) {
+    const filtros = [];
+    const q = {
+      eq(c, v) { filtros.push((r) => r[c] === v); return q; },
+      neq(c, v) { filtros.push((r) => r[c] !== v); return q; },
+      lt(c, v) { filtros.push((r) => r[c] < v); return q; },
+      select() { return q; },
+      then(ok, falha) {
+        const alvo = tabelas.sync_execucoes.filter((r) => filtros.every((f) => f(r)));
+        if (acao === 'update') alvo.forEach((r) => Object.assign(r, valor));
+        if (acao === 'delete') tabelas.sync_execucoes = tabelas.sync_execucoes.filter((r) => !alvo.includes(r));
+        return Promise.resolve({ data: alvo.map((r) => ({ id: r.id })), error: null }).then(ok, falha);
+      },
+    };
+    return q;
+  }
   return {
     tabelas, chamadas,
+    rpc(nome, args) { chamadas.rpc.push({ nome, args }); return Promise.resolve({ data: 7, error: null }); },
     from(nome) {
+      if (nome === 'licitacoes') {
+        return {
+          upsert(linhas, opcoes) {
+            chamadas.upserts.push({ tamanho: linhas.length, opcoes });
+            if (falharUpsert > 0) { falharUpsert--; return Promise.resolve({ error: { message: 'falha transitória' } }); }
+            for (const l of linhas) tabelas.licitacoes.set(`${l.fonte}|${l.external_id}`, l);
+            return Promise.resolve({ error: null });
+          },
+        };
+      }
       return {
-        upsert(linhas, opcoes) {
-          chamadas.upserts.push({ tamanho: linhas.length, opcoes });
-          if (falharUpsert > 0) { falharUpsert--; return Promise.resolve({ error: { message: 'falha transitória' } }); }
-          for (const l of linhas) tabelas.licitacoes.set(`${l.fonte}|${l.external_id}`, l);
-          return Promise.resolve({ error: null });
-        },
         insert(linha) {
-          tabelas.sync_execucoes.push({ id: tabelas.sync_execucoes.length + 1, ...linha });
-          return { select: () => ({ single: async () => ({ data: { id: tabelas.sync_execucoes.length }, error: null }) }) };
+          const conflito = tabelas.sync_execucoes.some((r) => r.status === 'executando' && tipo(r) === tipo(linha));
+          const nova = { id: tabelas.sync_execucoes.length + 1, status: 'executando', iniciado_em: new Date().toISOString(), ultimo_sinal: new Date().toISOString(), ...linha };
+          if (!conflito) tabelas.sync_execucoes.push(nova);
+          return { select: () => ({ single: async () => (conflito
+            ? { data: null, error: { code: '23505', message: 'duplicate key' } }
+            : { data: { id: nova.id }, error: null }) }) };
         },
-        update(v) { return { eq: async (_c, id) => { Object.assign(tabelas.sync_execucoes[id - 1], v); return { error: null }; } }; },
+        update: (v) => consulta('update', v),
+        delete: () => consulta('delete'),
       };
     },
   };
@@ -118,8 +147,10 @@ test('coleta PNCP: pagina tudo, grava em lotes com fonte+external_id e registra 
   const l3 = supabase.tabelas.licitacoes.get('pncp|00394460000141-1-000003/2026');
   assert.equal(l3.objeto, 'Compra 3 RETIFICADA');
   assert.equal(l3.numero_controle_pncp, '00394460000141-1-000003/2026');
-  assert.equal(l3.url_edital, 'https://portal.exemplo/edital');
   assert.equal(supabase.tabelas.sync_execucoes[0].status, 'concluida');
+  assert.equal(l3.url_edital, null, 'no PNCP o link do edital é o link_pncp (sem duplicar)');
+  assert.equal(l3.link_sistema_origem, 'https://portal.exemplo/edital');
+  assert.equal(supabase.chamadas.rpc.length, 0, 'sem limpar: true não apaga nada');
   assert.equal(supabase.tabelas.sync_execucoes[0].modo, 'coletor:publicacao');
 });
 
@@ -155,4 +186,52 @@ test('coleta: valida opções e não deixa duas execuções ao mesmo tempo', asy
   await assert.rejects(executarColeta({ simular: true }, { log }), (e) => e.codigo === 'em_andamento');
   liberar();
   await primeira;
+});
+
+test('trava entre servidores: execução viva bloqueia; abandonada é fechada e liberada', async () => {
+  const antigo = new Date(Date.now() - 2 * 60 * 60_000).toISOString();
+  const obterJson = async () => ({ data: [bruto(1)], totalPaginas: 1 });
+  const opcoes = { ufs: ['SP'], modalidades: [6], desde: '2026-11-18', ate: '2026-11-19' };
+
+  // outra coleta viva (sinal recente): esta fonte é pulada, nada é gravado
+  const viva = supabaseFalso({ execucoes: [{ fonte: 'pncp', modo: 'coletor:atualizacao', status: 'executando' }] });
+  const r1 = await executarColeta(opcoes, { supabase: viva, log, deps: { pncp: { obterJson } } });
+  assert.equal(r1.fontes[0].status, 'ignorada');
+  assert.equal(viva.tabelas.licitacoes.size, 0);
+
+  // sincronizador ANTIGO rodando não trava o coletor novo (tipos diferentes)... mas a
+  // execução morta do coletor (sem sinal há 2 h) é fechada como abandonada e a coleta segue
+  const morta = supabaseFalso({ execucoes: [
+    { fonte: 'pncp', modo: 'coletor:atualizacao', status: 'executando', ultimo_sinal: antigo },
+    { fonte: 'pncp', modo: 'atualizacao', status: 'executando' },
+  ] });
+  const r2 = await executarColeta(opcoes, { supabase: morta, log, deps: { pncp: { obterJson } } });
+  assert.equal(r2.fontes[0].status, 'concluida');
+  assert.equal(morta.tabelas.sync_execucoes[0].status, 'erro');
+  assert.match(morta.tabelas.sync_execucoes[0].detalhes.erro, /abandonada/);
+  assert.equal(morta.tabelas.sync_execucoes[1].status, 'executando', 'a viva do outro tipo fica intacta');
+  assert.equal(morta.tabelas.sync_execucoes[2].status, 'concluida');
+});
+
+test('limpeza no fim (agendamento) e ALERTA_COLETA em falha parcial', async () => {
+  const velho = new Date(Date.now() - 90 * 86_400_000).toISOString();
+  const supabase = supabaseFalso({ execucoes: [{ fonte: 'pncp', modo: 'atualizacao', status: 'concluida', iniciado_em: velho }] });
+  const linhas = [];
+  const logCaptura = criarLogEstruturado('teste', { saida: { log() {}, warn() {}, error: (l) => linhas.push(JSON.parse(l)) } });
+  const obterJson = async (url) => {
+    const p = Number(new URL(url).searchParams.get('pagina'));
+    if (p === 2) throw Object.assign(new Error('HTTP 500'), { status: 500 });
+    return { data: [bruto(p)], totalPaginas: 3 };
+  };
+  const r = await executarColeta({ ufs: ['SP'], modalidades: [6], desde: '2026-11-18', ate: '2026-11-19', limpar: true, limparDias: 90 },
+    { supabase, log: logCaptura, deps: { pncp: { obterJson } } });
+  assert.equal(r.fontes[0].status, 'parcial');
+  assert.deepEqual(supabase.chamadas.rpc, [{ nome: 'limpar_licitacoes_antigas', args: { p_dias: 90 } }]);
+  assert.deepEqual(r.limpeza, { licitacoes: 7, execucoes: 1 });
+  assert.equal(supabase.tabelas.sync_execucoes.length, 1, 'histórico velho apagado; a execução atual fica');
+  const alerta = linhas.find((l) => l.evento === 'ALERTA_COLETA');
+  assert.ok(alerta, 'alerta emitido');
+  assert.equal(alerta.nivel, 'erro');
+  assert.equal(alerta.status, 'parcial');
+  assert.match(alerta.primeiraFalha, /HTTP 500/);
 });

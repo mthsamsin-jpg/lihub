@@ -463,8 +463,13 @@ create table if not exists public.sync_execucoes (
   falhas         int not null default 0,
   detalhes       jsonb,
   iniciado_em    timestamptz not null default now(),
-  finalizado_em  timestamptz
+  finalizado_em  timestamptz,
+  ultimo_sinal   timestamptz not null default now()  -- sinal de vida: sem sinal há 30 min = abandonada
 );
+create index if not exists sync_execucoes_iniciado_idx on public.sync_execucoes (iniciado_em);
+-- trava entre servidores: uma execução por fonte e tipo (coletor novo / sincronizador antigo)
+create unique index if not exists sync_execucoes_uma_por_vez
+  on public.sync_execucoes (fonte, (modo like 'coletor:%')) where status = 'executando';
 
 -- 3.13 Assinaturas pagas (Stripe): uma por organização. Só o servidor grava
 -- (chave service_role, a partir dos avisos da Stripe); os membros consultam.

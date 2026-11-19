@@ -47,7 +47,9 @@ export class PncpCollector extends BaseCollector {
       orgao: c.orgao_razao_social, orgao_cnpj: c.orgao_cnpj, municipio: c.municipio, uf: c.uf,
       objeto: c.objeto, modalidade: c.modalidade_nome, modalidade_id: c.modalidade_id,
       valor_estimado: c.valor_estimado, data_publicacao: c.data_publicacao, data_abertura: c.data_abertura_proposta,
-      data_encerramento: c.data_encerramento_proposta, url_edital: c.link_sistema_origem,
+      data_encerramento: c.data_encerramento_proposta,
+      // no PNCP o link do edital é o link_pncp (coluna gerada); o portal da disputa já vai em link_sistema_origem
+      url_edital: null,
       raw_data: bruto, extras,
     });
   }

@@ -36,7 +36,7 @@ window.LH = window.LH || {};
       hora: prazo ? `${dois(prazo.getHours())}:${dois(prazo.getMinutes())}` : '',
       plataforma: r.sistema_origem || 'Não informada',
       publicada: r.data_publicacao ? LH.datas.paraIso(new Date(r.data_publicacao)) : null,
-      fonte: r.fonte === 'manual' ? 'Manual' : 'PNCP',
+      fonte: ({ pncp: 'PNCP', manual: 'Manual' })[r.fonte] || String(r.fonte || 'PNCP').replaceAll('_', ' ').replace(/^./, (x) => x.toUpperCase()),
       linkPncp: r.link_pncp || null,
       numeroControle: r.numero_controle_pncp || null,
       processo: r.processo || null,

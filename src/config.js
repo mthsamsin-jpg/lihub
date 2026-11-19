@@ -106,6 +106,8 @@ export const config = {
     diasAtras: inteiro('SCRAPER_DIAS_ATRAS', 1),
     maxPaginas: inteiro('SCRAPER_MAX_PAGINAS', inteiro('PNCP_MAX_PAGINAS', 400)),
     lote: inteiro('SCRAPER_LOTE', 50),
+    // Histórico de sync_execucoes guardado (dias). As licitações seguem LIMPAR_DIAS.
+    historicoDias: inteiro('SCRAPER_HISTORICO_DIAS', 60),
     guardarBruto: texto('SCRAPER_GUARDAR_BRUTO', '0') === '1',
     // Token do disparo manual (POST /api/admin/coleta). Vazio = rota desligada.
     tokenAdmin: texto('SCRAPER_ADMIN_TOKEN'),

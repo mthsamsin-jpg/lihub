@@ -8,6 +8,12 @@ import { esperar, hojeBrasilia, somarDias, validarDia } from '../../util.js';
 import { prepararLote } from './esquema.js';
 import { criarLogEstruturado } from './log.js';
 import { PncpCollector } from './pncpCollector.js';
+import { abrirExecucao, criarSinal, limparHistorico } from './execucoes.js';
+
+/** Falha em destaque: nível erro + evento ALERTA_COLETA (filtro único no painel do servidor). */
+function alertar(log, dados) {
+  log.erro('ALERTA_COLETA', dados);
+}
 
 /** Fontes disponíveis. Para plugar uma nova, importe a classe e acrescente aqui. */
 export const COLETORES = { [PncpCollector.fonte]: PncpCollector };
@@ -36,6 +42,9 @@ function prepararOpcoes(o = {}) {
     simular: Boolean(o.simular),
     permitirNaoValidado: Boolean(o.permitirNaoValidado),
     guardarBruto: o.guardarBruto ?? config.coletores.guardarBruto,
+    limpar: Boolean(o.limpar),
+    limparDias: o.limparDias ?? config.pncp.limparDias, // 0 = não apaga licitações
+    historicoDias: Math.max(7, o.historicoDias ?? config.coletores.historicoDias),
   };
 }
 
@@ -59,17 +68,22 @@ async function coletarFonte(Classe, o, { supabase, log, sinal, deps }) {
   const inicio = Date.now();
   let execId = null;
   if (!o.simular) {
-    const { data, error } = await supabase.from('sync_execucoes')
-      .insert({ fonte: Classe.fonte, modo: `coletor:${o.modo}`, parametros: { desde: o.desde, ate: o.ate, ufs: o.ufs, modalidades: o.modalidades, maxPaginas: o.maxPaginas } })
-      .select('id').single();
-    if (error) flog.aviso('execucao.sem_registro', { erro: error.message });
-    else execId = data.id;
+    try {
+      execId = await abrirExecucao(supabase, { fonte: Classe.fonte, modo: `coletor:${o.modo}`,
+        parametros: { desde: o.desde, ate: o.ate, ufs: o.ufs, modalidades: o.modalidades, maxPaginas: o.maxPaginas } });
+    } catch (e) {
+      // outra execução viva (outro servidor): não coleta em dobro
+      if (e.codigo === 'em_andamento') { flog.aviso('fonte.pulada', { motivo: e.message }); return { ...r, status: 'ignorada', motivo: e.message }; }
+      throw e;
+    }
   }
+  const darSinal = criarSinal(supabase, execId);
   flog.info('fonte.inicio', { modo: o.modo, desde: o.desde, ate: o.ate, ufs: o.ufs ?? 'todas', execucao: execId });
 
   const coletor = new Classe({ log: flog, ...(deps?.[Classe.fonte] || {}) });
   try {
     for await (const p of coletor.paginas(o, { sinal })) {
+      await darSinal().catch(() => {});
       if (p.erro) {
         r.falhas.push({ rotulo: p.rotulo, pagina: p.pagina, erro: p.erro.message });
         flog.erro('pagina.falhou', { rotulo: p.rotulo, pagina: p.pagina, erro: p.erro.message });
@@ -114,6 +128,8 @@ async function coletarFonte(Classe, o, { supabase, log, sinal, deps }) {
     if (error) flog.aviso('execucao.sem_atualizar', { erro: error.message });
   }
   flog.info('fonte.fim', { status: r.status, paginas: r.paginas, recebidos: r.recebidos, gravados: r.gravados, invalidos: r.invalidos, falhas: r.falhas.length, duracaoS: r.duracaoS });
+  // Linha fácil de achar no painel do Render: busque por ALERTA_COLETA.
+  if (r.status !== 'concluida') alertar(flog, { status: r.status, execucao: execId, falhas: r.falhas.length, gravados: r.gravados, primeiraFalha: r.interrompido || r.falhas[0]?.erro });
   return r;
 }
 
@@ -139,8 +155,24 @@ export async function executarColeta(opcoes = {}, { supabase = null, log = criar
       if (sinal?.aborted) break;
       fontes.push(await coletarFonte(COLETORES[f], o, { supabase, log, sinal, deps }));
     }
+    // Limpeza (só quando pedida: o agendamento pede; o teste manual não).
+    let limpeza = null;
+    if (o.limpar && !o.simular && !sinal?.aborted) {
+      limpeza = { licitacoes: 0, execucoes: 0 };
+      try {
+        if (o.limparDias > 0) {
+          const { data, error } = await supabase.rpc('limpar_licitacoes_antigas', { p_dias: o.limparDias });
+          if (error) throw new Error(error.message);
+          limpeza.licitacoes = data ?? 0;
+        }
+        limpeza.execucoes = await limparHistorico(supabase, { dias: o.historicoDias });
+        log.info('limpeza.fim', { ...limpeza, licitacoesDias: o.limparDias, historicoDias: o.historicoDias });
+      } catch (e) {
+        alertar(log, { status: 'erro', etapa: 'limpeza', primeiraFalha: e.message });
+      }
+    }
     const resumo = {
-      ...info, finalizadaEm: new Date().toISOString(), simulado: o.simular,
+      ...info, finalizadaEm: new Date().toISOString(), simulado: o.simular, limpeza,
       recebidos: fontes.reduce((s, f) => s + f.recebidos, 0),
       gravados: fontes.reduce((s, f) => s + f.gravados, 0),
       falhas: fontes.reduce((s, f) => s + f.falhas.length, 0),

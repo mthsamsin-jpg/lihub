@@ -13,6 +13,7 @@ import { sincronizarPncp } from './pncp/sincronizar.js';
 import { executarColeta, situacaoColeta } from './services/collectors/index.js';
 import { agendarCron } from './services/collectors/cron.js';
 import { criarLogEstruturado } from './services/collectors/log.js';
+import { fecharAbandonadas } from './services/collectors/execucoes.js';
 import { timingSafeEqual } from 'node:crypto';
 import { atualizarCapag } from './capag/atualizar.js';
 import { criarClienteAdmin, criarClienteDoUsuario } from './supabase.js';
@@ -189,8 +190,10 @@ async function sincronizarAgora() {
   try {
     const r = await sincronizarPncp({ modo: 'atualizacao' }, { supabase: admin, log: criarLog('pncp'), sinal: controleSync.signal });
     log.info(`PNCP: ${r.gravados} licitação(ões) gravada(s), ${r.ignorados} ignorada(s), ${r.falhas.length} falha(s).`);
+    if (r.status !== 'concluida') logColeta.erro('ALERTA_COLETA', { origem: 'sincronizador-antigo', status: r.status, falhas: r.falhas.length, gravados: r.gravados, primeiraFalha: r.interrompido || r.falhas[0]?.mensagem });
   } catch (e) {
-    if (!controleSync.signal.aborted) log.erro(`Sincronização com o PNCP falhou: ${e.message}`);
+    if (e.codigo === 'em_andamento') log.aviso(`Sincronização com o PNCP pulada: ${e.message}`);
+    else if (!controleSync.signal.aborted) logColeta.erro('ALERTA_COLETA', { origem: 'sincronizador-antigo', status: 'erro', primeiraFalha: e.message });
   } finally {
     sincronizando = false;
   }
@@ -199,13 +202,22 @@ async function sincronizarAgora() {
 // assume a sincronização incremental e o laço antigo (SYNC_INTERVALO_MIN) fica desligado.
 async function coletarAgendado() {
   try {
-    await executarColeta({}, { supabase: admin, log: logColeta, sinal: controleSync.signal });
+    await executarColeta({ limpar: true }, { supabase: admin, log: logColeta, sinal: controleSync.signal });
   } catch (e) {
     if (e.codigo === 'em_andamento') logColeta.aviso('cron.pulado', { motivo: e.message });
     else if (!controleSync.signal.aborted) logColeta.erro('cron.falhou', { erro: e.message });
   }
 }
+// Na subida: fecha execuções que ficaram "executando" porque o servidor anterior caiu.
+setTimeout(async () => {
+  try {
+    const n = await fecharAbandonadas(admin);
+    if (n) logColeta.aviso('execucoes.abandonadas_fechadas', { quantidade: n });
+  } catch (e) { logColeta.aviso('execucoes.abandonadas_falhou', { erro: e.message }); }
+}, 5_000).unref();
+
 if (config.coletores.cron) {
+  if (config.servidor.syncIntervaloMin > 0) logColeta.info('sincronizador_antigo.desligado', { motivo: 'ENABLE_SCRAPER_CRON ligado: o coletor novo assume' });
   try {
     agendarCron(config.coletores.agenda, coletarAgendado, { log: logColeta });
     logColeta.info('cron.ligado', { agenda: config.coletores.agenda, fontes: config.coletores.fontes, ufs: config.coletores.ufs.length ? config.coletores.ufs : 'todas', modo: config.coletores.modo });

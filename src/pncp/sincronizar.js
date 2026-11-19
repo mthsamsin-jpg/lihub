@@ -11,6 +11,7 @@ import { criarLimitador, criarLog, diaPncp, hojeBrasilia, somarDias, validarDia 
 import { MODALIDADES, UFS } from './dominio.js';
 import { obterJson, urlAtualizacoes, urlPropostasAbertas } from './cliente.js';
 import { normalizarPagina } from './normalizar.js';
+import { abrirExecucao, criarSinal } from '../services/collectors/execucoes.js';
 
 const TAMANHO_PAGINA = 50; // máximo aceito pela API
 const MAX_FALHAS_SEGUIDAS = 3;
@@ -87,13 +88,9 @@ export async function sincronizarPncp(opcoes = {}, { supabase = null, log = cria
 
   let execucaoId = null;
   if (!o.simular) {
-    const { data, error } = await supabase
-      .from('sync_execucoes')
-      .insert({ modo: o.modo, parametros: { ...janela, modalidades: o.modalidades, ufs: o.ufs, maxPaginas: o.maxPaginas } })
-      .select('id')
-      .single();
-    if (error) throw new Error(`Não foi possível registrar a sincronização no Supabase: ${error.message}`);
-    execucaoId = data.id;
+    // trava entre servidores: lança codigo 'em_andamento' se outra sincronização estiver viva
+    execucaoId = await abrirExecucao(supabase, { fonte: 'pncp', modo: o.modo,
+      parametros: { ...janela, modalidades: o.modalidades, ufs: o.ufs, maxPaginas: o.maxPaginas } });
   }
 
   const registrarFalha = (rotulo, pagina, erro) => {
@@ -102,6 +99,7 @@ export async function sincronizarPncp(opcoes = {}, { supabase = null, log = cria
     log.erro(`${rotulo}, página ${pagina}: ${mensagem}`);
   };
 
+  const darSinal = o.simular ? async () => {} : criarSinal(supabase, execucaoId);
   const limitar = criarLimitador(o.concorrencia);
   const emAndamento = new Set();
   const agendar = (tarefa) => {
@@ -150,6 +148,7 @@ export async function sincronizarPncp(opcoes = {}, { supabase = null, log = cria
       }
 
       falhasSeguidas = 0;
+      darSinal().catch(() => {});
       const registros = Array.isArray(resposta?.data) ? resposta.data : [];
       totalPaginas = Number(resposta?.totalPaginas ?? 0);
       resumo.paginas++;
