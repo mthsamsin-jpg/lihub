@@ -88,10 +88,10 @@ export async function coletarResultados({ lote = 25, diasMax = 75 } = {}, { supa
   const ateQuando = new Date(agora - DIA).toISOString(); // sessão encerrada há pelo menos 1 dia
   const desde = new Date(agora - diasMax * DIA).toISOString();
 
-  // Candidatas: encerradas no período, mais recentes primeiro.
+  // Candidatas: encerradas no período, as mais antigas primeiro (o resultado sai semanas depois da sessão).
   const { data: candidatas, error } = await supabase.from('licitacoes').select(COLUNAS_LIC)
     .eq('fonte', 'pncp').lt('data_encerramento_proposta', ateQuando).gte('data_encerramento_proposta', desde)
-    .order('data_encerramento_proposta', { ascending: false }).limit(lote * 8);
+    .order('data_encerramento_proposta', { ascending: true }).limit(lote * 8);
   if (error) throw new Error(`Não consegui ler o catálogo: ${error.message}`);
   if (!candidatas?.length) return { compras: 0, resultados: 0, semResultado: 0, erros: 0 };
 
