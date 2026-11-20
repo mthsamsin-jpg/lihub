@@ -4,6 +4,7 @@ import { serve } from '@hono/node-server';
 import { criarApp } from './api/app.js';
 import { criarRepositorio } from './api/repositorio.js';
 import { ligarSite } from './api/site.js';
+import { ligarAdm } from './api/adm.js';
 import { config } from './config.js';
 import { analisarEdital, provedorDaIa } from './ia/analisar-edital.js';
 import { maxBytesPdf, obterEditalDoPncp } from './ia/documento.js';
@@ -110,8 +111,13 @@ ligarModoReal(app, {
 });
 
 const logColeta = criarLogEstruturado('coleta');
-// Disparo manual protegido: Authorization: Bearer <SCRAPER_ADMIN_TOKEN>.
+
+// Modo ADM do site (/adm): login com ADMIN_LOGIN_EMAIL + senha, conteúdo editável.
+const { sessaoAdm } = ligarAdm(app, { supabase: admin, log: criarLog('adm'), producao: config.site.url.startsWith('https://') });
+
+// Disparo manual protegido: Authorization: Bearer <SCRAPER_ADMIN_TOKEN> ou sessão ADM.
 function tokenConfere(c) {
+  if (sessaoAdm(c)) return true;
   const esperado = config.coletores.tokenAdmin;
   const recebido = (c.req.header('authorization') || '').replace(/^Bearer\s+/i, '');
   if (!esperado || !recebido) return false;

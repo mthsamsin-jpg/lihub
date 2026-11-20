@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/componentes.css">
   <link rel="stylesheet" href="css/landing.css">
+  <link rel="stylesheet" href="css/adm.css">
 </head>
 <body>
   <a class="pular" href="#conteudo">Pular para o conteúdo</a>
@@ -59,8 +60,8 @@
     <section class="hero" id="topo">
       <div data-reveal>
         <span class="etiqueta"><span class="ic" data-icone="brilho"></span> Para quem vende para o governo</span>
-        <h1>Licitações públicas, do edital à proposta, <span class="destaque-texto">num só lugar</span>.</h1>
-        <p class="hero__sub">O Uso LicitaHub busca as licitações abertas no PNCP, mostra o perfil de cada órgão, baixa o edital e os itens num clique, lê tudo com inteligência artificial e organiza prazos, documentos, propostas e o seu CRM. Você decide com mais tempo e menos risco.</p>
+        <h1><span data-cms="hero.titulo">Licitações públicas, do edital à proposta,</span> <span class="destaque-texto" data-cms="hero.destaque">num só lugar</span>.</h1>
+        <p class="hero__sub" data-cms="hero.subtitulo">O Uso LicitaHub busca as licitações abertas no PNCP, mostra o perfil de cada órgão, baixa o edital e os itens num clique, lê tudo com inteligência artificial e organiza prazos, documentos, propostas e o seu CRM. Você decide com mais tempo e menos risco.</p>
         <div class="hero__ctas">
           <a class="btn btn--primario btn--grande" href="app.html?acesso=cadastrar&amp;destino=perfil%3Fassinar%3D1">Assinar agora</a>
           <a class="btn btn--grande" href="#como-funciona">Ver como funciona</a>
@@ -73,7 +74,8 @@
         </div>
       </div>
 
-      <div class="hero__visual" data-reveal="escala" style="--atraso:150ms" aria-hidden="true">
+      <div class="hero__visual" data-reveal="escala" style="--atraso:150ms" aria-hidden="true" data-cms-midia-alvo="hero">
+        <div class="midia-slot midia-slot--hero" data-cms-midia="hero" data-cms-rotulo="Topo da página: vídeo, banner ou foto (substitui a ilustração)" hidden></div>
         <div class="mock spot">
           <div class="mock__barra"><i></i><i></i><i></i></div>
           <div class="mock__kpis">
@@ -115,8 +117,8 @@
     <section class="secao-pub" id="recursos">
       <div class="titulo-secao" data-reveal>
         <span class="etiqueta"><span class="ic" data-icone="grafico"></span> Tudo o que você precisa</span>
-        <h2>18 módulos em 7 etapas, na ordem do seu trabalho</h2>
-        <p>Do primeiro alerta ao resultado, o painel segue a mesma sequência numerada: prospecção, Robô Turbo 2.0, análise, acompanhamento, documentos, proposta e disputa. Home, perfil, assinatura e ajuda ficam sempre à mão.</p>
+        <h2 data-cms="recursos.titulo">18 módulos em 7 etapas, na ordem do seu trabalho</h2>
+        <p data-cms="recursos.texto">Do primeiro alerta ao resultado, o painel segue a mesma sequência numerada: prospecção, Robô Turbo 2.0, análise, acompanhamento, documentos, proposta e disputa. Home, perfil, assinatura e ajuda ficam sempre à mão.</p>
       </div>
       <div class="grupos">
         <article class="card spot grupo" data-reveal>
@@ -186,8 +188,8 @@
       <div class="destaque-ia">
         <div data-reveal="esquerda">
           <span class="etiqueta"><span class="ic" data-icone="brilho"></span> Leitor de Edital IA</span>
-          <h2>Um edital de 63 páginas lido em pouco mais de 2 minutos</h2>
-          <p>Envie o PDF ou escolha a licitação. A IA devolve um resumo organizado, com a referência de onde cada informação está no edital.</p>
+          <h2 data-cms="ia.titulo">Um edital de 63 páginas lido em pouco mais de 2 minutos</h2>
+          <p data-cms="ia.texto">Envie o PDF ou escolha a licitação. A IA devolve um resumo organizado, com a referência de onde cada informação está no edital.</p>
           <ul class="lista-check">
             <li><span class="ic" data-icone="check"></span> Prazos e data da sessão pública</li>
             <li><span class="ic" data-icone="check"></span> Documentos de habilitação, um por um</li>
@@ -220,22 +222,23 @@
     <section class="secao-pub" id="como-funciona">
       <div class="titulo-secao" data-reveal>
         <span class="etiqueta"><span class="ic" data-icone="raio"></span> Como funciona</span>
-        <h2>Em quatro passos você está acompanhando licitações</h2>
+        <h2 data-cms="passos.titulo">Em quatro passos você está acompanhando licitações</h2>
       </div>
       <div class="passos">
-        <article class="card spot passo" data-reveal><h3>Crie a sua conta</h3><p>Grátis e em menos de um minuto. Sem cartão para o plano gratuito.</p></article>
-        <article class="card spot passo" data-reveal><h3>Cadastre a empresa e o radar</h3><p>Diga o que você vende, onde atua e quais modalidades interessam.</p></article>
-        <article class="card spot passo" data-reveal><h3>Receba alertas e leia editais</h3><p>A IA aponta prazos, exigências e riscos de cada edital.</p></article>
-        <article class="card spot passo" data-reveal><h3>Monte a proposta e acompanhe</h3><p>Proposta, declarações, CRM e calendário trabalhando juntos.</p></article>
+        <article class="card spot passo" data-reveal><h3 data-cms="passos.1.titulo">Crie a sua conta</h3><p data-cms="passos.1.texto">Grátis e em menos de um minuto. Sem cartão para o plano gratuito.</p></article>
+        <article class="card spot passo" data-reveal><h3 data-cms="passos.2.titulo">Cadastre a empresa e o radar</h3><p data-cms="passos.2.texto">Diga o que você vende, onde atua e quais modalidades interessam.</p></article>
+        <article class="card spot passo" data-reveal><h3 data-cms="passos.3.titulo">Receba alertas e leia editais</h3><p data-cms="passos.3.texto">A IA aponta prazos, exigências e riscos de cada edital.</p></article>
+        <article class="card spot passo" data-reveal><h3 data-cms="passos.4.titulo">Monte a proposta e acompanhe</h3><p data-cms="passos.4.texto">Proposta, declarações, CRM e calendário trabalhando juntos.</p></article>
       </div>
+      <div class="midia-slot midia-slot--secao" data-cms-midia="como-funciona" data-cms-rotulo="Vídeo de “Como funciona”" hidden></div>
     </section>
 
     <!-- Preço: o plano de R$ 97 em vidro fosco, com resumo do pedido -->
     <section class="secao-pub" id="preco">
       <div class="titulo-secao" data-reveal>
         <span class="etiqueta"><span class="ic" data-icone="moeda"></span> Planos</span>
-        <h2>Free, Pro ou Max. Sem fidelidade.</h2>
-        <p>Comece grátis e assine quando fizer sentido. Sem fidelidade e sem multa para cancelar.</p>
+        <h2 data-cms="planos.titulo">Free, Pro ou Max. Sem fidelidade.</h2>
+        <p data-cms="planos.texto">Comece grátis e assine quando fizer sentido. Sem fidelidade e sem multa para cancelar.</p>
       </div>
       <div class="precos">
         <article class="card spot plano" data-reveal>
@@ -288,7 +291,7 @@
     <section class="secao-pub" id="seguranca">
       <div class="titulo-secao" data-reveal>
         <span class="etiqueta"><span class="ic" data-icone="escudo"></span> Segurança</span>
-        <h2>Seus dados protegidos, de verdade</h2>
+        <h2 data-cms="seguranca.titulo">Seus dados protegidos, de verdade</h2>
       </div>
       <div class="confianca">
         <article class="card spot" data-reveal><h3><span class="ic" data-icone="cadeado"></span> Cada empresa no seu espaço</h3><p>Regras de segurança no próprio banco de dados: cada organização só enxerga os próprios dados.</p></article>
@@ -301,7 +304,7 @@
     <section class="secao-pub" id="perguntas">
       <div class="titulo-secao" data-reveal>
         <span class="etiqueta"><span class="ic" data-icone="ajuda"></span> Perguntas frequentes</span>
-        <h2>Ficou alguma dúvida?</h2>
+        <h2 data-cms="perguntas.titulo">Ficou alguma dúvida?</h2>
       </div>
       <div class="faq" data-reveal>
         <details class="sanfona"><summary>Como eu pago?<span class="ic" data-icone="setaBaixo"></span></summary><div class="sanfona__corpo">Pelo Mercado Pago: Pix, cartão de crédito ou débito. Cada pagamento libera o plano por 15 dias. Não há cobrança automática: você paga de novo quando quiser renovar. O plano Free não precisa de pagamento.</div></details>
@@ -315,8 +318,8 @@
 
     <!-- Chamada final -->
     <section class="cta-final" data-reveal="escala">
-      <h2>Comece hoje no plano Free.</h2>
-      <p>Crie a conta, cadastre a sua empresa e veja as licitações abertas para o que você vende.</p>
+      <h2 data-cms="final.titulo">Comece hoje no plano Free.</h2>
+      <p data-cms="final.texto">Crie a conta, cadastre a sua empresa e veja as licitações abertas para o que você vende.</p>
       <div class="hero__ctas">
         <a class="btn btn--primario btn--grande" href="app.html?acesso=cadastrar&amp;destino=perfil%3Fassinar%3D1">Assinar agora</a>
         <a class="btn btn--grande" href="app.html?acesso=cadastrar">Criar conta grátis</a>
@@ -349,5 +352,6 @@
   <script src="js/nucleo.js" defer></script>
   <script src="js/legal.js" defer></script>
   <script src="js/landing.js" defer></script>
+  <script src="js/adm.js" defer></script>
 </body>
 </html>

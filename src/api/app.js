@@ -108,8 +108,14 @@ export function criarApp({ repositorio, analisar, obterEdital, pagamentos = null
     },
   );
 
+  // Rotas com autenticação PRÓPRIA (não usam o login de cliente): modo ADM (/api/adm,
+  // sessão em cookie), conteúdo público do site (/api/site) e coleta manual
+  // (/api/admin, token SCRAPER_ADMIN_TOKEN ou sessão ADM). Cada uma confere o acesso.
+  const autenticacaoPropria = (c) => /^\/api\/(adm|site|admin)\//.test(c.req.path);
+
   // Login obrigatório em /api/*
   app.use('/api/*', async (c, next) => {
+    if (autenticacaoPropria(c)) return next();
     const token = /^Bearer\s+(\S+)$/i.exec(c.req.header('authorization') ?? '')?.[1];
     if (!token) return c.json({ erro: 'Faça login para continuar.' }, 401);
     const usuario = await repositorio.usuarioDoToken(token);
@@ -121,7 +127,8 @@ export function criarApp({ repositorio, analisar, obterEdital, pagamentos = null
 
   // Paywall: Prospecção (/api/licitacoes, /api/pncp) exige Pro; Robô Turbo 2.0
   // (/api/robo, /api/portais) exige Max. Organização isenta passa sempre.
-  app.use('/api/*', middlewareDePlano());
+  const plano = middlewareDePlano();
+  app.use('/api/*', (c, next) => (autenticacaoPropria(c) ? next() : plano(c, next)));
 
   app.post(
     '/api/editais/analisar',

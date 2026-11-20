@@ -60,7 +60,7 @@ begin
     public.robo_itens, public.documentos, public.propostas, public.radares, public.eventos, public.monitoramentos,
     public.crm_cards, public.favoritos, public.licitacao_observacoes, public.analises_edital, public.licitacao_itens,
     public.kanban_etapas, public.empresas, public.consentimentos, public.assinaturas,
-    public.sync_execucoes, public.mercado_retro_termos, public.licitacoes_busca, public.busca_correlatos, public.membros, public.perfis, public.licitacoes, public.organizacoes;
+    public.sync_execucoes, public.mercado_retro_termos, public.licitacoes_busca, public.busca_correlatos, public.site_textos, public.site_midias, public.membros, public.perfis, public.licitacoes, public.organizacoes;
 
   -- 4. Funções do LicitaHub. Se outro sistema usar alguma, ela fica e aparece um aviso.
   foreach funcao in array array[
