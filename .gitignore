@@ -9,3 +9,7 @@ worker/mapeamentos/
 
 # Cópias do .env com chaves (ex.: para o VPS)
 .env.vps
+
+# Vídeos originais (pesados): o site usa a versão comprimida em site/video/
+WhatsApp Video *.mp4
+site/WhatsApp Video *.mp4

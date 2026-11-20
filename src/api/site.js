@@ -76,7 +76,7 @@ export function ligarSite(app, { pasta = PASTA_SITE, publico, bibliotecaSupabase
     // Sem isto o navegador guarda HTML/JS/CSS por conta própria e o usuário segue vendo
     // a versão antiga depois de um deploy. "no-cache" = pode guardar, mas confere antes
     // (Last-Modified): se nada mudou, a resposta é um 304 rápido.
-    if (!c.res.headers.has('Cache-Control')) c.res.headers.set('Cache-Control', /\.(png|svg|ico|woff2?)$/i.test(c.req.path) ? 'public, max-age=86400' : 'no-cache');
+    if (!c.res.headers.has('Cache-Control')) c.res.headers.set('Cache-Control', /\.(png|svg|ico|woff2?|jpe?g|webp|mp4|webm)$/i.test(c.req.path) ? 'public, max-age=86400' : 'no-cache');
   });
   app.use('/*', serveStatic({ root: pasta }));
   return app;

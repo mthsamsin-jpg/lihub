@@ -312,6 +312,7 @@ LH.vistas = LH.vistas || {};
       </section>
       <div class="secao__titulo" style="margin-top:22px"><h2>Tutoriais</h2></div>
       <div class="grade grade--4">
+        <a class="card spot tutorial tutorial--disponivel" data-reveal href="#/robo?tutorial=1" style="text-align:left;color:inherit;text-decoration:none"><span class="tutorial__capa" style="background:center/cover url('video/robo-turbo-tutorial.jpg')">${icone('play')}</span><strong>Como usar o Robô Turbo 2.0 na prática</strong><span class="fraco">Vídeo · 3 min</span></a>
         ${TUTORIAIS.map((t) => `<button type="button" class="card spot tutorial" data-reveal data-tutorial style="text-align:left;color:inherit"><span class="tutorial__capa">${icone('play')}</span><strong>${esc(t)}</strong><span class="fraco">Vídeo · 3 min</span></button>`).join('')}
       </div>
       <div class="grade grade--3" style="margin-top:22px">
