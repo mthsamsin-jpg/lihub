@@ -16,42 +16,61 @@
   // <body data-cms-auto="#menu, #conteudo">: os textos FIXOS dessas áreas (títulos,
   // descrições, nomes de campos, notas) ganham uma chave "t.<tela>.<código do texto
   // original>". Dados de clientes (licitações, tabelas, listas, CRM, janelas) ficam de fora.
+  //
+  // Números (contagens, valores, datas) viram LACUNAS: "126 licitações abertas" é salvo como
+  // "{1} licitações abertas" e o número continua sendo o calculado pelo sistema.
+  // Botões: editáveis em toda parte (inclusive nos cartões); com a edição ligada, o clique
+  // só edita, não executa a ação. Áreas de DADOS: só rótulos fixos (botões, cabeçalhos).
   const RAIZES = (document.body.dataset.cmsAuto || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const CANDIDATOS = 'h1, h2, h3, h4, .pagina__cabecalho p, .campo__rotulo, .nota, legend, .vazio strong, .vazio p, .card > p.fraco, .titulo-secao p';
-  const FORA = '.licitacao, table, .tabela-rolagem, .lista, .lista-ranking, .kanban, .modal-fundo, .chat, .menu-usuario, .adm-barra, .adm-midia, [data-cms-ignorar], [contenteditable="true"]:not([data-cms])';
+  const CANDIDATOS = 'h1, h2, h3, h4, p, legend, label > span, .campo__rotulo, .nota, .vazio strong, .selo, small, summary, dt, th, button, a.btn, span[id], span.fraco, div.fraco';
+  const DADOS = '.licitacao, table, .tabela-rolagem, .lista, .lista-ranking, .kanban, .chat';
+  const SO_ROTULOS_EM_DADOS = 'button, a.btn, th, dt, legend';
+  const SEMPRE_FORA = '.modal-fundo, .menu-usuario, .adm-barra, .adm-midia, [data-cms-ignorar], [contenteditable="true"]:not([data-cms])';
+  const ICONE = (n) => n.nodeType === 1 && (/^(svg|i)$/i.test(n.tagName) || n.classList.contains('ic'));
+  const FORMATACAO = /^(STRONG|B|EM|SMALL|SPAN|CODE|U)$/;
+  const NUMERO = /\d+(?:[.,]\d+)*/g;
   const codigo = (t) => { let h = 0x811c9dc5; for (const ch of t) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); };
   const tela = () => (location.hash.replace(/^#\/?/, '').split('?')[0] || 'home').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'home';
+  const numerosDe = (el) => { try { return JSON.parse(el.dataset.cmsNums || '[]'); } catch { return []; } };
+  /** "{1} licitações" + ["126"] -> "126 licitações" */
+  const preencher = (t, nums) => String(t).replace(/\{(\d+)\}/g, (m, i) => nums[i - 1] ?? m);
+  /** texto editado -> modelo com lacunas nos números atuais do elemento */
+  const modelar = (t, nums) => nums.reduce((s, n, i) => s.replace(n, `{${i + 1}}`), t);
 
   function marcarAutomaticos() {
     for (const raiz of RAIZES.flatMap((s) => $$(s))) {
       for (const el of raiz.querySelectorAll(CANDIDATOS)) {
-        if (el.closest(FORA) || el.querySelector('[data-cms]') || el.closest('[data-cms]')) continue;
-        // só texto + ícones: o texto vira um <span data-cms> (o ícone fica)
+        if (el.closest(SEMPRE_FORA) || el.querySelector('[data-cms]') || el.closest('[data-cms]')) continue;
+        if (el.closest(DADOS) && !el.matches(SO_ROTULOS_EM_DADOS)) continue;
+        // pode ter só texto, ícones e formatação simples (negrito etc.)
         const filhos = [...el.childNodes];
-        if (filhos.some((n) => n.nodeType === 1 && !/^(svg|i)$/i.test(n.tagName) && !n.classList.contains('ic'))) continue;
-        const textos = filhos.filter((n) => n.nodeType === 3 && n.textContent.trim());
-        if (textos.length !== 1) continue;
-        const original = textos[0].textContent.replace(/\s+/g, ' ').trim();
-        if (original.length < 2 || original.length > 600) continue;
+        if (filhos.some((n) => n.nodeType === 1 && !ICONE(n) && !(FORMATACAO.test(n.tagName) && !n.querySelector('input, button, a, select, textarea, svg, img')))) continue;
+        const conteudoNos = filhos.filter((n) => !ICONE(n) && !(n.nodeType === 3 && !n.textContent.trim() && filhos.length > 1));
+        const original = conteudoNos.map((n) => n.textContent).join('').replace(/\s+/g, ' ').trim();
+        if (original.length < 2 || original.length > 600 || !/[A-Za-zÀ-ú]/.test(original)) continue;
+        const nums = original.match(NUMERO) || [];
         const span = document.createElement('span');
-        span.dataset.cms = `t.${tela()}.${codigo(original)}`;
-        span.textContent = textos[0].textContent;
-        textos[0].replaceWith(span);
+        span.dataset.cms = `t.${tela()}.${codigo(original.replace(NUMERO, '#'))}`;
+        if (nums.length) span.dataset.cmsNums = JSON.stringify(nums);
+        conteudoNos[0].before(span);
+        span.append(...conteudoNos); // mantém a formatação até o ADM trocar o texto
       }
     }
   }
 
   // ---------- Conteúdo público ----------
+  const originalDe = new WeakMap(); // texto original (do sistema) de cada elemento
   function aplicarTextos() {
     marcarAutomaticos();
     for (const el of $$('[data-cms]')) {
       const k = el.dataset.cms;
+      if (!originalDe.has(el)) originalDe.set(el, el.textContent);
       if (!originais.has(k)) originais.set(k, el.textContent);
       // não mexe no que está sendo editado nem reescreve o que já está certo (evita laço com o observador)
       if (!(alterados.has(k) || el === document.activeElement)) {
         const novo = conteudo.textos[k];
-        const alvo = novo != null ? novo : originais.get(k);
-        if (el.textContent !== alvo) el.textContent = alvo;
+        const alvo = novo != null ? preencher(novo, numerosDe(el)) : originalDe.get(el);
+        if (el.textContent.replace(/\s+/g, ' ').trim() !== alvo.replace(/\s+/g, ' ').trim()) el.textContent = alvo;
       }
       if (editando && !el.hasAttribute('contenteditable')) { el.setAttribute('contenteditable', 'plaintext-only'); el.classList.add('cms-editavel'); }
     }
@@ -180,8 +199,10 @@
 
   function marcarAlterado(el) {
     const k = el.dataset.cms;
-    const texto = el.textContent.replace(/\s+/g, ' ').trim();
-    const atual = conteudo.textos[k] ?? originais.get(k)?.replace(/\s+/g, ' ').trim();
+    const nums = numerosDe(el);
+    // guarda o MODELO: os números atuais viram lacunas {1}, {2}... (seguem calculados pelo sistema)
+    const texto = modelar(el.textContent.replace(/\s+/g, ' ').trim(), nums);
+    const atual = conteudo.textos[k] ?? modelar((originalDe.get(el) ?? originais.get(k) ?? '').replace(/\s+/g, ' ').trim(), nums);
     if (texto !== atual) alterados.set(k, texto); else alterados.delete(k);
     for (const x of $$(`[data-cms="${CSS.escape(k)}"]`)) x.classList.toggle('cms-alterado', alterados.has(k));
     const s = barra.querySelector('[data-salvar]');
@@ -206,8 +227,15 @@
 
   document.addEventListener('input', (e) => { const el = e.target.closest?.('[data-cms]'); if (editando && el) marcarAlterado(el); });
   document.addEventListener('keydown', (e) => { if (editando && e.key === 'Enter' && e.target.closest?.('[data-cms]')) e.preventDefault(); });
-  // Enquanto edita, um clique num texto dentro de link não navega.
-  document.addEventListener('click', (e) => { if (editando && e.target.closest?.('[data-cms]') && e.target.closest('a')) e.preventDefault(); }, true);
+  // Enquanto edita, clicar num texto dentro de link, botão ou rótulo só edita: não navega
+  // nem executa a ação (o evento para aqui, antes de chegar ao botão).
+  const parar = (e) => {
+    if (!editando || e.target.closest?.('.adm-barra, .adm-midia')) return;
+    if (e.target.closest?.('[data-cms]') && e.target.closest('a, button, summary, label')) { e.preventDefault(); e.stopImmediatePropagation(); }
+  };
+  document.addEventListener('click', parar, true);
+  // Espaço/Enter num texto de botão não "aperta" o botão
+  document.addEventListener('keyup', (e) => { if (editando && e.key === ' ' && e.target.closest?.('[data-cms]')?.closest('button')) e.preventDefault(); }, true);
 
   async function salvarTextos() {
     if (!alterados.size) return;
