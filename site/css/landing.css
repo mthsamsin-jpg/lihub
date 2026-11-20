@@ -322,10 +322,12 @@
 }
 .mock__acoes .ic svg { width: 12px; height: 12px; }
 
-/* Vídeo público do Robô Turbo 2.0 (antes do cadastro) */
-.secao-video { padding-top: clamp(40px, 6vw, 80px); }
+/* Vídeo em "Como funciona" (público, antes do cadastro) */
+.video-como-funciona { margin-top: clamp(28px, 4vw, 48px); }
+.video-pub__titulo { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 14px; font-weight: 700; color: var(--ciano, #38bdf8); }
+.video-pub__titulo .ic { display: inline-flex; width: 18px; height: 18px; }
 .video-pub { max-width: 960px; margin: 0 auto; }
 .video-pub video { display: block; width: 100%; max-height: 75vh; aspect-ratio: 16 / 9; border-radius: 18px; background: #000;
   border: 1px solid rgba(148, 197, 255, .18); box-shadow: 0 24px 70px rgba(0, 0, 0, .45); }
-.video-pub__ctas { justify-content: center; margin-top: 26px; }
-.btn .ic { display: inline-flex; width: 18px; height: 18px; }
+/* vídeo posto pelo ADM neste espaço substitui o tutorial */
+.video-como-funciona.tem-midia .video-pub, .video-como-funciona.tem-midia .video-pub__titulo { display: none; }
