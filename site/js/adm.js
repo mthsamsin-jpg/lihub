@@ -12,13 +12,48 @@
   const originais = new Map(); // texto original do HTML de cada chave
   let conteudo = { textos: {}, midias: {} };
 
+  // ---------- Modo automático (telas do app, montadas pelo JavaScript) ----------
+  // <body data-cms-auto="#menu, #conteudo">: os textos FIXOS dessas áreas (títulos,
+  // descrições, nomes de campos, notas) ganham uma chave "t.<tela>.<código do texto
+  // original>". Dados de clientes (licitações, tabelas, listas, CRM, janelas) ficam de fora.
+  const RAIZES = (document.body.dataset.cmsAuto || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const CANDIDATOS = 'h1, h2, h3, h4, .pagina__cabecalho p, .campo__rotulo, .nota, legend, .vazio strong, .vazio p, .card > p.fraco, .titulo-secao p';
+  const FORA = '.licitacao, table, .tabela-rolagem, .lista, .lista-ranking, .kanban, .modal-fundo, .chat, .menu-usuario, .adm-barra, .adm-midia, [data-cms-ignorar], [contenteditable="true"]:not([data-cms])';
+  const codigo = (t) => { let h = 0x811c9dc5; for (const ch of t) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); };
+  const tela = () => (location.hash.replace(/^#\/?/, '').split('?')[0] || 'home').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'home';
+
+  function marcarAutomaticos() {
+    for (const raiz of RAIZES.flatMap((s) => $$(s))) {
+      for (const el of raiz.querySelectorAll(CANDIDATOS)) {
+        if (el.closest(FORA) || el.querySelector('[data-cms]') || el.closest('[data-cms]')) continue;
+        // só texto + ícones: o texto vira um <span data-cms> (o ícone fica)
+        const filhos = [...el.childNodes];
+        if (filhos.some((n) => n.nodeType === 1 && !/^(svg|i)$/i.test(n.tagName) && !n.classList.contains('ic'))) continue;
+        const textos = filhos.filter((n) => n.nodeType === 3 && n.textContent.trim());
+        if (textos.length !== 1) continue;
+        const original = textos[0].textContent.replace(/\s+/g, ' ').trim();
+        if (original.length < 2 || original.length > 600) continue;
+        const span = document.createElement('span');
+        span.dataset.cms = `t.${tela()}.${codigo(original)}`;
+        span.textContent = textos[0].textContent;
+        textos[0].replaceWith(span);
+      }
+    }
+  }
+
   // ---------- Conteúdo público ----------
   function aplicarTextos() {
+    marcarAutomaticos();
     for (const el of $$('[data-cms]')) {
       const k = el.dataset.cms;
       if (!originais.has(k)) originais.set(k, el.textContent);
-      const novo = conteudo.textos[k];
-      el.textContent = novo != null ? novo : originais.get(k);
+      // não mexe no que está sendo editado nem reescreve o que já está certo (evita laço com o observador)
+      if (!(alterados.has(k) || el === document.activeElement)) {
+        const novo = conteudo.textos[k];
+        const alvo = novo != null ? novo : originais.get(k);
+        if (el.textContent !== alvo) el.textContent = alvo;
+      }
+      if (editando && !el.hasAttribute('contenteditable')) { el.setAttribute('contenteditable', 'plaintext-only'); el.classList.add('cms-editavel'); }
     }
   }
 
@@ -70,6 +105,12 @@
     } catch { /* sem servidor (arquivo aberto direto): fica o HTML */ }
     aplicarTextos();
     aplicarMidias(false);
+    // Telas do app são redesenhadas a cada navegação: reaplica (e marca) a cada mudança.
+    if (RAIZES.length) {
+      let agendado = 0;
+      const obs = new MutationObserver(() => { cancelAnimationFrame(agendado); agendado = requestAnimationFrame(aplicarTextos); });
+      for (const raiz of RAIZES.flatMap((s) => $$(s))) obs.observe(raiz, { childList: true, subtree: true });
+    }
   }
 
   // ---------- Modo ADM ----------
@@ -108,7 +149,7 @@
   function montarBarra() {
     document.body.classList.add('modo-adm');
     barra = document.createElement('div');
-    barra.className = 'adm-barra';
+    barra.className = RAIZES.length ? 'adm-barra adm-barra--rodape' : 'adm-barra';
     barra.setAttribute('role', 'region');
     barra.setAttribute('aria-label', 'Modo ADM');
     const titulo = document.createElement('strong');

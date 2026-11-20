@@ -39,3 +39,7 @@ img.midia-slot__midia { height: auto; object-fit: cover; }
   .adm-barra { padding: 8px 12px; }
   .adm-barra__msg { flex-basis: 100%; order: 10; }
 }
+
+/* No app (telas internas) a barra ADM fica no rodapé: o topo é a barra do sistema */
+.adm-barra--rodape { position: fixed; top: auto; bottom: 0; left: 0; right: 0; border-bottom: 0; border-top: 2px solid #f59e0b; box-shadow: 0 -8px 30px rgba(0, 0, 0, .4); }
+body.modo-adm:has(.adm-barra--rodape) { padding-bottom: 64px; }

@@ -60,22 +60,25 @@ window.LH = window.LH || {};
 
   function montarMenu() {
     const tag = (t) => (t ? `<span class="menu__tag">${esc(t)}</span>` : '');
+    // Nome editável pelo modo ADM (data-cms): chave estável por rota ou etapa.
+    const chaveMenu = (item) => `menu.${String(item.id || (item.etapa ? `etapa-${item.etapa}` : item.rotulo)).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-')}`;
+    const nome = (item) => `<span class="menu__rotulo" data-cms="${chaveMenu(item)}">${esc(item.rotulo)}</span>`;
     menu.innerHTML = `<ul>${LH.menu.map((item, i) => {
       if (!item.filhos) {
         // Etapa com acesso direto (ex.: "2 Robô Turbo 2.0"): número da etapa, sem submenu.
         const marcaDireta = item.etapa ? `<span class="menu__num" aria-hidden="true">${item.etapa}</span>` : icone(item.icone);
-        const rotuloDireto = item.etapa ? `<span class="sr-only">Etapa ${item.etapa}: </span>${esc(item.rotulo)}` : esc(item.rotulo);
+        const rotuloDireto = item.etapa ? `<span class="sr-only">Etapa ${item.etapa}: </span>${nome(item)}` : nome(item);
         return `<li class="menu__item${item.etapa ? ' menu__item--etapa' : ''}"><a class="menu__link" href="#/${item.id}" data-rota="${item.id}">
           ${marcaDireta}<span class="menu__texto">${rotuloDireto}</span>${tag(item.tag)}</a></li>`;
       }
       const marca = item.etapa ? `<span class="menu__num" aria-hidden="true">${item.etapa}</span>` : icone(item.icone);
-      const rotulo = item.etapa ? `<span class="sr-only">Etapa ${item.etapa}: </span>${esc(item.rotulo)}` : esc(item.rotulo);
+      const rotulo = item.etapa ? `<span class="sr-only">Etapa ${item.etapa}: </span>${nome(item)}` : nome(item);
       return `<li class="menu__item${item.etapa ? ' menu__item--etapa' : ''}">
         <button type="button" class="menu__link" aria-expanded="false" aria-controls="sub-${i}" data-grupo="${i}">
           ${marca}<span class="menu__texto">${rotulo}</span>${icone('setaBaixo', 'menu__seta')}
         </button>
         <div class="menu__sub" id="sub-${i}"><ul>${item.filhos.map((f, j) => `
-          <li><a class="menu__link" href="#/${f.id}" data-rota="${f.id}">${item.etapa ? `<span class="menu__subnum">${item.etapa}.${j + 1}</span>` : ''}<span class="menu__texto">${esc(f.rotulo)}</span>${tag(f.tag)}</a></li>`).join('')}
+          <li><a class="menu__link" href="#/${f.id}" data-rota="${f.id}">${item.etapa ? `<span class="menu__subnum">${item.etapa}.${j + 1}</span>` : ''}<span class="menu__texto">${nome(f)}</span>${tag(f.tag)}</a></li>`).join('')}
         </ul></div>
       </li>`;
     }).join('')}</ul>`;
@@ -328,6 +331,11 @@ window.LH = window.LH || {};
       LH.aviso(e.message, 'perigo', 9000);
       return;
     }
+    // Modo ADM sem cliente logado: abre o app com os dados de DEMONSTRAÇÃO para o ADM
+    // navegar pelos módulos e editar os textos fixos (que valem para todos).
+    const admSemCliente = ligado && !LH.nuvem.usuario && /(?:^|;\s*)lh_adm_on=1/.test(document.cookie)
+      && await fetch('/api/adm/sessao', { credentials: 'same-origin' }).then((r) => r.ok).catch(() => false);
+    if (admSemCliente) ligado = false;
     LH.repo = ligado ? LH.repos.real : LH.repos.demo;
     document.body.classList.toggle('modo-demo', !ligado);
     if (ligado && !LH.nuvem.usuario) LH.acesso.mostrar('', pedido.aba);
