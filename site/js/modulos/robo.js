@@ -43,6 +43,47 @@ LH.vistas = LH.vistas || {};
     return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   };
 
+  // Tutorial em vídeo do Robô Turbo 2.0: na tela do robô e na tela de bloqueio (quem não
+  // tem o Max também pode assistir antes de assinar).
+  LH.tutorialRobo = {
+    html: () => `
+      <details class="card tutorial-video" id="robo-tutorial" data-tutorial-robo>
+        <summary class="tutorial-video__cabecalho">
+          <span class="tutorial-video__capa" aria-hidden="true"><img src="video/robo-turbo-tutorial.jpg" alt="" loading="lazy" width="128" height="72">${icone('play')}</span>
+          <span class="tutorial-video__textos">
+            <span class="selo selo--info tutorial-video__selo">${icone('play')} Tutorial</span>
+            <strong class="tutorial-video__titulo">Como usar o Robô Turbo 2.0 na prática</strong>
+            <span class="fraco">Em pouco mais de 3 minutos, veja como o robô cobre os lances por centavos e trava no seu preço mínimo.</span>
+          </span>
+          <span class="btn btn--pequeno tutorial-video__acao" aria-hidden="true">${icone('play')} <span data-tutorial-rotulo>Assistir</span></span>
+        </summary>
+        <div class="tutorial-video__player">
+          <video controls preload="metadata" playsinline poster="video/robo-turbo-tutorial.jpg" aria-label="Tutorial: Como usar o Robô Turbo 2.0 na prática">
+            <source src="video/robo-turbo-tutorial.mp4" type="video/mp4">
+            Seu navegador não reproduz vídeo. <a href="video/robo-turbo-tutorial.mp4">Baixe o tutorial</a>.
+          </video>
+        </div>
+      </details>`,
+    ligar(raiz) {
+        // Tutorial em vídeo: fechado por padrão; lembra se a pessoa abriu. #/robo?tutorial=1 abre e rola até ele.
+        const tutorial = raiz.querySelector('[data-tutorial-robo]');
+        if (!tutorial) return;
+        const video = tutorial.querySelector('video');
+        const rotuloTutorial = tutorial.querySelector('[data-tutorial-rotulo]');
+        const pedidoTutorial = new URLSearchParams(location.hash.split('?')[1] || '').has('tutorial');
+        let aberto = pedidoTutorial;
+        try { aberto ||= localStorage.getItem('lh-robo-tutorial') === 'aberto'; } catch { /* sem armazenamento */ }
+        tutorial.open = aberto;
+        rotuloTutorial.textContent = aberto ? 'Fechar' : 'Assistir';
+        tutorial.addEventListener('toggle', () => {
+          rotuloTutorial.textContent = tutorial.open ? 'Fechar' : 'Assistir';
+          if (!tutorial.open) video.pause();
+          try { localStorage.setItem('lh-robo-tutorial', tutorial.open ? 'aberto' : 'fechado'); } catch { /* sem armazenamento */ }
+        });
+        if (pedidoTutorial) requestAnimationFrame(() => tutorial.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    },
+  };
+
   LH.vistas.robo = {
     titulo: 'Robô Turbo 2.0',
     render: () => `
@@ -61,23 +102,7 @@ LH.vistas = LH.vistas || {};
                 <button class="robo-quadro robo-quadro--primario" type="button" data-novo aria-label="Novo item" title="Novo item">${icone('mais')}</button>`,
       })}
       </div>
-      <details class="card tutorial-video" id="robo-tutorial" data-tutorial-robo>
-        <summary class="tutorial-video__cabecalho">
-          <span class="tutorial-video__capa" aria-hidden="true"><img src="video/robo-turbo-tutorial.jpg" alt="" loading="lazy" width="128" height="72">${icone('play')}</span>
-          <span class="tutorial-video__textos">
-            <span class="selo selo--info tutorial-video__selo">${icone('play')} Tutorial</span>
-            <strong class="tutorial-video__titulo">Como usar o Robô Turbo 2.0 na prática</strong>
-            <span class="fraco">Em pouco mais de 3 minutos, veja como o robô cobre os lances por centavos e trava no seu preço mínimo.</span>
-          </span>
-          <span class="btn btn--pequeno tutorial-video__acao" aria-hidden="true">${icone('play')} <span data-tutorial-rotulo>Assistir</span></span>
-        </summary>
-        <div class="tutorial-video__player">
-          <video controls preload="metadata" playsinline poster="video/robo-turbo-tutorial.jpg" aria-label="Tutorial: Como usar o Robô Turbo 2.0 na prática">
-            <source src="video/robo-turbo-tutorial.mp4" type="video/mp4">
-            Seu navegador não reproduz vídeo. <a href="video/robo-turbo-tutorial.mp4">Baixe o tutorial</a>.
-          </video>
-        </div>
-      </details>
+      ${LH.tutorialRobo.html()}
       <p class="nota robo-aviso robo-aviso--real" data-aviso-real hidden>${icone('plugue')} <span><strong>Modo real:</strong> o robô do servidor entra no portal com a <strong>sua credencial do cofre</strong>, abre a sala do pregão e transmite os lances, as fases e o chat ao vivo para esta tela. Por padrão ele <strong>só monitora</strong>; para dar lances de verdade, escolha isso ao conectar e confirme. Os portais não têm API pública: cada um precisa ter a sala mapeada no robô (por enquanto nenhum foi conferido numa sessão real, então a conexão avisa o que falta).</span></p>
       <p class="nota robo-aviso">${icone('escudo')} <span><strong>Prejuízo zero:</strong> o robô nunca dá lance abaixo do preço mínimo nem acima do teto, e o mínimo nunca fica abaixo do custo. A regra é conferida no motor e de novo no banco de dados. Os portais ainda não têm API pública de lances, então a sala abaixo é uma <strong>simulação</strong> com as regras do modo aberto e da LC 123, para testar a estratégia.</span></p>
       <div class="robo-portais" role="group" aria-label="Filtrar por portal">
@@ -107,21 +132,7 @@ LH.vistas = LH.vistas || {};
         </aside>
       </div>`,
     montar(raiz) {
-      // Tutorial em vídeo: fechado por padrão; lembra se a pessoa abriu. #/robo?tutorial=1 abre e rola até ele.
-      const tutorial = raiz.querySelector('[data-tutorial-robo]');
-      const video = tutorial.querySelector('video');
-      const rotuloTutorial = tutorial.querySelector('[data-tutorial-rotulo]');
-      const pedidoTutorial = new URLSearchParams(location.hash.split('?')[1] || '').has('tutorial');
-      let aberto = pedidoTutorial;
-      try { aberto ||= localStorage.getItem('lh-robo-tutorial') === 'aberto'; } catch { /* sem armazenamento */ }
-      tutorial.open = aberto;
-      rotuloTutorial.textContent = aberto ? 'Fechar' : 'Assistir';
-      tutorial.addEventListener('toggle', () => {
-        rotuloTutorial.textContent = tutorial.open ? 'Fechar' : 'Assistir';
-        if (!tutorial.open) video.pause();
-        try { localStorage.setItem('lh-robo-tutorial', tutorial.open ? 'aberto' : 'fechado'); } catch { /* sem armazenamento */ }
-      });
-      if (pedidoTutorial) requestAnimationFrame(() => tutorial.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      LH.tutorialRobo.ligar(raiz);
 
       const orbe = raiz.querySelector('.robo-orbe');
       const marcarOrbe = (ligado) => {

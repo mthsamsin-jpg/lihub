@@ -145,6 +145,7 @@ window.LH = window.LH || {};
     conteudo.innerHTML = `<div class="vista">${liberado ? `${aviso}${vista.render(params)}` : LH.plano.telaBloqueada(caminho, vista.titulo)}</div>`;
     const raiz = conteudo.firstElementChild;
     const limpeza = liberado ? vista.montar?.(raiz, params) : LH.plano.pedirUpgrade(LH.plano.exigido(caminho));
+    if (!liberado) LH.tutorialRobo?.ligar(raiz); // tela de bloqueio do robô também mostra o tutorial
     if (typeof limpeza === 'function') desmontarAtual = limpeza;
     LH.revelar(raiz);
 

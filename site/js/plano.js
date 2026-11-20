@@ -51,7 +51,8 @@ window.LH = window.LH || {};
             ? 'Dispute pregões com lances automáticos, sniper e previsões de fechamento. Assine o Max (R$ 197 a cada 15 dias) e libere tudo da plataforma.'
             : 'Busque licitações em todo o Brasil, use o Radar, o Petronect e salve as suas favoritas. Assine o Pro (R$ 97) ou o Max (R$ 197, com o Robô Turbo 2.0).'}</p>
           <button type="button" class="btn btn--primario btn--grande" data-upgrade="${e}">${LH.icone('raio')} Fazer upgrade</button>
-        </section>`;
+        </section>
+        ${robo && LH.tutorialRobo ? `<div style="margin-top:18px">${LH.tutorialRobo.html()}</div>` : ''}`;
     },
 
     /** Modal convidando para o upgrade. exigido: 'pro' | 'max'. */
