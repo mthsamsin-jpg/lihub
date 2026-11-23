@@ -31,6 +31,10 @@
       <div class="cartao"><span>Usaram em 7 dias</span><strong data-n="ativos7d">–</strong></div>
       <div class="cartao"><span>Novos em 7 dias</span><strong data-n="novos7d">–</strong></div>
       <div class="cartao"><span>E-mail não confirmado</span><strong data-n="pendentes">–</strong></div>
+      <div class="cartao cartao--destaque"><span>Assinantes ativos</span><strong data-n="assinantes">–</strong></div>
+      <div class="cartao"><span>Com robô liberado agora</span><strong data-n="comRobo">–</strong></div>
+      <div class="cartao cartao--perigo"><span>Cobrança recusada</span><strong data-n="falhaPagamento">–</strong></div>
+      <div class="cartao"><span>Cancelando no fim do ciclo</span><strong data-n="cancelando">–</strong></div>
     </section>
 
     <form class="filtros" id="filtros" role="search">
@@ -40,6 +44,9 @@
         <option value="ativos">Ativos</option>
         <option value="bloqueados">Bloqueados</option>
         <option value="pendentes">E-mail não confirmado</option>
+        <option value="assinantes">Assinantes (ciclo pago)</option>
+        <option value="robo">Com robô liberado agora</option>
+        <option value="falha">Cobrança recusada</option>
       </select>
       <button class="btn btn--primario" type="submit">Buscar</button>
     </form>

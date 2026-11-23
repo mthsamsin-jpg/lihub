@@ -2,7 +2,7 @@
 //   GET  /saude                         verificação simples (sem login)
 //   POST /api/editais/analisar          inicia a leitura de um edital pela IA
 //   GET  /api/editais/analises/:id      consulta o andamento/resultado
-//   POST /api/assinaturas/checkout      página do Mercado Pago (Pix, crédito ou débito) para assinar um plano
+//   POST /api/assinaturas/checkout      página do Mercado Pago para cadastrar o cartão (cobrança automática a cada ciclo)
 //   POST /api/assinaturas/cancelar      cancela a cobrança automática no cartão (vale até o fim dos dias pagos)
 //   POST /mercadopago/webhook           avisos do Mercado Pago (sem login; tudo é reconsultado na API do MP)
 //   DELETE /api/conta                   exclui a conta de quem está logado (LGPD)
@@ -31,7 +31,7 @@ const PedidoCheckout = z.object({
   organizacao_id: OrganizacaoId,
   plano: z.string({ error: 'Informe o plano.' }).min(1).max(40),
   // avulso = Pix, crédito ou débito (15 dias); recorrente = cartão de crédito a cada 15 dias.
-  forma: z.enum(['avulso', 'recorrente'], { error: 'forma deve ser "avulso" ou "recorrente".' }).default('avulso'),
+  forma: z.enum(['avulso', 'recorrente'], { error: 'forma deve ser "avulso" ou "recorrente".' }).default('recorrente'),
 });
 const PedidoPortal = z.object({ organizacao_id: OrganizacaoId });
 

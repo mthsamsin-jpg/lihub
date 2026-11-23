@@ -49,6 +49,8 @@ export function ligarSite(app, { pasta = PASTA_SITE, publico, bibliotecaSupabase
     supabaseChave: publico.supabaseChave,
     // Base dos links dos e-mails (cadastro e senha). Vem do SITE_URL.
     siteUrl: (publico.siteUrl ?? '').replace(/\/+$/, ''),
+    // Ciclo da assinatura e janela do robô (dias), para os textos da tela.
+    assinatura: publico.assinatura ?? null,
   })};\n`;
 
   app.get('/config.js', (c) => {

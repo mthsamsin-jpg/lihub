@@ -35,8 +35,9 @@ export const permite = (nivel, exigido) => NIVEIS.indexOf(nivel) >= NIVEIS.index
 
 /** Rotas da API que exigem plano. A ordem importa: a primeira que casar vale. */
 export const ROTAS_PROTEGIDAS = [
-  [/^\/api\/robo\//, 'max'],
-  [/^\/api\/portais\//, 'max'], // credenciais dos portais (usadas só pelo robô)
+  // Robô: plano Max E dentro da janela do robô do ciclo (src/pagamentos/ciclo.js).
+  [/^\/api\/robo\//, 'robo'],
+  [/^\/api\/portais\//, 'robo'], // credenciais dos portais (usadas só pelo robô)
   [/^\/api\/pncp\//, 'pro'],
   [/^\/api\/licitacoes\//, 'pro'],
 ];
@@ -50,6 +51,14 @@ export function middlewareDePlano() {
   return async (c, next) => {
     const exigido = nivelExigido(c.req.path);
     if (!exigido) return next();
+    if (exigido === 'robo') {
+      const db = c.get('db');
+      if (await db.roboLiberado()) return next();
+      const nivel = await db.nivelDeAcesso();
+      return c.json(nivel === 'max'
+        ? { erro: 'O período do Robô Turbo 2.0 deste ciclo terminou. Ele volta a funcionar na renovação da assinatura; a plataforma continua liberada.', codigo: 'robo_janela_encerrada', exigido: 'max', nivel }
+        : { erro: 'O Robô Turbo 2.0 faz parte do plano Max. Faça o upgrade para usar.', codigo: 'plano_insuficiente', exigido: 'max', nivel }, 402);
+    }
     const nivel = await c.get('db').nivelDeAcesso();
     if (permite(nivel, exigido)) return next();
     return c.json({

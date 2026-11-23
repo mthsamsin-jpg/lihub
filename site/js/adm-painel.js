@@ -74,7 +74,8 @@
       ? '<span class="selo selo--bloqueado">Bloqueado</span>'
       : (u.confirmadoEm ? '<span class="selo selo--ativo">Ativo</span>' : '<span class="selo selo--pendente">E-mail não confirmado</span>');
     const plano = u.isento ? 'Isento' : (PLANOS[u.plano] || u.plano);
-    const vence = !u.isento && u.planoAte ? `<div class="fraco">até ${data(u.planoAte)}</div>` : '';
+    const vence = !u.isento && u.planoAte ? `<div class="fraco">ciclo até ${data(u.planoAte)}</div>` : '';
+    const assinatura = assinaturaHtml(u);
     const acao = u.bloqueado
       ? `<button class="btn btn--pequeno btn--ok" type="button" data-acao="desbloquear" data-id="${esc(u.id)}" data-email="${esc(u.email)}">Desbloquear</button>`
       : `<button class="btn btn--pequeno btn--perigo" type="button" data-acao="bloquear" data-id="${esc(u.id)}" data-email="${esc(u.email)}">Bloquear</button>`;
@@ -82,10 +83,31 @@
       <td data-rotulo="Usuário"><div class="email">${esc(u.email)}</div><div class="fraco">${esc(u.nome || 'sem nome')}${u.telefone ? ` · ${esc(u.telefone)}` : ''}</div></td>
       <td data-rotulo="Situação">${situacao}</td>
       <td data-rotulo="Empresa / plano"><div>${esc(u.organizacao || '–')}</div><span class="selo selo--plano">${esc(plano)}</span>${vence}</td>
+      <td data-rotulo="Assinatura e robô">${assinatura}</td>
       <td data-rotulo="Atividade"><div>Último uso: <strong>${quando(u.ultimaAtividade)}</strong></div><div class="fraco">Último login: ${quando(u.ultimoLogin)}</div></td>
       <td data-rotulo="Cadastro">${data(u.criadoEm)}</td>
       <td class="acoes">${acao}</td>
     </tr>`;
+  }
+
+  const STATUS_ASSINATURA = { authorized: 'Cartão ativo', pending: 'Aguardando cartão', paused: 'Pausada', cancelled: 'Cancelada', active: 'Pago (avulso)' };
+  /** Situação da assinatura, da última cobrança e da janela do robô. */
+  function assinaturaHtml(u) {
+    const partes = [];
+    if (u.isento) partes.push('<span class="selo selo--robo">Robô liberado (isento)</span>');
+    else {
+      if (u.assinaturaStatus) partes.push(`<span class="selo ${u.assinaturaStatus === 'authorized' ? 'selo--ativo' : 'selo--neutro'}">${esc(STATUS_ASSINATURA[u.assinaturaStatus] || u.assinaturaStatus)}</span>`);
+      else partes.push('<span class="selo selo--neutro">Sem assinatura</span>');
+      if (u.cancelarNoFim) partes.push('<div class="fraco linha-mini">Cancela no fim do ciclo</div>');
+      if (['rejected', 'cancelled'].includes(u.pagamentoStatus)) partes.push(`<div class="linha-mini"><span class="selo selo--alerta">Cobrança recusada${u.falhasPagamento > 1 ? ` (${u.falhasPagamento}x)` : ''}</span></div>`);
+      else if (u.ultimoPagamentoEm) partes.push(`<div class="fraco linha-mini">Último pagamento: ${data(u.ultimoPagamentoEm)}</div>`);
+      if (u.plano === 'max') {
+        partes.push(u.roboLiberado
+          ? `<div class="linha-mini"><span class="selo selo--robo">Robô até ${data(u.roboAte || u.planoAte)}</span></div>`
+          : `<div class="linha-mini"><span class="selo selo--neutro">Robô fechado${u.planoAte && new Date(u.planoAte) > new Date() ? ` · volta ${data(u.planoAte)}` : ''}</span></div>`);
+      }
+    }
+    return partes.join('');
   }
 
   async function carregarLista() {
@@ -105,7 +127,7 @@
         $('#contagem').textContent = '';
         return;
       }
-      lista.innerHTML = `<table class="tabela"><thead><tr><th>Usuário</th><th>Situação</th><th>Empresa / plano</th><th>Atividade</th><th>Cadastro</th><th><span class="sr">Ações</span></th></tr></thead><tbody>${r.usuarios.map(linha).join('')}</tbody></table>`;
+      lista.innerHTML = `<table class="tabela"><thead><tr><th>Usuário</th><th>Situação</th><th>Empresa / plano</th><th>Assinatura e robô</th><th>Atividade</th><th>Cadastro</th><th><span class="sr">Ações</span></th></tr></thead><tbody>${r.usuarios.map(linha).join('')}</tbody></table>`;
       $('#contagem').textContent = `${numero(r.total)} usuário(s)`;
       $('#paginas').hidden = paginas <= 1;
       $('#pag-texto').textContent = `Página ${estado.pagina} de ${paginas}`;

@@ -142,6 +142,21 @@ export function criarGerenciador({
       if (!s) throw new ErroModoReal('Esta sessão não está mais ativa no servidor.', 404, 'sem_sessao');
       return s;
     },
+    /**
+     * Fecha as sessões das organizações que perderam o robô (fim da janela do ciclo,
+     * plano vencido). liberado(orgId) -> Promise<boolean>. Devolve quantas fechou.
+     */
+    async encerrarSemAcesso(liberado) {
+      let n = 0;
+      for (const s of [...ativas.values()]) {
+        const org = s.sessao.organizacao_id;
+        if (org && !(await liberado(org))) {
+          await s.encerrar('O período do Robô Turbo 2.0 deste ciclo terminou: sessão encerrada.');
+          n += 1;
+        }
+      }
+      return n;
+    },
     /** Desligamento do servidor: fecha os navegadores. */
     async encerrarTudo() {
       await Promise.all([...ativas.values()].map((s) => s.encerrar('Servidor reiniciado: sessão encerrada.')));

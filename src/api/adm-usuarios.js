@@ -1,7 +1,7 @@
 // Painel ADM: usuários da plataforma (listar, acompanhar, bloquear e desbloquear).
 // Rotas protegidas pela sessão ADM (cookie HttpOnly) e, nas alterações, pelo cabeçalho X-LH-ADM.
 //
-//   GET  /api/adm/usuarios?busca=&estado=todos|ativos|bloqueados|pendentes&pagina=1
+//   GET  /api/adm/usuarios?busca=&estado=todos|ativos|bloqueados|pendentes|assinantes|robo|falha&pagina=1
 //   GET  /api/adm/usuarios/resumo
 //   POST /api/adm/usuarios/:id/bloquear     { motivo? }
 //   POST /api/adm/usuarios/:id/desbloquear
@@ -11,7 +11,7 @@
 // encerra as sessões abertas + registra em adm_auditoria. Desbloquear desfaz o ban.
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ESTADOS = new Set(['todos', 'ativos', 'bloqueados', 'pendentes']);
+const ESTADOS = new Set(['todos', 'ativos', 'bloqueados', 'pendentes', 'assinantes', 'robo', 'falha']);
 export const POR_PAGINA = 25;
 const BAN_INDEFINIDO = '876000h'; // ~100 anos: até o ADM desbloquear
 
@@ -23,6 +23,11 @@ const usuarioParaTela = (r) => ({
   organizacao: r.organizacao || '', plano: r.plano || 'gratuito', isento: !!r.isento, planoAte: r.plano_ate,
   criadoEm: r.criado_em, confirmadoEm: r.confirmado_em, ultimoLogin: r.ultimo_login, ultimaAtividade: r.ultima_atividade,
   bloqueado: !!r.bloqueado, bloqueadoAte: r.bloqueado_ate,
+  // Assinatura e janela do robô
+  cicloInicio: r.ciclo_inicio ?? null, roboDe: r.robo_de ?? null, roboAte: r.robo_ate ?? null, roboLiberado: !!r.robo_liberado,
+  assinaturaStatus: r.assinatura_status ?? null, assinaturaForma: r.assinatura_forma ?? null,
+  pagamentoStatus: r.pagamento_status ?? null, ultimoPagamentoEm: r.ultimo_pagamento_em ?? null,
+  falhasPagamento: Number(r.falhas_pagamento ?? 0), proximaCobranca: r.proxima_cobranca ?? null, cancelarNoFim: !!r.cancelar_no_fim,
 });
 
 export function ligarAdmUsuarios(app, { supabase, exigir, ipDe, log = console }) {

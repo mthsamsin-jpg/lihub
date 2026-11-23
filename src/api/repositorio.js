@@ -1,6 +1,7 @@
 // Acesso ao banco usado pela API. Fica separado para os testes poderem
 // trocar por uma versão em memória.
 import { nivelDoUsuario } from '../pagamentos/acesso.js';
+import { roboLiberado } from '../pagamentos/ciclo.js';
 import { PLANOS } from '../pagamentos/planos.js';
 import { hojeBrasilia } from '../util.js';
 
@@ -63,6 +64,13 @@ export function criarRepositorio({ admin, criarClienteDoUsuario }) {
           const { data, error } = await db.from('organizacoes').select('plano, isento, plano_ate');
           if (error) falhar('Falha ao verificar o plano', error);
           return nivelDoUsuario(data ?? []);
+        },
+
+        /** Robô Turbo 2.0 liberado agora (Max dentro da janela do ciclo, ou conta isenta)? */
+        async roboLiberado() {
+          const { data, error } = await db.from('organizacoes').select('plano, isento, plano_ate, robo_de, robo_ate');
+          if (error) falhar('Falha ao verificar o acesso ao robô', error);
+          return (data ?? []).some((o) => roboLiberado(o));
         },
 
         async organizacao(id) {
@@ -196,7 +204,7 @@ export function criarRepositorio({ admin, criarClienteDoUsuario }) {
     async expirarPlanos() {
       const { data, error } = await admin
         .from('organizacoes')
-        .update({ plano: 'gratuito', plano_ate: null, limite_empresas: PLANOS.gratuito.limites.empresas, limite_analises_ia_mes: PLANOS.gratuito.limites.analisesMes })
+        .update({ plano: 'gratuito', plano_ate: null, ciclo_inicio: null, robo_de: null, robo_ate: null, limite_empresas: PLANOS.gratuito.limites.empresas, limite_analises_ia_mes: PLANOS.gratuito.limites.analisesMes })
         .neq('plano', 'gratuito').eq('isento', false).lt('plano_ate', new Date().toISOString())
         .select('id');
       if (error) falhar('Falha ao expirar planos', error);
@@ -204,10 +212,10 @@ export function criarRepositorio({ admin, criarClienteDoUsuario }) {
     },
 
     /** Troca o plano e os limites da organização (o usuário não consegue fazer isso sozinho). */
-    async aplicarPlano(organizacaoId, plano, limites, ate = null) {
+    async aplicarPlano(organizacaoId, plano, limites, ate = null, cicloDatas = {}) {
       const { error } = await admin
         .from('organizacoes')
-        .update({ plano, plano_ate: ate, limite_empresas: limites.empresas, limite_analises_ia_mes: limites.analisesMes })
+        .update({ plano, plano_ate: ate, limite_empresas: limites.empresas, limite_analises_ia_mes: limites.analisesMes, ...cicloDatas })
         .eq('id', organizacaoId);
       if (error) falhar('Falha ao aplicar o plano', error);
     },

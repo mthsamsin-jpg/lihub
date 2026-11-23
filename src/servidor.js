@@ -14,6 +14,7 @@ import { sincronizarPncp } from './pncp/sincronizar.js';
 import { executarColeta, situacaoColeta } from './services/collectors/index.js';
 import { agendarCron } from './services/collectors/cron.js';
 import { emHorarioDePico } from './pico.js';
+import { configCiclo, roboLiberado } from './pagamentos/ciclo.js';
 import { criarLogEstruturado } from './services/collectors/log.js';
 import { fecharAbandonadas } from './services/collectors/execucoes.js';
 import { timingSafeEqual } from 'node:crypto';
@@ -111,6 +112,20 @@ ligarModoReal(app, {
   navegadorDisponivel: async () => { try { await import('playwright'); return true; } catch { return false; } },
 });
 
+// Janela do Robô Turbo 2.0: a cada minuto, fecha as sessões reais de quem saiu da janela
+// (src/pagamentos/ciclo.js). A API e o banco também recusam o robô fora da janela.
+if (gerenciadorReal) {
+  setInterval(async () => {
+    try {
+      const n = await gerenciadorReal.encerrarSemAcesso(async (orgId) => {
+        const { data } = await admin.from('organizacoes').select('plano, isento, plano_ate, robo_de, robo_ate').eq('id', orgId).maybeSingle();
+        return roboLiberado(data);
+      });
+      if (n) log.info(`Robô: ${n} sessão(ões) encerrada(s) no fim da janela do ciclo.`);
+    } catch (e) { log.erro(`Robô (janela do ciclo): ${e.message}`); }
+  }, 60_000).unref();
+}
+
 const logColeta = criarLogEstruturado('coleta');
 
 // Modo ADM do site (/adm): login com ADMIN_LOGIN_EMAIL + senha, conteúdo editável.
@@ -140,7 +155,7 @@ app.post('/api/admin/coleta', async (c) => {
   return c.json({ iniciada: true, ...situacaoColeta() }, 202);
 });
 
-ligarSite(app, { publico: { supabaseUrl: config.supabase.url, supabaseChave: config.supabase.chavePublica, siteUrl: config.site.url } });
+ligarSite(app, { publico: { supabaseUrl: config.supabase.url, supabaseChave: config.supabase.chavePublica, siteUrl: config.site.url, assinatura: configCiclo() } });
 
 // No Render (variável RENDER=true), localhost nos links é sempre engano.
 if (process.env.RENDER && /localhost|127\.0\.0\.1/.test(config.site.url)) {

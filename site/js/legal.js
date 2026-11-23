@@ -19,7 +19,7 @@ window.LH = window.LH || {};
     termos: ['Termos de uso', `
       <p>O Uso LicitaHub é uma ferramenta de gestão e análise de licitações públicas. Ele organiza informações públicas, usa inteligência artificial para ajudar na leitura de editais e ajuda a montar documentos.</p>
       <p><strong>O Uso LicitaHub não garante vitória em licitações.</strong> A IA pode errar: confira sempre o edital original. A responsabilidade final pelas propostas, declarações e documentos enviados é do usuário.</p>
-      <p>Assinatura: plano Pro (R$ 97 a cada 15 dias) ou Max (R$ 197 a cada 15 dias), pagos pelo Mercado Pago por Pix, cartão de crédito ou débito. Cada pagamento libera 15 dias de acesso. Não há renovação automática: ao fim dos dias pagos, a conta volta ao plano Free até um novo pagamento.</p>`],
+      <p>Assinatura: plano Pro (R$ 97 por ciclo de 30 dias) ou Max (R$ 197 por ciclo de 30 dias), cobrados no cartão de crédito pelo Mercado Pago, com renovação automática a cada ciclo. No plano Max, o Robô Turbo 2.0 fica disponível nos 7 primeiros dias de cada ciclo; os demais recursos, durante o ciclo inteiro. O cancelamento pode ser feito a qualquer momento, sem multa: a cobrança automática para e o acesso segue até o fim do ciclo já pago. Se uma cobrança for recusada, o acesso termina no fim do ciclo pago.</p>`],
     privacidade: ['Política de privacidade', `
       <p>Coletamos os dados do cadastro (nome, e-mail, telefone), os dados da empresa e o uso da plataforma, para prestar o serviço, cobrar a assinatura e dar suporte.</p>
       <p>Compartilhamos só o necessário com quem nos ajuda a prestar o serviço: hospedagem do banco de dados, processamento de pagamentos (Mercado Pago) e o provedor de IA que lê os editais.</p>

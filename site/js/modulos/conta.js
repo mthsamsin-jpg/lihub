@@ -115,12 +115,29 @@ LH.vistas = LH.vistas || {};
   // --- Meu Perfil: dados da conta e assinatura -----------------------------------------
   const NOMES_PLANO = { gratuito: 'Free', starter: 'Pro', prime: 'Pro', pro: 'Pro', max: 'Max' };
 
+  const fimData = (iso) => (iso ? fmt.data(LH.datas.paraIso(new Date(iso))) : '');
+
   function situacaoAssinatura(org, a) {
-    const fim = (iso) => (iso ? fmt.data(LH.datas.paraIso(new Date(iso))) : '');
     if (org.plano === 'gratuito' || !org.plano_ate) return { texto: 'Plano Free', classe: '' };
-    if (new Date(org.plano_ate) <= new Date()) return { texto: 'Prazo pago terminou', classe: 'selo--alerta' };
-    if (a?.forma === 'recorrente' && a.status === 'authorized') return { texto: `Crédito automático · renova em ${fim(org.plano_ate)}`, classe: 'selo--sucesso' };
-    return { texto: `Liberado até ${fim(org.plano_ate)}`, classe: 'selo--sucesso' };
+    if (new Date(org.plano_ate) <= new Date()) return { texto: 'Ciclo pago terminou', classe: 'selo--alerta' };
+    if (a?.cancelar_no_fim) return { texto: `Cancelada · acesso até ${fimData(org.plano_ate)}`, classe: 'selo--alerta' };
+    if (['rejected', 'cancelled'].includes(a?.status_pagamento)) return { texto: 'Cobrança recusada: confira o cartão', classe: 'selo--alerta' };
+    if (a?.forma === 'recorrente' && a.status === 'authorized') return { texto: `Cartão · renova em ${fimData(org.plano_ate)}`, classe: 'selo--sucesso' };
+    return { texto: `Liberado até ${fimData(org.plano_ate)}`, classe: 'selo--sucesso' };
+  }
+
+  /** Linha do tempo do ciclo: plataforma até o fim, robô (Max) só nos primeiros dias. */
+  function cicloHtml(org) {
+    if (LH.plano.isento() || org.plano === 'gratuito' || !org.plano_ate || new Date(org.plano_ate) <= new Date()) return '';
+    const r = LH.plano.robo();
+    const robo = org.plano !== 'max' ? ''
+      : r.liberado
+        ? `<div class="uso__linha"><span>Robô Turbo 2.0</span><span class="selo selo--sucesso">liberado até ${esc(fimData(r.ate))}</span></div>`
+        : `<div class="uso__linha"><span>Robô Turbo 2.0</span><span class="selo">volta em ${esc(fimData(org.plano_ate))}</span></div>`;
+    return `<div class="uso">
+      <div class="uso__linha"><span>Plataforma</span><span>até ${esc(fimData(org.plano_ate))}</span></div>
+      ${robo}
+    </div>`;
   }
 
   LH.vistas.perfil = {
@@ -167,7 +184,8 @@ LH.vistas = LH.vistas || {};
             <strong style="font-size:1.1rem">Plano ${isento ? 'Isento' : NOMES_PLANO[org.plano] || 'Free'}</strong>
             <span class="selo ${isento ? 'selo--sucesso' : sit.classe}">${esc(isento ? 'Acesso total, sem cobrança' : sit.texto)}</span>
           </div>
-          <div class="plano-atual__preco"><strong>R$ ${pago ? LH.plano.PRECOS[nivel] : 0}</strong><span class="suave">${pago ? '/15 dias' : '/mês'}</span></div>
+          <div class="plano-atual__preco"><strong>R$ ${pago ? LH.plano.PRECOS[nivel] : 0}</strong><span class="suave">/mês</span></div>
+          ${cicloHtml(org)}
           ${isento ? '<p class="nota">Sua conta é isenta: todos os recursos liberados (Prospecção e Robô Turbo 2.0), para sempre e sem cobrança.</p>' : ''}
           <div class="uso">
             <div class="uso__linha"><span>Empresas</span><span>${empresas} de ${org.limite_empresas}</span></div>
@@ -180,15 +198,15 @@ LH.vistas = LH.vistas || {};
           ${!isento && nivel !== 'max' ? ['starter', 'max'].filter((p) => !(nivel === 'pro' && p === 'starter')).map((p) => {
             const max = p === 'max';
             return `<div class="assinar-plano${max ? ' assinar-plano--destaque' : ''}" data-plano-bloco="${p}">
-              <strong>${max ? 'Max' : 'Pro'} · R$ ${LH.plano.PRECOS[max ? 'max' : 'pro']}/15 dias</strong>
-              <p class="fraco">${max ? 'Tudo do Pro + Robô Turbo 2.0, até 20 empresas e 60 leituras por IA por mês.' : 'Prospecção completa (Busca, Radar, Petronect, Favoritas), até 10 empresas e 30 leituras de edital por IA por mês.'}</p>
-              <button class="btn ${max ? 'btn--primario' : ''} btn--bloco" type="button" data-acao="assinar" data-plano="${p}" data-forma="avulso">${icone('raio')} Pix, crédito ou débito · 15 dias</button>
+              <strong>${max ? 'Max' : 'Pro'} · R$ ${LH.plano.PRECOS[max ? 'max' : 'pro']}/mês</strong>
+              <p class="fraco">${max ? `Tudo do Pro + Robô Turbo 2.0 nos ${LH.plano.ciclo().roboDias} primeiros dias de cada ciclo, até 20 empresas e 60 leituras por IA por mês.` : 'Prospecção completa (Busca, Radar, Petronect, Favoritas), até 10 empresas e 30 leituras de edital por IA por mês.'}</p>
+              <button class="btn ${max ? 'btn--primario' : ''} btn--bloco" type="button" data-acao="assinar" data-plano="${p}" data-forma="recorrente">${icone('raio')} Assinar com cartão de crédito</button>
             </div>`;
           }).join('') : ''}
-          ${pago && nivel === 'pro' ? '<p class="fraco">Ao assinar o Max, os 15 dias começam na hora do pagamento.</p>' : ''}
-          ${pago && c.assinatura?.forma === 'recorrente' && c.assinatura?.status === 'authorized' ? `<button class="btn btn--bloco" type="button" data-acao="cancelar">${icone('fechar')} Cancelar crédito automático</button>` : ''}
+          ${pago && nivel === 'pro' ? `<p class="fraco">Ao assinar o Max, um ciclo novo de ${LH.plano.ciclo().cicloDias} dias começa na hora da cobrança, com o robô liberado.</p>` : ''}
+          ${pago && c.assinatura?.forma === 'recorrente' && c.assinatura?.status === 'authorized' && !c.assinatura?.cancelar_no_fim ? `<button class="btn btn--bloco" type="button" data-acao="cancelar">${icone('fechar')} Cancelar assinatura</button>` : ''}
           ${!podeGerenciar ? '<p class="nota">Só o dono ou um administrador da organização pode cuidar da assinatura.</p>' : ''}
-          <p class="fraco">Pagamento seguro pelo Mercado Pago (Pix, crédito ou débito). Cada pagamento libera 15 dias, sem renovação automática.</p>
+          <p class="fraco">Pagamento seguro pelo Mercado Pago, no cartão de crédito, com renovação automática a cada ${LH.plano.ciclo().cicloDias} dias. Cancele quando quiser: o acesso segue até o fim do ciclo pago.</p>
         </aside>
       </div>`;
     },
@@ -198,8 +216,10 @@ LH.vistas = LH.vistas || {};
       // Volta da página de pagamento: espera o aviso do Mercado Pago liberar o plano (o Pix pode levar alguns segundos).
       if (params.assinatura === 'sucesso') {
         history.replaceState(null, '', '#/perfil');
-        LH.aviso('Pagamento recebido! Liberando o seu plano...', 'sucesso', 6000);
-        for (let i = 0; i < 24 && LH.plano.nivel() === 'free'; i++) {
+        LH.aviso('Cartão cadastrado! Aguardando a confirmação da cobrança pelo Mercado Pago...', 'sucesso', 6000);
+        // Espera o ciclo novo aparecer (vale para quem era Free e para quem trocou Pro -> Max).
+        const antes = LH.nuvem?.ctx?.organizacao?.plano_ate ?? null;
+        for (let i = 0; i < 24 && (LH.nuvem?.ctx?.organizacao?.plano_ate ?? null) === antes; i++) {
           await new Promise((r) => setTimeout(r, 2500));
           await LH.repo.recarregar().catch(() => {});
         }
@@ -210,7 +230,7 @@ LH.vistas = LH.vistas || {};
       // Veio da apresentação ou do convite de upgrade: destaca o plano escolhido.
       if (params.assinar) {
         history.replaceState(null, '', '#/perfil');
-        const botao = raiz.querySelector(`[data-acao="assinar"][data-plano="${params.assinar === 'max' ? 'max' : 'starter'}"][data-forma="avulso"]`) || raiz.querySelector('[data-acao="assinar"]');
+        const botao = raiz.querySelector(`[data-acao="assinar"][data-plano="${params.assinar === 'max' ? 'max' : 'starter'}"]`) || raiz.querySelector('[data-acao="assinar"]');
         if (botao) {
           botao.classList.add('destacar');
           botao.focus({ preventScroll: true });
@@ -253,7 +273,7 @@ LH.vistas = LH.vistas || {};
           if (acao === 'sair') await LH.nuvem.sair();
           if (acao === 'assinar') {
             b.disabled = true;
-            window.location.href = await LH.repo.assinar(b.dataset.plano || 'starter', b.dataset.forma || 'avulso');
+            window.location.href = await LH.repo.assinar(b.dataset.plano || 'starter', b.dataset.forma || 'recorrente');
           }
           if (acao === 'cancelar') {
             const ok = await LH.confirmar('Cancelar crédito automático', 'As próximas cobranças no cartão param. Você continua com acesso até o fim dos dias já pagos.', 'Cancelar cobrança', true);
@@ -288,8 +308,10 @@ LH.vistas = LH.vistas || {};
 
   // --- Ajuda -------------------------------------------------------------------------
   const FAQ = [
-    ['Como funciona o pagamento?', 'Pelo Mercado Pago: Pix, cartão de crédito ou débito liberam o plano por 15 dias. Não há cobrança automática: para renovar, é só pagar de novo.'],
-    ['Como cancelo a assinatura?', 'Em Meu Perfil > Gerenciar assinatura. O cancelamento vale no fim do período já pago e não tem multa.'],
+    ['Como funciona o pagamento?', 'Pelo Mercado Pago, no cartão de crédito, com renovação automática a cada 30 dias. Cada cobrança aprovada abre um ciclo novo.'],
+    ['Por quanto tempo uso o Robô Turbo 2.0?', 'No plano Max, o robô fica liberado nos 7 primeiros dias de cada ciclo. Depois disso, o resto da plataforma continua liberado até o fim do ciclo, e o robô volta na renovação.'],
+    ['Como cancelo a assinatura?', 'Em Meu Perfil, no botão Cancelar assinatura. A cobrança automática para, não há multa e o acesso segue até o fim do ciclo já pago.'],
+    ['E se a cobrança do cartão for recusada?', 'O Mercado Pago tenta de novo nos dias seguintes. Se não houver pagamento, o acesso termina no fim do ciclo já pago. Confira o cartão no Mercado Pago.'],
     ['A IA substitui a leitura do edital?', 'Não. Ela adianta o trabalho e aponta riscos e divergências, mas pode errar. Confira sempre o edital original antes de enviar a proposta.'],
     ['De onde vêm as licitações?', 'Do PNCP (Portal Nacional de Contratações Públicas), atualizadas automaticamente várias vezes ao dia.'],
     ['Quantas empresas posso cadastrar?', 'No Free, até 3. No Pro, até 10. No Max, até 20.'],

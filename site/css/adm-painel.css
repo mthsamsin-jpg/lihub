@@ -30,6 +30,11 @@ h1 { margin: 0 0 4px; font-size: 1.5rem; }
 .cartao span { display: block; color: var(--fraco); font-size: .78rem; }
 .cartao strong { display: block; margin-top: 4px; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
 .cartao--perigo strong { color: var(--perigo); }
+.cartao--destaque strong { color: var(--destaque); }
+.selo--alerta { background: rgba(248, 113, 113, .16); color: var(--perigo); }
+.selo--robo { background: rgba(52, 211, 153, .14); color: var(--sucesso); }
+.selo--neutro { background: rgba(148, 163, 184, .14); color: var(--fraco); }
+.linha-mini { margin-top: 4px; }
 
 .filtros { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .filtros input, .filtros select, .dialogo input { padding: 9px 12px; border-radius: 10px; border: 1px solid var(--borda-forte); background: #020617; color: var(--texto); font: inherit; }
