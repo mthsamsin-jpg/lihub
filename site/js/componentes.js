@@ -21,6 +21,19 @@ window.LH = window.LH || {};
 
   LH.carregando = (texto = 'Carregando...') => `<div class="carregando">${icone('atualizar', 'girando')} ${texto}</div>`;
   LH.erroHtml = (e) => `<p class="nota nota--alerta">${icone('alerta')} ${esc(e?.message || e)}</p>`;
+  /**
+   * Erro com botão "Tentar de novo" dentro de `caixa` (nunca deixa a área em branco).
+   * `tentar` é chamado no clique; o botão fica desativado enquanto roda.
+   */
+  LH.erroComTentar = (caixa, e, tentar) => {
+    if (!caixa?.isConnected) return;
+    caixa.innerHTML = `<div class="erro-tentar">${LH.erroHtml(e)}<button class="btn btn--pequeno" type="button" data-tentar-de-novo>${icone('atualizar')} Tentar de novo</button></div>`;
+    const botao = caixa.querySelector('[data-tentar-de-novo]');
+    botao.addEventListener('click', async () => {
+      botao.disabled = true;
+      try { await tentar(); } finally { if (botao.isConnected) botao.disabled = false; }
+    });
+  };
 
   LH.opcoesUf = (selecionada, vazio = 'Todas') => LH.opcoes(LH.dados.UFS, selecionada, vazio);
   LH.opcoesMunicipio = (uf, selecionado) =>

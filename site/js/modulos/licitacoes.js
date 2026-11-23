@@ -154,8 +154,9 @@ LH.vistas = LH.vistas || {};
           caixa.innerHTML = LH.carregando('Buscando licitações...');
         }
         try {
-          if (!continuar) favs = await LH.repo.favoritos();
-          const r = await LH.repo.buscar(f, offset);
+          // Favoritas em paralelo e sem derrubar a busca: se falhar, os editais aparecem mesmo assim.
+          const [r, fv] = await Promise.all([LH.repo.buscar(f, offset), continuar ? null : LH.repo.favoritos().catch(() => null)]);
+          if (fv) favs = fv;
           if (meu !== pedido) return;
           if (!continuar) total = r.total ?? 0;
           // Numeração contínua entre páginas ("Carregar mais" segue de onde parou).
@@ -175,7 +176,10 @@ LH.vistas = LH.vistas || {};
           mais.hidden = offset >= total || r.lista.length < r.porPagina;
           LH.revelar(caixa);
         } catch (e) {
-          if (meu === pedido) caixa.innerHTML = LH.erroHtml(e);
+          if (meu !== pedido) return;
+          // "Carregar mais" que falha não apaga o que já está na tela.
+          if (continuar) LH.aviso(e.message, 'perigo');
+          else LH.erroComTentar(caixa, e, () => buscar());
         }
       };
 
@@ -210,7 +214,12 @@ LH.vistas = LH.vistas || {};
         form.querySelectorAll('[name=plataformas]').forEach((c) => { c.checked = b.dataset.plataformas === 'todas'; });
       });
       ordem.addEventListener('change', () => buscar());
-      mais.querySelector('button').addEventListener('click', () => buscar(true));
+      mais.querySelector('button').addEventListener('click', async (ev) => {
+        const b = ev.currentTarget;
+        if (b.disabled) return; // evita clique duplo carregando a mesma página duas vezes
+        b.disabled = true;
+        try { await buscar(true); } finally { b.disabled = false; }
+      });
       LH.ligarAcoesLicitacao(caixa);
       buscar();
     },
@@ -544,7 +553,7 @@ LH.vistas = LH.vistas || {};
         caixaMun.innerHTML = LH.carregando('Carregando as licitações...');
         areaMun.scrollIntoView({ behavior: 'smooth', block: 'start' });
         try {
-          const [favs, lista] = await Promise.all([LH.repo.favoritos(), LH.repo.licitacoesDoMunicipio(ultima.filtros, uf, municipio)]);
+          const [favs, lista] = await Promise.all([LH.repo.favoritos().catch(() => []), LH.repo.licitacoesDoMunicipio(ultima.filtros, uf, municipio)]);
           LH.termosBusca = LH.termos.grupos(ultima.filtros.termo); // marca-texto nos cards do município
           caixaMun.innerHTML = lista.length ? lista.map((l) => LH.cartaoLicitacao(l, favs)).join('')
             : LH.vazio('busca', 'Nada encontrado', 'As licitações deste município podem ter encerrado agora há pouco.');
@@ -555,10 +564,14 @@ LH.vistas = LH.vistas || {};
       // --- Radares salvos e alertas ---
       let radares = [];
       const desenharRadares = async () => {
-        radares = await LH.repo.radares().catch((e) => { LH.aviso(e.message, 'perigo'); return []; });
-        if (!vivo) return;
         const caixa = raiz.querySelector('#radares');
+        try { radares = await LH.repo.radares(); } catch (e) {
+          if (vivo) LH.erroComTentar(caixa, e, desenharRadares);
+          return;
+        }
+        if (!vivo) return;
         const resultados = await Promise.all(radares.map((r) => doRadar(r).catch(() => ({ lista: [], total: null }))));
+        if (!vivo || !caixa.isConnected) return; // saiu da tela enquanto contava
         caixa.innerHTML = radares.length ? radares.map((r, i) => {
           const qtd = resultados[i].total;
           const mun = r.municipios || [];
@@ -573,7 +586,7 @@ LH.vistas = LH.vistas || {};
             <div class="chips">${r.palavras.map((p) => `<span class="chip">${esc(p)}</span>`).join('') || '<span class="fraco">Todos os objetos</span>'}</div>
             <p class="fraco" style="margin-top:10px">${esc(regiao)} · ${r.modalidades.length ? esc(r.modalidades.join(', ')) : 'Todas as modalidades'}${r.ativo && r.canais?.email !== false ? ` · ${LH.icone('email')} aviso diário por e-mail` : ''}</p>
             <div class="card__rodape">
-              <span class="selo selo--info">${qtd == null ? 'Sem conexão' : `${fmt.numero(qtd)} aberta(s) agora`}</span>
+              <span class="selo selo--info">${qtd == null ? 'Contagem indisponível agora' :`${fmt.numero(qtd)} aberta(s) agora`}</span>
               <button class="btn btn--pequeno btn--primario" type="button" data-abrir="${r.id}">${LH.icone('local')} Ver no mapa</button>
               <button class="btn btn--pequeno btn--perigo" type="button" data-excluir="${r.id}" style="margin-left:auto">${LH.icone('lixeira')} Excluir</button>
             </div>
@@ -772,7 +785,7 @@ LH.vistas = LH.vistas || {};
       const caixa = raiz.querySelector('#favoritas');
       const desenhar = async () => {
         try {
-          const favs = await LH.repo.favoritos();
+          const favs = await LH.repo.favoritos().catch(() => []);
           const lista = (await LH.repo.licitacoes([...favs]))
             .sort((a, b) => String(a.abertura || '9999').localeCompare(String(b.abertura || '9999')));
           caixa.innerHTML = lista.length

@@ -401,3 +401,17 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
   .card { padding: 16px; }
   .pagina__acoes, .pagina__acoes .btn { width: 100%; }
 }
+
+/* Abertura do app: conectando / falha com "Tentar de novo" (servidor acordando, rede oscilando) */
+.tela-conexao { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center; padding: 16px;
+  background: rgba(4, 12, 26, 0.92); backdrop-filter: blur(6px); }
+.tela-conexao__caixa { max-width: 420px; width: 100%; text-align: center; padding: 28px 24px; border-radius: var(--raio);
+  background: var(--card-forte); border: 1px solid var(--card-borda); box-shadow: var(--sombra); }
+.tela-conexao__caixa h2 { margin: 14px 0 6px; font-size: 1.15rem; }
+.tela-conexao__caixa p { margin: 0 0 16px; }
+.tela-conexao__caixa .chips { justify-content: center; }
+.tela-conexao__icone { display: inline-flex; width: 36px; height: 36px; color: var(--alerta); }
+.carregador { display: inline-block; width: 34px; height: 34px; border-radius: 50%;
+  border: 3px solid var(--linha); border-top-color: var(--ciano); animation: girar .9s linear infinite; }
+.erro-tentar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.erro-tentar .nota { margin: 0; flex: 1 1 240px; }

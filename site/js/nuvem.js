@@ -13,13 +13,56 @@ window.LH = window.LH || {};
   const VERSAO_TERMOS = '2026-11';
   const CHAVE_EMPRESA = 'licitahub:empresa-atual';
 
-  const carregarScript = (src) => new Promise((ok, falha) => {
+  const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
+
+  const carregarUmaVez = (src) => new Promise((ok, falha) => {
     const s = document.createElement('script');
     s.src = src;
     s.onload = ok;
-    s.onerror = () => falha(new Error(`não carregou ${src}`));
+    s.onerror = () => { s.remove(); falha(new Error(`não carregou ${src}`)); };
     document.head.append(s);
   });
+
+  /** Carrega um script do servidor com novas tentativas (servidor acordando ou rede oscilando). */
+  async function carregarScript(src, { tentativas = 4, aoTentar } = {}) {
+    for (let i = 1; ; i++) {
+      try {
+        return await carregarUmaVez(i === 1 ? src : `${src}${src.includes('?') ? '&' : '?'}t=${Date.now()}`);
+      } catch (e) {
+        if (i >= tentativas) throw e;
+        aoTentar?.(i + 1, tentativas);
+        await esperar(1000 * 2 ** (i - 1)); // 1 s, 2 s, 4 s
+      }
+    }
+  }
+
+  // Leituras que podem ser repetidas sem risco (não gravam nada no banco).
+  const RPC_LEITURA = /\/rest\/v1\/rpc\/(buscar_licitacoes|radar_contagem|mercado_[a-z_]+)(\?|$)/;
+  const TRANSITORIO = new Set([408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524]);
+  /**
+   * fetch do Supabase com novas tentativas SÓ em leituras (GET/HEAD e RPCs de consulta) e só
+   * em falha passageira: rede, tempo esgotado ou servidor sobrecarregado. Gravações nunca
+   * são repetidas (evita registro duplicado).
+   */
+  async function fetchResiliente(entrada, opcoes = {}) {
+    const url = String(entrada?.url ?? entrada);
+    const metodo = String(opcoes.method || entrada?.method || 'GET').toUpperCase();
+    const leitura = !url.includes('/auth/v1/') && (metodo === 'GET' || metodo === 'HEAD' || (metodo === 'POST' && RPC_LEITURA.test(url)));
+    const maximo = leitura ? 3 : 1;
+    for (let i = 1; ; i++) {
+      try {
+        const r = await fetch(entrada, opcoes);
+        if (i < maximo && TRANSITORIO.has(r.status)) { await esperar(500 * 2 ** (i - 1) + Math.random() * 300); continue; }
+        return r;
+      } catch (e) {
+        if (e?.name === 'AbortError' || i >= maximo) throw e;
+        await esperar(500 * 2 ** (i - 1) + Math.random() * 300);
+      }
+    }
+  }
+
+  /** Falha de conexão com o servidor (não é "sem configuração"): o app mostra a tela de reconexão. */
+  class ErroConexao extends Error {}
 
   /** Mensagens do Supabase Auth em português. */
   function traduzir(erro) {
@@ -48,22 +91,26 @@ window.LH = window.LH || {};
     ativa: false,
     cliente: null,
     usuario: null,
+    ErroConexao,
     /** { perfil, organizacao, papel, empresas, etapas, assinatura, empresaAtual } */
     ctx: null,
     traduzir,
 
     /** Liga ao back-end se o site foi aberto pelo servidor. Devolve true se ligou. */
-    async iniciar() {
+    async iniciar({ aoTentar } = {}) {
       if (!/^https?:$/.test(location.protocol)) return false;
+      // Falha ao carregar = servidor acordando/sem rede: NÃO cai no modo demonstração
+      // (isso escondia os editais reais). Só sem configuração é que vira demonstração.
       try {
-        await carregarScript('/config.js');
+        await carregarScript('/config.js', { aoTentar });
         if (!window.LH_CONFIG?.supabaseUrl || !window.LH_CONFIG?.supabaseChave) return false;
-        await carregarScript('/vendor/supabase.js');
+        await carregarScript('/vendor/supabase.js', { aoTentar });
       } catch {
-        return false;
+        throw new ErroConexao('Não consegui falar com o servidor do Uso LicitaHub. Confira a internet e tente de novo.');
       }
       N.cliente = window.supabase.createClient(window.LH_CONFIG.supabaseUrl, window.LH_CONFIG.supabaseChave, {
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+        global: { fetch: fetchResiliente },
       });
       N.ativa = true;
       // Link dos e-mails (confirmação e senha nova): aponta para o próprio domínio do site

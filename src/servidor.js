@@ -13,6 +13,7 @@ import { criarDetalhes } from './pncp/detalhes.js';
 import { sincronizarPncp } from './pncp/sincronizar.js';
 import { executarColeta, situacaoColeta } from './services/collectors/index.js';
 import { agendarCron } from './services/collectors/cron.js';
+import { emHorarioDePico } from './pico.js';
 import { criarLogEstruturado } from './services/collectors/log.js';
 import { fecharAbandonadas } from './services/collectors/execucoes.js';
 import { timingSafeEqual } from 'node:crypto';
@@ -244,6 +245,8 @@ const retroTermosExtras = (process.env.MERCADO_RETRO_TERMOS || '').split(',').ma
 let ultimaDescoberta = 0;
 async function coletarMercado() {
   if (coletando) return;
+  // Horário de pico (noite e fim de semana): a coleta pesada espera; a madrugada retroativa segue.
+  if (emHorarioDePico() && !(retroLigada && dentroDaJanela(retroHoras))) return;
   coletando = true;
   try {
     // Fase 3: de madrugada (MERCADO_RETRO_HORAS), descobre compras antigas dos termos dos

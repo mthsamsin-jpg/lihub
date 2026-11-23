@@ -318,18 +318,47 @@ window.LH = window.LH || {};
     navegar();
   };
 
+  /** Tela de abertura: "conectando" (com a tentativa) ou falha com "Tentar de novo". Nunca fica em branco. */
+  function telaConexao(estado, texto) {
+    let tela = document.getElementById('tela-conexao');
+    if (estado === 'fechar') { tela?.remove(); return; }
+    if (!tela) {
+      tela = document.createElement('div');
+      tela.id = 'tela-conexao';
+      tela.className = 'tela-conexao';
+      tela.setAttribute('role', 'status');
+      tela.setAttribute('aria-live', 'polite');
+      document.body.append(tela);
+    }
+    tela.innerHTML = estado === 'erro'
+      ? `<div class="tela-conexao__caixa"><span class="tela-conexao__icone">${icone('alerta')}</span>
+          <h2>Não foi possível carregar</h2><p>${esc(texto)}</p>
+          <div class="chips"><button class="btn btn--primario" data-tentar type="button">${icone('atualizar')} Tentar de novo</button>
+          ${LH.nuvem.usuario ? '<button class="btn" data-sair type="button">Sair da conta</button>' : ''}</div></div>`
+      : `<div class="tela-conexao__caixa"><span class="carregador" aria-hidden="true"></span>
+          <h2>Carregando o Uso LicitaHub…</h2><p class="fraco">${esc(texto || 'Conectando ao servidor.')}</p></div>`;
+    tela.querySelector('[data-tentar]')?.addEventListener('click', () => location.reload());
+    tela.querySelector('[data-sair]')?.addEventListener('click', () => LH.nuvem.sair());
+  }
+
   async function iniciar() {
     preparar();
     const pedido = lerPedidoDaApresentacao();
     let ligado = false;
+    // Só mostra a tela de carregamento se a conexão demorar (evita piscar quando é rápida).
+    const atraso = setTimeout(() => telaConexao('carregando'), 400);
     try {
-      ligado = await LH.nuvem.iniciar();
+      ligado = await LH.nuvem.iniciar({
+        aoTentar: (n, total) => telaConexao('carregando', `O servidor está acordando… tentativa ${n} de ${total}.`),
+      });
+      clearTimeout(atraso);
+      telaConexao('fechar');
     } catch (e) {
-      // Ligou ao servidor, mas não conseguiu ler os dados da conta.
-      ligado = true;
+      clearTimeout(atraso);
+      // Sem servidor, ou logado mas sem conseguir ler a conta: mostra o erro com
+      // "Tentar de novo" (antes caía no modo demonstração ou na tela de login).
       LH.repo = LH.repos.real;
-      LH.acesso.mostrar();
-      LH.aviso(e.message, 'perigo', 9000);
+      telaConexao('erro', e.message);
       return;
     }
     // Modo ADM sem cliente logado: abre o app com os dados de DEMONSTRAÇÃO para o ADM
