@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="dark">
+  <title>Painel ADM · Uso LicitaHub</title>
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <link rel="stylesheet" href="css/adm-painel.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo__marca"><strong>Uso LicitaHub</strong><span class="etq">ADM</span></div>
+    <nav class="topo__acoes">
+      <a class="btn" href="/">Editar o site</a>
+      <a class="btn" href="/app.html">Editar o app</a>
+      <button class="btn btn--sair" id="sair" type="button">Sair do ADM</button>
+    </nav>
+  </header>
+
+  <main class="pagina" id="pagina" hidden>
+    <h1>Usuários</h1>
+    <p class="sub">Quem está cadastrado e usando a plataforma. Bloquear impede o login e encerra as sessões abertas.</p>
+
+    <section class="cartoes" id="cartoes" aria-label="Resumo">
+      <div class="cartao"><span>Total</span><strong data-n="total">–</strong></div>
+      <div class="cartao"><span>Ativos</span><strong data-n="ativos">–</strong></div>
+      <div class="cartao cartao--perigo"><span>Bloqueados</span><strong data-n="bloqueados">–</strong></div>
+      <div class="cartao"><span>Usaram em 24 h</span><strong data-n="ativos24h">–</strong></div>
+      <div class="cartao"><span>Usaram em 7 dias</span><strong data-n="ativos7d">–</strong></div>
+      <div class="cartao"><span>Novos em 7 dias</span><strong data-n="novos7d">–</strong></div>
+      <div class="cartao"><span>E-mail não confirmado</span><strong data-n="pendentes">–</strong></div>
+    </section>
+
+    <form class="filtros" id="filtros" role="search">
+      <input type="search" name="busca" placeholder="Buscar por e-mail, nome, telefone ou empresa" aria-label="Buscar usuário" maxlength="120">
+      <select name="estado" aria-label="Situação">
+        <option value="todos">Todos</option>
+        <option value="ativos">Ativos</option>
+        <option value="bloqueados">Bloqueados</option>
+        <option value="pendentes">E-mail não confirmado</option>
+      </select>
+      <button class="btn btn--primario" type="submit">Buscar</button>
+    </form>
+
+    <p class="contagem" id="contagem" aria-live="polite"></p>
+    <div id="lista" aria-live="polite"></div>
+    <nav class="paginas" id="paginas" hidden>
+      <button class="btn" type="button" data-pag="-1">‹ Anterior</button>
+      <span id="pag-texto"></span>
+      <button class="btn" type="button" data-pag="1">Próxima ›</button>
+    </nav>
+  </main>
+
+  <dialog id="confirmar">
+    <form method="dialog" class="dialogo">
+      <h2 id="conf-titulo"></h2>
+      <p id="conf-texto"></p>
+      <label id="conf-motivo-rotulo">Motivo (opcional, fica no histórico)
+        <input id="conf-motivo" maxlength="300">
+      </label>
+      <div class="dialogo__acoes">
+        <button class="btn" value="nao" type="submit">Cancelar</button>
+        <button class="btn btn--perigo" value="sim" id="conf-ok" type="submit">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="aviso" id="aviso" role="status" hidden></div>
+  <script src="js/adm-painel.js" defer></script>
+</body>
+</html>

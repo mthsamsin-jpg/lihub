@@ -1,0 +1,85 @@
+/* Painel ADM de usuários (página própria, tema escuro como o login do ADM). */
+:root {
+  color-scheme: dark;
+  --fundo: #040b16; --card: #0b1220; --borda: #1e293b; --borda-forte: #334155;
+  --texto: #e2e8f0; --fraco: #94a3b8; --destaque: #f59e0b; --perigo: #f87171; --sucesso: #34d399; --info: #38bdf8;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: var(--fundo); color: var(--texto); font: 15px/1.45 Inter, system-ui, sans-serif; }
+h1 { margin: 0 0 4px; font-size: 1.5rem; }
+.sub { margin: 0 0 20px; color: var(--fraco); font-size: .9rem; }
+
+.topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--borda); background: #060f1d; position: sticky; top: 0; z-index: 5; }
+.topo__marca { display: flex; align-items: center; gap: 8px; }
+.etq { padding: 2px 8px; border-radius: 999px; background: var(--destaque); color: #111827; font-size: .72rem; font-weight: 800; }
+.topo__acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.pagina { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--borda-forte); background: #0f172a; color: var(--texto); font: 600 .85rem Inter, system-ui, sans-serif; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: #475569; }
+.btn:disabled { opacity: .55; cursor: wait; }
+.btn--primario { background: var(--destaque); border-color: var(--destaque); color: #111827; }
+.btn--perigo { background: #7f1d1d; border-color: #b91c1c; color: #fee2e2; }
+.btn--ok { background: #064e3b; border-color: #047857; color: #d1fae5; }
+.btn--sair { color: #fca5a5; }
+.btn--pequeno { padding: 5px 10px; font-size: .8rem; }
+
+.cartoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.cartao { padding: 14px; border: 1px solid var(--borda); border-radius: 14px; background: var(--card); }
+.cartao span { display: block; color: var(--fraco); font-size: .78rem; }
+.cartao strong { display: block; margin-top: 4px; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.cartao--perigo strong { color: var(--perigo); }
+
+.filtros { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.filtros input, .filtros select, .dialogo input { padding: 9px 12px; border-radius: 10px; border: 1px solid var(--borda-forte); background: #020617; color: var(--texto); font: inherit; }
+.filtros input { flex: 1 1 260px; min-width: 0; }
+.filtros input:focus, .filtros select:focus, .dialogo input:focus { outline: 2px solid var(--destaque); border-color: transparent; }
+.contagem { margin: 0 0 10px; color: var(--fraco); font-size: .85rem; min-height: 1.2em; }
+
+.tabela { width: 100%; border-collapse: collapse; border: 1px solid var(--borda); border-radius: 14px; overflow: hidden; background: var(--card); }
+.tabela th, .tabela td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--borda); vertical-align: top; font-size: .86rem; }
+.tabela th { color: var(--fraco); font-weight: 600; font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; background: #0a1324; }
+.tabela tr:last-child td { border-bottom: 0; }
+.tabela td.acoes { text-align: right; }
+.email { font-weight: 600; word-break: break-all; }
+.fraco { color: var(--fraco); font-size: .8rem; }
+.selo { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .74rem; font-weight: 700; }
+.selo--ativo { background: rgba(52, 211, 153, .14); color: var(--sucesso); }
+.selo--bloqueado { background: rgba(248, 113, 113, .16); color: var(--perigo); }
+.selo--pendente { background: rgba(245, 158, 11, .14); color: var(--destaque); }
+.selo--plano { background: rgba(56, 189, 248, .12); color: var(--info); }
+
+.estado { padding: 28px 16px; text-align: center; border: 1px dashed var(--borda-forte); border-radius: 14px; color: var(--fraco); }
+.estado--erro { border-color: #7f1d1d; color: #fecaca; }
+.estado .btn { margin-top: 10px; }
+.esqueleto { height: 44px; margin-bottom: 6px; border-radius: 10px; background: linear-gradient(90deg, #0b1220, #111c30, #0b1220); background-size: 200% 100%; animation: brilho 1.2s linear infinite; }
+@keyframes brilho { to { background-position: -200% 0; } }
+
+.paginas { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 14px; color: var(--fraco); font-size: .85rem; }
+
+dialog { max-width: 420px; width: calc(100% - 32px); padding: 0; border: 1px solid var(--borda-forte); border-radius: 16px; background: var(--card); color: var(--texto); }
+dialog::backdrop { background: rgba(0, 0, 0, .6); }
+.dialogo { padding: 20px; }
+.dialogo h2 { margin: 0 0 8px; font-size: 1.1rem; }
+.dialogo p { margin: 0 0 14px; color: var(--fraco); font-size: .9rem; }
+.dialogo label { display: grid; gap: 6px; font-size: .82rem; color: #cbd5e1; }
+.dialogo__acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+.aviso { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 12px; background: #0f172a; border: 1px solid var(--borda-forte); box-shadow: 0 10px 30px rgba(0, 0, 0, .4); z-index: 20; }
+.aviso--erro { border-color: #b91c1c; color: #fecaca; }
+.aviso--ok { border-color: #047857; color: #d1fae5; }
+
+/* Celular: tabela vira cartões */
+@media (max-width: 760px) {
+  .tabela, .tabela tbody, .tabela tr, .tabela td { display: block; width: 100%; }
+  .tabela thead { display: none; }
+  .tabela { border: 0; background: none; }
+  .tabela tr { margin-bottom: 10px; border: 1px solid var(--borda); border-radius: 14px; background: var(--card); }
+  .tabela td { border: 0; padding: 6px 14px; }
+  .tabela td:first-child { padding-top: 12px; }
+  .tabela td:last-child { padding-bottom: 12px; }
+  .tabela td[data-rotulo]::before { content: attr(data-rotulo); display: block; color: var(--fraco); font-size: .7rem; text-transform: uppercase; }
+  .tabela td.acoes { text-align: left; }
+}
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

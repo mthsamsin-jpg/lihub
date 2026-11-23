@@ -181,7 +181,11 @@
     msg.className = 'adm-barra__msg';
     msg.setAttribute('aria-live', 'polite');
     const sair = botao('Sair do ADM', async () => { await api('POST', '/api/adm/sair').catch(() => {}); sairDaTela(); }, 'adm-btn--sair');
-    barra.append(titulo, editar, salvar, msg, sair);
+    const painel = document.createElement('a');
+    painel.className = 'adm-btn';
+    painel.href = '/adm-painel.html';
+    painel.textContent = 'Usuários';
+    barra.append(titulo, painel, editar, salvar, msg, sair);
     document.body.prepend(barra);
     aplicarMidias(true);
     window.addEventListener('beforeunload', (e) => { if (alterados.size) e.preventDefault(); });

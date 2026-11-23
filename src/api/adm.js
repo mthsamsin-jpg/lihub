@@ -13,6 +13,7 @@
 //   - sem a credencial configurada, tudo responde 404 (modo ADM desligado).
 import { createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import { ligarAdmUsuarios } from './adm-usuarios.js';
 
 const scrypt = promisify(scryptCb);
 const COOKIE = 'lh_adm';
@@ -186,6 +187,9 @@ export function ligarAdm(app, { supabase, cfg = configAdm(), log = console, prod
     c.header('Set-Cookie', `${COOKIE_AVISO}=1; ${atributos(segundos)}`, { append: true });
     return c.json({ ok: true, role: 'admin' });
   });
+
+  // Painel de usuários (listar, acompanhar, bloquear e desbloquear).
+  ligarAdmUsuarios(app, { supabase, exigir, ipDe, log });
 
   app.post('/api/adm/sair', (c) => {
     c.header('Set-Cookie', `${COOKIE}=; HttpOnly; ${atributos(0)}`, { append: true });
