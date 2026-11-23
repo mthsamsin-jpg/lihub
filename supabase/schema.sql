@@ -534,6 +534,8 @@ create table if not exists public.propostas (
   foreign key (empresa_id, organizacao_id) references public.empresas (id, organizacao_id) on delete set null (empresa_id)
 );
 create index if not exists propostas_org_idx on public.propostas (organizacao_id, criado_em desc);
+-- Declarações, dados bancários e fechamento de cada proposta (atualizar-proposta-completa.sql).
+alter table public.propostas add column if not exists extras jsonb not null default '{}'::jsonb;
 
 -- 3.16 Radares: buscas salvas que avisam quando entra uma licitação parecida.
 create table if not exists public.radares (

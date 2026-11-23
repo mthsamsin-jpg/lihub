@@ -34,6 +34,27 @@ LH.vistas = LH.vistas || {};
   const moeda = (v) => (v == null ? '—' : fmt.moeda(v));
   const portais = () => LH.portaisRobo;
   const nomePortal = (k) => portais().de(k).nome;
+  // Chips do filtro: nome do portal + situação do modo real (a simulação vale para todos).
+  const chipsPortais = () => portais().lista().map((p) => {
+    const x = portais().suporte(p.chave);
+    return `<button type="button" class="chip-portal" data-portal="${esc(p.chave)}" style="--matiz:${p.matiz}" title="${esc(`${p.nome}: ${x.rotulo}. ${x.texto}`)}"><i aria-hidden="true"></i>${esc(p.nome)}<small class="chip-portal__etapa chip-portal__etapa--${x.cor}">${esc(x.curto)}</small></button>`;
+  }).join('');
+  /** Janela com o status/roadmap do modo real em cada portal. */
+  const abrirStatusPortais = () => LH.modal({
+    titulo: 'Portais no Robô Turbo 2.0',
+    html: `<p class="fraco">Os portais não têm API pública de lances. Por isso cada um passa por 3 etapas antes do modo real: <b>1)</b> mapear o login, <b>2)</b> mapear a sala numa disputa real, só monitorando, <b>3)</b> liberar os lances. Enquanto isso, a Sala Simulada funciona com todos, e nenhum lance real é enviado num portal que não foi conferido.</p>
+      <div class="tabela-rolagem"><table class="tabela tabela-portais">
+        <thead><tr><th>#</th><th>Portal</th><th>Sala Simulada</th><th>Modo real</th></tr></thead>
+        <tbody>${portais().porRoadmap().map((p) => `<tr>
+          <td>${p.suporte.prioridade ?? '—'}</td>
+          <td>${portais().selo(p.chave)}</td>
+          <td>${p.disputa ? 'Sim' : '—'}</td>
+          <td>${portais().etiqueta(p.chave)}<br><small class="fraco">${esc(p.suporte.texto)}</small></td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      <p class="fraco">A credencial do cofre fica guardada mesmo antes de o portal ser liberado. Contas que o portal ainda não aprovou (cadastro em análise) também só usam a simulação.</p>`,
+    acoes: [{ rotulo: 'Fechar', classe: 'btn--primario' }],
+  });
   const lidera = (i) => i.nossoLance != null && (i.melhorLance == null || i.nossoLance < i.melhorLance);
   const emLances = (i) => !i.fase || i.fase === 'aberta' || i.fase === 'prorrogacao';
   const seloPorte = (p) => (p === 'me' || p === 'epp' ? `<span class="selo-porte">${PORTE[p]}</span>` : '');
@@ -108,8 +129,10 @@ LH.vistas = LH.vistas || {};
       <div class="robo-portais" role="group" aria-label="Filtrar por portal">
         <span class="robo-portais__rotulo">${icone('computador')} Portal</span>
         <button type="button" class="chip-portal ativo" data-portal="">Todos</button>
-        ${portais().lista().map((p) => `<button type="button" class="chip-portal" data-portal="${esc(p.chave)}" style="--matiz:${p.matiz}"><i aria-hidden="true"></i>${esc(p.nome)}</button>`).join('')}
+        <span class="robo-portais__chips" data-chips-portais>${chipsPortais()}</span>
+        <button type="button" class="link-botao robo-portais__status" data-status-portais>${icone('info')} Status dos portais</button>
       </div>
+      <p class="fraco robo-portais__legenda">A <strong>Sala Simulada</strong> funciona com todos os portais. O <strong>modo real</strong> (o robô entrando no portal com a sua credencial) é liberado portal a portal, depois que a sala de disputa é mapeada e conferida numa sessão real.</p>
       <section class="card feed-vivo" id="feed-vivo" aria-live="polite" hidden></section>
       <h2 class="robo-secao">${icone('alvo')} Itens no Robô Turbo 2.0</h2>
       <div class="robo-grade">
@@ -427,10 +450,11 @@ LH.vistas = LH.vistas || {};
               <input name="descricao" maxlength="300" required value="${esc(i?.descricao || '')}" placeholder="ex.: Notebook i5 16 GB"></label>
               <div class="form__linha">
                 <label class="campo"><span class="campo__rotulo">Portal da disputa</span>
-                  <select name="plataforma">${LH.opcoes(portais().opcoes(), portalInicial)}</select></label>
+                  <select name="plataforma">${portais().opcoesAgrupadas(portalInicial)}</select></label>
                 ${campo('itemNumero', 'Nº do item/lote', i?.itemNumero)}
               </div>
               <p class="fraco robo-form__regras" data-regras>${esc(portais().regras(portalInicial))}</p>
+              <p class="fraco robo-form__suporte" data-suporte>${icone('info')} <span>${esc(portais().oQueFunciona(portalInicial))}</span></p>
               <div class="form__linha">
                 ${campo('quantidade', 'Quantidade (un)', i?.quantidade ?? 1, 'required')}
                 <label class="campo"><span class="campo__rotulo">Porte da nossa empresa</span>
@@ -478,6 +502,8 @@ LH.vistas = LH.vistas || {};
         sel?.addEventListener('change', () => {
           const alvo = sel.closest('form')?.querySelector('[data-regras]');
           if (alvo) alvo.textContent = portais().regras(sel.value);
+          const sup = sel.closest('form')?.querySelector('[data-suporte] span');
+          if (sup) sup.textContent = portais().oQueFunciona(sel.value);
         });
       };
 
@@ -533,6 +559,17 @@ LH.vistas = LH.vistas || {};
         });
       }
 
+      LH.ao(raiz, 'click', '[data-status-portais]', () => abrirStatusPortais());
+      // Situação dos portais vinda do servidor: portal validado sobe para "Pronto" sozinho.
+      if (LH.repo?.modo === 'real' && LH.plano?.permite?.('robo')) {
+        LH.roboReal?.estadoServidor?.().then((est) => {
+          portais().atualizarServidor(est?.portais);
+          const caixaChips = raiz.querySelector('[data-chips-portais]');
+          if (!caixaChips) return;
+          caixaChips.innerHTML = chipsPortais();
+          caixaChips.querySelectorAll('[data-portal]').forEach((x) => x.classList.toggle('ativo', x.dataset.portal === filtro));
+        }).catch(() => {});
+      }
       LH.ao(raiz, 'click', '[data-portal]', (e, b) => {
         filtro = b.dataset.portal;
         raiz.querySelectorAll('[data-portal]').forEach((x) => x.classList.toggle('ativo', x === b));

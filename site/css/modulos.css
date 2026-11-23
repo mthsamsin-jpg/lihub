@@ -1246,3 +1246,78 @@ li.item--termo { box-shadow: inset 3px 0 0 #facc15; border-radius: 8px; }
 }
 .tutorial--disponivel .tutorial__capa { background-color: #000; }
 .tutorial--disponivel .tutorial__capa svg { background: rgba(2, 132, 199, .85); border-radius: 50%; padding: 6px; color: #fff; }
+
+/* --- Robô: situação do modo real em cada portal ----------------------------------- */
+.robo-portais__chips { display: contents; }
+.robo-portais__status { font-size: 0.8rem; display: inline-flex; align-items: center; gap: 5px; }
+.robo-portais__status svg { width: 14px; height: 14px; }
+.robo-portais__legenda { margin: -8px 0 18px; font-size: 0.8rem; }
+.chip-portal__etapa, .etapa-portal {
+  padding: 1px 7px; border-radius: 999px; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.02em;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.chip-portal__etapa--ok, .etapa-portal--ok { background: rgba(34, 197, 94, 0.16); color: #4ade80; border-color: rgba(74, 222, 128, 0.35); }
+.chip-portal__etapa--andamento, .etapa-portal--andamento { background: rgba(245, 158, 11, 0.14); color: #fbbf24; border-color: rgba(251, 191, 36, 0.35); }
+.chip-portal__etapa--fila, .etapa-portal--fila { background: rgba(148, 163, 184, 0.14); color: #cbd5e1; border-color: rgba(203, 213, 225, 0.25); }
+.chip-portal__etapa--neutro, .etapa-portal--neutro { background: rgba(56, 189, 248, 0.1); color: #7dd3fc; border-color: rgba(125, 211, 252, 0.25); }
+.robo-form__suporte { display: flex; gap: 6px; align-items: flex-start; }
+.robo-form__suporte svg { width: 14px; height: 14px; flex: none; margin-top: 3px; }
+.tabela-portais td { vertical-align: top; }
+.tabela-portais td:last-child { min-width: 220px; }
+
+/* --- Proposta comercial: cabeçalho com logo, tabelas que não cortam e rodapé ------- */
+.folha--proposta { max-width: 900px; margin: 0 auto; overflow-wrap: anywhere; }
+.folha__centro { text-align: center; }
+.folha__topo { display: flex; align-items: center; gap: 18px; padding-bottom: 12px; margin-bottom: 18px; border-bottom: 2px solid #1b2533; }
+.folha__logo { max-height: 72px; max-width: 220px; object-fit: contain; flex: none; }
+.folha__empresa { display: grid; gap: 1px; font-size: 0.8rem; color: #3b4a5c; min-width: 0; }
+.folha__empresa strong { font-size: 0.98rem; color: #0b1b2e; }
+.folha__empresa span:empty { display: none; }
+.folha table { width: 100%; border-collapse: collapse; }
+.folha__info { font-size: 0.85rem; }
+.folha__info th { width: 30%; background: #f4f7fa; font-weight: 600; vertical-align: top; }
+.folha__itens { table-layout: fixed; font-size: 0.8rem; }
+.folha__itens th { font-size: 0.74rem; line-height: 1.25; }
+.folha__itens td, .folha__itens th { padding: 5px 6px; vertical-align: top; }
+.folha__itens .quebra { overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
+/* Valores: quebram só depois do "R$" quando não cabem (nunca saem da coluna). */
+.folha__itens .numero { white-space: normal; overflow-wrap: anywhere; }
+.folha__itens .c-item { width: 6%; }
+.folha__itens .c-desc { width: auto; }
+.folha__itens .c-marca { width: 12%; }
+.folha__itens .c-un { width: 6%; }
+.folha__itens .c-qtd { width: 8%; }
+.folha__itens .c-valor { width: 17%; }
+.folha__itens tr { break-inside: avoid; page-break-inside: avoid; }
+.folha__itens thead { display: table-header-group; }
+.folha__extenso { margin-top: 8px; }
+.folha__declaracoes { margin: 0; padding-left: 20px; display: grid; gap: 6px; text-align: justify; }
+.folha__local { margin-top: 26px; }
+.folha__assinatura strong { color: #0b1b2e; }
+.folha__rodape { display: grid; gap: 2px; margin-top: 34px; padding-top: 8px; border-top: 1px solid #c7d0db; font-size: 0.72rem; color: #5a6b80; text-align: center; }
+.folha__rodape span:empty { display: none; }
+.folha__rodape-sistema { font-style: italic; }
+@media (max-width: 640px) {
+  .folha--proposta { padding: 20px 14px; overflow-x: auto; }
+  .folha__itens { min-width: 560px; }
+  .folha__topo { flex-direction: column; align-items: flex-start; }
+}
+@media print {
+  @page { size: A4; margin: 14mm 12mm; }
+  .pular { display: none !important; }
+  .folha--proposta { max-width: none; font-size: 10.5pt; overflow: visible !important; }
+  .folha__itens { min-width: 0 !important; font-size: 8.5pt; }
+  .folha h3, .folha__assinatura, .folha__declaracoes li { break-inside: avoid; page-break-inside: avoid; }
+  .folha h3 { break-after: avoid; page-break-after: avoid; }
+  .folha th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .area-impressao .tabela-rolagem, .area-impressao { overflow: visible !important; }
+}
+
+/* Formulário: declarações e logo */
+.decl-proposta { display: grid; gap: 10px; }
+.decl-proposta__item { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--borda, rgba(148, 163, 184, 0.25)); border-radius: 10px; }
+.decl-proposta__item textarea { min-height: 64px; }
+.logo-empresa { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 6px; }
+.logo-empresa__previa { width: 200px; height: 80px; display: grid; place-items: center; border: 1px dashed rgba(148, 163, 184, 0.4); border-radius: 10px; background: #fff; overflow: hidden; }
+.logo-empresa__previa img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.logo-empresa__previa .fraco { color: #64748b; }

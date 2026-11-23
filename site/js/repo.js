@@ -13,7 +13,7 @@ window.LH = window.LH || {};
   const COLUNAS = 'id, fonte, numero_controle_pncp, objeto, orgao_razao_social, uf, municipio, modalidade_nome, '
     + 'valor_estimado, data_publicacao, data_encerramento_proposta, sistema_origem, link_sistema_origem, link_pncp, orgao_esfera, '
     + 'unidade_codigo, numero_compra, ano_compra, municipio_ibge, processo';
-  const EXTRAS = ['ie', 'im', 'regime', 'endereco', 'cep', 'representante', 'cpfRepresentante', 'cargo', 'banco', 'agencia', 'conta'];
+  const EXTRAS = ['ie', 'im', 'regime', 'endereco', 'cep', 'representante', 'cpfRepresentante', 'cargo', 'banco', 'agencia', 'conta', 'rgRepresentante', 'logo'];
   const POR_PAGINA = 20;
 
   // Licitações já vistas nesta visita (para abrir os detalhes sem buscar de novo).
@@ -619,10 +619,18 @@ window.LH = window.LH || {};
         numero: p.numero, status: p.status || 'Rascunho', licitacao_id: p.licitacaoId || null, licitacao_resumo: p.licitacao || null,
         validade_dias: Number(p.validade) || null, prazo: p.prazo || null, pagamento: p.pagamento || null,
         observacoes: p.observacoes || null, itens: p.itens || [], total: Number(p.total) || 0, empresa_id: p.empresaId || ctx().empresaAtual || null,
+        extras: p.extras || {},
       };
-      const r = p.id
-        ? await db().from('propostas').update(linha).eq('id', p.id).select('id').single()
-        : await db().from('propostas').insert({ ...linha, organizacao_id: ctx().organizacao.id }).select('id').single();
+      const gravar = (l) => (p.id
+        ? db().from('propostas').update(l).eq('id', p.id).select('id').single()
+        : db().from('propostas').insert({ ...l, organizacao_id: ctx().organizacao.id }).select('id').single());
+      let r = await gravar(linha);
+      // Banco sem a coluna extras (atualizar-proposta-completa.sql não rodou): salva o resto.
+      if (r.error?.code === '42703' || r.error?.code === 'PGRST204') {
+        const { extras, ...semExtras } = linha;
+        r = await gravar(semExtras);
+        if (!r.error) LH.aviso('Proposta salva, mas as declarações e os dados bancários desta proposta só ficam guardados depois da atualização do banco.', 'alerta', 9000);
+      }
       if (r.error) throw erroBanco(r.error, 'Não consegui salvar a proposta');
       return r.data.id;
     },
@@ -762,7 +770,7 @@ window.LH = window.LH || {};
       id: r.id, numero: r.numero, status: r.status, licitacaoId: r.licitacao_id, licitacao: r.licitacao_resumo,
       criada: LH.datas.paraIso(new Date(r.criado_em)), validade: r.validade_dias || 60, prazo: r.prazo || '',
       pagamento: r.pagamento || '', observacoes: r.observacoes || '', itens: r.itens || [], total: Number(r.total) || 0,
-      empresaId: r.empresa_id || null,
+      empresaId: r.empresa_id || null, extras: r.extras || {},
     };
   }
 

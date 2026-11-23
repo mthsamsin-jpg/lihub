@@ -148,7 +148,7 @@ window.LH = window.LH || {};
         titulo: 'Conectar ao pregão real',
         html: `<form class="form" onsubmit="return false">
           <div class="cofre__form-topo">${LH.portaisRobo.selo(i.plataforma)}<b>${esc(i.descricao)}</b></div>
-          ${naoMapeado ? `<p class="nota nota--alerta">${icone('alerta')} <span>A sala de disputa deste portal <b>ainda não foi mapeada</b> no Robô Turbo 2.0 (os seletores da página não foram conferidos numa sessão real). A conexão vai parar com o aviso do que falta mapear, e nenhum lance é enviado.</span></p>` : ''}
+          ${naoMapeado ? `<p class="fraco">${LH.portaisRobo.etiqueta(i.plataforma)} ${esc(LH.portaisRobo.suporte(i.plataforma).texto)}</p><p class="nota nota--alerta">${icone('alerta')} <span>A sala de disputa deste portal <b>ainda não foi mapeada</b> no Robô Turbo 2.0 (os seletores da página não foram conferidos numa sessão real). A conexão vai parar com o aviso do que falta mapear, e nenhum lance é enviado.</span></p>` : ''}
           <div class="form__linha">
             <label class="campo"><span class="campo__rotulo">Nº do pregão / processo no portal</span><input name="pregao" required maxlength="120" value="${esc(i.pregaoRef || '')}" placeholder="ex.: 90012/2026"></label>
             <label class="campo"><span class="campo__rotulo">Lote / item</span><input name="lote" maxlength="40" value="${esc(i.loteRef || i.itemNumero || '')}"></label>
@@ -279,6 +279,8 @@ window.LH = window.LH || {};
     if (i.plataforma === 'pncp') { LH.aviso('O PNCP só publica as compras: edite o item e escolha o portal onde a disputa acontece.', 'alerta', 7000); return; }
     let estado;
     try { estado = await estadoServidor(true); } catch (e) { LH.aviso(e.message, 'perigo'); return; }
+    LH.portaisRobo.atualizarServidor(estado.portais);
+    if (i.plataforma === 'outros') { LH.aviso('"Outro portal" só funciona na Sala Simulada: escolha o portal da disputa para usar o modo real.', 'alerta', 7000); return; }
     if (!estado.cofre) { LH.aviso('O modo real está desligado no servidor (falta a chave do cofre, CREDENCIAIS_CHAVE).', 'alerta', 8000); return; }
     let lista;
     try { lista = await credenciais(); } catch (e) { LH.aviso(e.message, 'perigo'); return; }

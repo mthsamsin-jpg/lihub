@@ -21,13 +21,15 @@ LH.vistas = LH.vistas || {};
   // itens com Item / Qtd / Unid. / Descrição / Marca / Valor unitário, totais em
   // tempo real e exportação em PDF (impressão) ou Word (.doc).
   const UNIDADES = ['UN', 'SV', 'CX', 'PCT', 'KG', 'G', 'L', 'ML', 'M', 'M²', 'M³', 'RL', 'FD', 'GL', 'PÇ', 'PAR', 'JG', 'KIT', 'RESMA', 'DZ', 'HORA', 'DIÁRIA', 'MÊS', 'ANO'];
-  const CAMPOS_LIC = ['orgao', 'uf', 'municipio', 'modalidade', 'numero', 'processo', 'objeto', 'publicacao', 'abertura', 'hora', 'idPncp'];
+  const CAMPOS_LIC = ['orgao', 'uf', 'municipio', 'modalidade', 'numero', 'processo', 'objeto', 'publicacao', 'abertura', 'hora', 'limite', 'horaLimite', 'idPncp'];
 
   /** Licitação da tela -> cabeçalho da proposta. */
   const cabecalhoDe = (l) => (l ? {
     orgao: l.orgao || '', uf: l.uf && l.uf !== '—' ? l.uf : '', municipio: l.municipio || '', modalidade: l.modalidade || '',
     numero: l.edital || numeroCurto(l.numero) || '', processo: l.processo || '', objeto: l.objeto || '',
-    publicacao: l.publicada || '', abertura: l.abertura || '', hora: l.hora || '', idPncp: l.numeroControle || l.numero || '',
+    publicacao: l.publicada || '', abertura: l.abertura || '', hora: l.hora || '',
+    // O PNCP informa o fim do recebimento das propostas, que costuma ser a abertura da sessão.
+    limite: l.abertura || '', horaLimite: l.hora || '', idPncp: l.numeroControle || l.numero || '',
   } : null);
 
   /** Empresa proponente: a escolhida na proposta, senão a empresa ativa. */
@@ -52,6 +54,46 @@ LH.vistas = LH.vistas || {};
       </tr>`;
   }
 
+  // --- Declarações da proposta (texto completo, editável por proposta) ----------------
+  // {validade} e {pagamento} são trocados pelos campos da proposta na hora de gerar.
+  const DECLARACOES = [
+    ['ciencia', 'Ciência do instrumento convocatório',
+      'Declaramos que temos pleno conhecimento de todas as condições do edital (instrumento convocatório) e de seus anexos, com as quais concordamos integralmente, e que recebemos todas as informações necessárias à elaboração desta proposta.'],
+    ['exigencias', 'Cumprimento das exigências do edital',
+      'Declaramos que cumprimos plenamente as exigências do edital e que o objeto ofertado atende a todas as especificações do termo de referência, responsabilizando-nos pela veracidade das informações prestadas.'],
+    ['custos', 'Impostos, taxas, frete e custos indiretos inclusos',
+      'Declaramos que nos preços propostos estão incluídos todos os impostos, taxas, tributos, fretes, seguros, encargos sociais e trabalhistas e demais custos diretos e indiretos necessários ao cumprimento integral do objeto, nada mais podendo ser cobrado além do valor proposto.'],
+    ['validade', 'Validade da proposta',
+      'Declaramos que esta proposta é válida por {validade} dias, contados da data de abertura da sessão pública.'],
+    ['pagamento', 'Forma de pagamento conforme o edital',
+      'Declaramos que aceitamos a forma e as condições de pagamento previstas no edital{pagamento}.'],
+  ];
+  const declaracoesPadrao = () => DECLARACOES.map(([id, titulo, texto]) => ({ id, titulo, texto, ativo: true }));
+  /** Declarações salvas na proposta, completando as que faltarem (propostas antigas). */
+  const declaracoesDe = (p) => {
+    const salvas = Array.isArray(p.extras?.declaracoes) ? p.extras.declaracoes : [];
+    return declaracoesPadrao().map((d) => ({ ...d, ...(salvas.find((s) => s.id === d.id) || {}) }));
+  };
+  const textoDeclaracao = (texto, p) => String(texto || '')
+    .replaceAll('{validade}', String(p.validade || 60))
+    .replaceAll('{pagamento}', p.pagamento ? ` (${p.pagamento})` : '');
+
+  /** Dados bancários da proposta: os do cadastro ou os informados só nesta proposta. */
+  const bancoDe = (p, e) => (p.extras?.banco?.origem === 'proposta'
+    ? { banco: p.extras.banco.banco || '', agencia: p.extras.banco.agencia || '', conta: p.extras.banco.conta || '' }
+    : { banco: e.banco || '', agencia: e.agencia || '', conta: e.conta || '' });
+  /** Fechamento: cidade, data e responsável (a proposta pode ajustar o que vem do cadastro). */
+  const fechamentoDe = (p, e) => {
+    const f = p.extras?.fechamento || {};
+    const ou = (a, b) => (String(a ?? '').trim() ? String(a).trim() : (b || ''));
+    return {
+      cidade: ou(f.cidade, e.cidade ? `${e.cidade}${e.uf ? `/${e.uf}` : ''}` : ''), data: ou(f.data, LH.datas.hoje()),
+      representante: ou(f.representante, e.representante), rg: ou(f.rg, e.rgRepresentante),
+      cpf: ou(f.cpf, e.cpfRepresentante), cargo: ou(f.cargo, e.cargo),
+    };
+  };
+  const dataHora = (d, h) => (d ? `${fmt.data(d)}${h ? ` às ${h}` : ''}` : (h ? `às ${h}` : ''));
+
   function folhaProposta(p) {
     const e = empresaDe(p);
     const l = p.licitacao || {};
@@ -59,33 +101,73 @@ LH.vistas = LH.vistas || {};
     const local = [l.municipio, l.uf].filter(Boolean).join('/');
     const ref = [l.modalidade, l.numero && `nº ${l.numero}`].filter(Boolean).join(' ');
     const temMarca = p.itens.some((it) => it.marca);
+    const banco = bancoDe(p, e);
+    const fim = fechamentoDe(p, e);
+    const decl = declaracoesDe(p).filter((d) => d.ativo && String(d.texto || '').trim());
+    const cnpj = e.cnpj ? LH.cnpj.mascara(e.cnpj) : '';
+    const sessao = dataHora(l.abertura, l.hora);
+    const limite = dataHora(l.limite, l.horaLimite);
+    const linhaInfo = (rotulo, valor) => (valor ? `<tr><th scope="row">${rotulo}</th><td>${esc(valor)}</td></tr>` : '');
     return `
-      <div class="folha">
+      <div class="folha folha--proposta">
+        <header class="folha__topo">
+          ${e.logo ? `<img class="folha__logo" src="${esc(e.logo)}" alt="Logo ${esc(e.razao || '')}">` : ''}
+          <div class="folha__empresa">
+            <strong>${esc(e.razao || 'Empresa proponente')}</strong>
+            ${cnpj ? `<span>CNPJ ${esc(cnpj)}</span>` : ''}
+            <span>${esc([e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.cep && `CEP ${e.cep}`].filter(Boolean).join(' · '))}</span>
+            <span>${esc([e.email, e.telefone].filter(Boolean).join(' · '))}</span>
+          </div>
+        </header>
         <h2>PROPOSTA COMERCIAL</h2>
-        <p class="fraco" style="text-align:center">${esc(p.numero)} · ${esc(fmt.dataLonga(p.criada || LH.datas.hoje()))}</p>
+        <p class="fraco folha__centro">${esc(p.numero)}</p>
         <h3>Ao(À) ${esc(l.orgao || 'órgão licitante')}${local ? ` · ${esc(local)}` : ''}</h3>
-        <p>Ref.: ${esc(ref || 'edital')}${l.processo ? ` · Processo ${esc(l.processo)}` : ''}${l.abertura ? ` · Abertura em ${esc(fmt.data(l.abertura))}${l.hora ? ` às ${esc(l.hora)}` : ''}` : ''}</p>
-        ${l.objeto ? `<p><strong>Objeto:</strong> ${esc(l.objeto)}</p>` : ''}
-        <h3>Proponente</h3>
-        <p><strong>${esc(e.razao || '—')}</strong> · CNPJ ${esc(e.cnpj ? LH.cnpj.mascara(e.cnpj) : 'não informado')}${e.ie ? ` · IE ${esc(e.ie)}` : ''}<br>
-        ${esc([e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.cep].filter(Boolean).join(' · ') || 'Endereço não informado')}<br>
-        ${esc([e.email, e.telefone].filter(Boolean).join(' · '))}</p>
-        <h3>Itens</h3>
-        <table>
-          <thead><tr><th>Item</th><th>Descrição / especificação</th>${temMarca ? '<th>Marca</th>' : ''}<th>Un.</th><th class="numero">Qtd.</th><th class="numero">Valor unitário</th><th class="numero">Valor total</th></tr></thead>
-          <tbody>${p.itens.map((it, i) => `<tr><td>${esc(it.numero ?? i + 1)}</td><td>${esc(it.descricao)}</td>${temMarca ? `<td>${esc(it.marca || '')}</td>` : ''}<td>${esc(it.unidade)}</td>
-            <td class="numero">${fmt.numero(it.quantidade)}</td><td class="numero">${fmt.moeda(it.unitario)}</td><td class="numero">${fmt.moeda(it.quantidade * it.unitario)}</td></tr>`).join('')}</tbody>
-          <tfoot><tr><th colspan="${temMarca ? 6 : 5}" class="numero">Valor global</th><th class="numero">${fmt.moeda(total)}</th></tr></tfoot>
+        <table class="folha__info">
+          ${linhaInfo('Referência', ref || 'edital')}
+          ${linhaInfo('Processo', l.processo)}
+          ${linhaInfo('Sessão pública (abertura)', sessao)}
+          ${linhaInfo('Envio das propostas até', limite)}
+          ${linhaInfo('Objeto', l.objeto)}
         </table>
-        <p style="margin-top:8px"><strong>Valor global:</strong> ${fmt.moeda(total)} (${esc(LH.porExtenso(total))}).</p>
+        <h3>Proponente</h3>
+        <table class="folha__info">
+          ${linhaInfo('Razão social', e.razao || '—')}
+          ${linhaInfo('CNPJ', cnpj || 'não informado')}
+          ${linhaInfo('Inscrições', [e.ie && `IE ${e.ie}`, e.im && `IM ${e.im}`].filter(Boolean).join(' · '))}
+          ${linhaInfo('Endereço', [e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.cep && `CEP ${e.cep}`].filter(Boolean).join(' · ') || 'não informado')}
+          ${linhaInfo('Contato', [e.email, e.telefone].filter(Boolean).join(' · '))}
+        </table>
+        <h3>Itens</h3>
+        <table class="folha__itens${temMarca ? '' : ' folha__itens--sem-marca'}">
+          <colgroup><col class="c-item"><col class="c-desc">${temMarca ? '<col class="c-marca">' : ''}<col class="c-un"><col class="c-qtd"><col class="c-valor"><col class="c-valor"></colgroup>
+          <thead><tr><th>Item</th><th>Descrição / especificação</th>${temMarca ? '<th>Marca</th>' : ''}<th>Un.</th><th class="numero">Qtd.</th><th class="numero">Valor unitário</th><th class="numero">Valor global</th></tr></thead>
+          <tbody>${p.itens.map((it, i) => `<tr><td>${esc(it.numero ?? i + 1)}</td><td class="quebra">${esc(it.descricao)}</td>${temMarca ? `<td class="quebra">${esc(it.marca || '')}</td>` : ''}<td>${esc(it.unidade)}</td>
+            <td class="numero">${fmt.numero(it.quantidade)}</td><td class="numero">${fmt.moeda(it.unitario)}</td><td class="numero">${fmt.moeda(it.quantidade * it.unitario)}</td></tr>`).join('')}</tbody>
+          <tfoot><tr><th colspan="${temMarca ? 6 : 5}" class="numero">Valor global da proposta</th><th class="numero">${fmt.moeda(total)}</th></tr></tfoot>
+        </table>
+        <p class="folha__extenso"><strong>Valor global:</strong> ${fmt.moeda(total)} (${esc(LH.porExtenso(total))}).</p>
         <h3>Condições</h3>
         <p>Validade da proposta: ${esc(p.validade)} dias a contar da data de abertura da sessão pública.</p>
         <p>Prazo de entrega/execução: ${esc(p.prazo || 'conforme o edital')}.</p>
         <p>Condições de pagamento: ${esc(p.pagamento || 'conforme o edital')}.</p>
-        <p>Declaramos que os preços propostos incluem todos os custos e despesas, como tributos, encargos sociais, trabalhistas, fretes e seguros, necessários ao cumprimento integral do objeto.</p>
         ${p.observacoes ? `<p>${esc(p.observacoes)}</p>` : ''}
-        ${e.banco ? `<p>Dados bancários: ${esc(e.banco)}, agência ${esc(e.agencia)}, conta ${esc(e.conta)}.</p>` : ''}
-        <div class="folha__assinatura"><span></span>${esc(e.representante || 'Representante legal')}${e.cpfRepresentante ? ` · CPF ${esc(e.cpfRepresentante)}` : ''}<br>${esc(e.cargo || '')} · ${esc(e.razao || '')}</div>
+        ${decl.length ? `<h3>Declarações</h3>
+        <ol class="folha__declaracoes">${decl.map((d) => `<li><strong>${esc(d.titulo)}.</strong> ${esc(textoDeclaracao(d.texto, p))}</li>`).join('')}</ol>` : ''}
+        <h3>Dados bancários</h3>
+        ${banco.banco || banco.agencia || banco.conta
+          ? `<table class="folha__info">${linhaInfo('Banco', banco.banco)}${linhaInfo('Agência', banco.agencia)}${linhaInfo('Conta corrente', banco.conta)}${linhaInfo('Titular', [e.razao, cnpj && `CNPJ ${cnpj}`].filter(Boolean).join(' · '))}</table>`
+          : '<p class="fraco">Dados bancários não informados.</p>'}
+        <p class="folha__local">${esc(fim.cidade || '[Cidade]')}, ${esc(fmt.dataLonga(fim.data))}.</p>
+        <div class="folha__assinatura"><span></span>
+          <strong>${esc(fim.representante || 'Representante legal')}</strong><br>
+          ${esc([fim.cargo, fim.rg && `RG ${fim.rg}`, fim.cpf && `CPF ${fim.cpf}`].filter(Boolean).join(' · '))}<br>
+          ${esc(e.razao || '')}${cnpj ? ` · CNPJ ${esc(cnpj)}` : ''}
+        </div>
+        <footer class="folha__rodape">
+          <span>${esc([e.razao, cnpj && `CNPJ ${cnpj}`].filter(Boolean).join(' · '))}</span>
+          <span>${esc([e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.telefone, e.email].filter(Boolean).join(' · '))}</span>
+          <span class="folha__rodape-sistema">Proposta ${esc(p.numero)} · gerada no Uso LicitaHub em ${esc(fmt.data(p.criada || LH.datas.hoje()))}. Confira com o edital antes de enviar.</span>
+        </footer>
       </div>`;
   }
 
@@ -93,7 +175,10 @@ LH.vistas = LH.vistas || {};
   function baixarWord(p) {
     const estilos = `body{font-family:Arial,sans-serif;font-size:11pt;color:#000}h2{text-align:center;font-size:15pt}h3{font-size:12pt;margin:14pt 0 4pt}
       table{border-collapse:collapse;width:100%}th,td{border:1px solid #444;padding:4pt;font-size:10pt;vertical-align:top}th{background:#e8e8e8}
-      .numero{text-align:right}.fraco{color:#444}.folha__assinatura{margin-top:48pt;text-align:center}.folha__assinatura span{display:block;width:60%;margin:0 auto 4pt;border-top:1px solid #000}`;
+      .numero{text-align:right}.fraco{color:#444}.folha__centro{text-align:center}.folha__assinatura{margin-top:48pt;text-align:center}.folha__assinatura span{display:block;width:60%;margin:0 auto 4pt;border-top:1px solid #000}
+      .folha__topo{border-bottom:1px solid #444;padding-bottom:6pt;margin-bottom:10pt}.folha__logo{max-height:60pt;max-width:180pt}.folha__empresa span{display:block;font-size:9pt}
+      .folha__info th{width:28%;text-align:left}.folha__declaracoes li{margin-bottom:4pt;text-align:justify}.folha__local{margin-top:18pt}
+      .folha__rodape{margin-top:24pt;border-top:1px solid #444;padding-top:4pt;font-size:8pt;color:#444}.folha__rodape span{display:block}`;
     const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${esc(p.numero)}</title><style>${estilos}</style></head><body>${folhaProposta(p)}</body></html>`;
     const url = URL.createObjectURL(new Blob(['﻿', html], { type: 'application/msword' }));
     const a = Object.assign(document.createElement('a'), { href: url, download: `Proposta-${String(p.numero).replace(/[^\w-]+/g, '_')}.doc` });
@@ -172,8 +257,13 @@ LH.vistas = LH.vistas || {};
           </div>
           <div class="form__linha">
             <label class="campo"><span class="campo__rotulo">Publicação</span><input type="date" name="publicacao"></label>
-            <label class="campo"><span class="campo__rotulo">Abertura da sessão</span><input type="date" name="abertura"></label>
-            <label class="campo"><span class="campo__rotulo">Hora</span><input type="time" name="hora"></label>
+            <label class="campo"><span class="campo__rotulo">Data da sessão pública</span><input type="date" name="abertura"></label>
+            <label class="campo"><span class="campo__rotulo">Horário de abertura da sessão</span><input type="time" name="hora"></label>
+          </div>
+          <div class="form__linha">
+            <label class="campo"><span class="campo__rotulo">Envio das propostas até (data)</span><input type="date" name="limite"></label>
+            <label class="campo"><span class="campo__rotulo">Envio das propostas até (hora)</span><input type="time" name="horaLimite"></label>
+            <p class="fraco" style="align-self:end">Confira no edital: o PNCP informa o fim do recebimento das propostas, que costuma coincidir com a abertura da sessão.</p>
           </div>
           <label class="campo"><span class="campo__rotulo">Objeto</span><textarea name="objeto" rows="2" maxlength="2000"></textarea></label>
           <input type="hidden" name="idPncp">
@@ -190,6 +280,36 @@ LH.vistas = LH.vistas || {};
             <label class="campo"><span class="campo__rotulo">Prazo de entrega/execução</span><input name="prazo" maxlength="200" placeholder="ex.: 15 dias após o pedido"></label>
             <label class="campo"><span class="campo__rotulo">Condições de pagamento</span><input name="pagamento" maxlength="200" placeholder="ex.: 30 dias após o aceite"></label>
           </div>
+        </section>
+
+        <section class="card spot form" data-reveal>
+          <div class="card__titulo"><h2>${icone('arquivoCheck')} Declarações</h2>
+            <button class="btn btn--pequeno btn--fantasma" type="button" data-acao="decl-padrao">Restaurar textos padrão</button></div>
+          <p class="fraco">Saem completas na proposta. Revise e ajuste cada texto conforme o edital; desmarque a que não se aplica. <b>{validade}</b> e <b>{pagamento}</b> usam os campos acima.</p>
+          <div class="decl-proposta" id="declaracoes"></div>
+        </section>
+
+        <section class="card spot form" data-reveal>
+          <div class="card__titulo"><h2>${icone('moeda')} Dados bancários e fechamento</h2></div>
+          <div class="form__linha">
+            <label class="campo"><span class="campo__rotulo">Dados bancários</span>
+              <select name="bancoOrigem"><option value="cadastro">Usar os do cadastro da empresa</option><option value="proposta">Informar outros só nesta proposta</option></select></label>
+            <label class="campo"><span class="campo__rotulo">Banco</span><input name="banco" maxlength="80"></label>
+            <label class="campo"><span class="campo__rotulo">Agência</span><input name="agencia" maxlength="20"></label>
+            <label class="campo"><span class="campo__rotulo">Conta corrente</span><input name="conta" maxlength="30"></label>
+          </div>
+          <p class="fraco" id="banco-nota"></p>
+          <div class="form__linha">
+            <label class="campo"><span class="campo__rotulo">Cidade (local da assinatura)</span><input name="fimCidade" maxlength="120"></label>
+            <label class="campo"><span class="campo__rotulo">Data</span><input type="date" name="fimData"></label>
+          </div>
+          <div class="form__linha">
+            <label class="campo"><span class="campo__rotulo">Responsável legal</span><input name="fimRepresentante" maxlength="160"></label>
+            <label class="campo"><span class="campo__rotulo">RG</span><input name="fimRg" maxlength="30"></label>
+            <label class="campo"><span class="campo__rotulo">CPF</span><input name="fimCpf" maxlength="20" inputmode="numeric"></label>
+            <label class="campo"><span class="campo__rotulo">Cargo</span><input name="fimCargo" maxlength="80"></label>
+          </div>
+          <p class="fraco">Vêm do <a href="#/empresa">cadastro da empresa</a> e podem ser ajustados só nesta proposta.</p>
         </section>
 
         <section class="card spot" data-reveal>
@@ -240,7 +360,22 @@ LH.vistas = LH.vistas || {};
         }));
         const total = itens.reduce((s, it) => s + it.quantidade * it.unitario, 0);
         const licitacao = Object.fromEntries(CAMPOS_LIC.map((k) => [k, String(form[k].value || '').trim()]));
+        const origem = form.bancoOrigem.value;
+        const extras = {
+          declaracoes: [...raiz.querySelectorAll('[data-decl]')].map((d) => ({
+            id: d.dataset.decl, titulo: d.dataset.titulo, ativo: d.querySelector('input[type=checkbox]').checked,
+            texto: d.querySelector('textarea').value.trim().slice(0, 2000),
+          })),
+          banco: origem === 'proposta'
+            ? { origem, banco: form.banco.value.trim(), agencia: form.agencia.value.trim(), conta: form.conta.value.trim() }
+            : { origem: 'cadastro' },
+          fechamento: {
+            cidade: form.fimCidade.value.trim(), data: form.fimData.value || LH.datas.hoje(), representante: form.fimRepresentante.value.trim(),
+            rg: form.fimRg.value.trim(), cpf: form.fimCpf.value.trim(), cargo: form.fimCargo.value.trim(),
+          },
+        };
         return {
+          extras,
           id: atual?.id, numero, criada: atual?.criada || LH.datas.hoje(), status: atual?.status || 'Rascunho',
           licitacaoId: Number(form.licitacaoId.value) || atual?.licitacaoId || null,
           licitacao: Object.values(licitacao).some(Boolean) ? licitacao : null,
@@ -280,6 +415,33 @@ LH.vistas = LH.vistas || {};
         recalcular();
         LH.aviso(`${itens.length} item(ns) na proposta. Agora preencha a marca e o seu valor unitário.`, 'sucesso');
       };
+      // Declarações: uma linha por declaração, com o texto completo editável.
+      const desenharDeclaracoes = (lista) => {
+        raiz.querySelector('#declaracoes').innerHTML = lista.map((d) => `
+          <div class="decl-proposta__item" data-decl="${esc(d.id)}" data-titulo="${esc(d.titulo)}">
+            <label class="campo--check"><input type="checkbox" ${d.ativo ? 'checked' : ''}><span><b>${esc(d.titulo)}</b></span></label>
+            <textarea rows="2" maxlength="2000" aria-label="${esc(d.titulo)}">${esc(d.texto)}</textarea>
+          </div>`).join('');
+      };
+      // Banco: com "cadastro", os campos mostram os dados da empresa (só leitura).
+      const mostrarBanco = (salvo = null) => {
+        const e = empresaDe({ empresaId: form.empresaId.value });
+        const daProposta = form.bancoOrigem.value === 'proposta';
+        for (const k of ['banco', 'agencia', 'conta']) {
+          form[k].readOnly = !daProposta;
+          if (!daProposta) form[k].value = e[k] || '';
+          else if (salvo) form[k].value = salvo[k] || '';
+        }
+        raiz.querySelector('#banco-nota').innerHTML = daProposta ? 'Estes dados valem só para esta proposta; o cadastro da empresa não muda.'
+          : (e.banco ? 'Dados do cadastro da empresa.' : `${icone('info')} A empresa não tem dados bancários. <a href="#/empresa">Cadastre</a> ou escolha "Informar outros".`);
+      };
+      // Fechamento: preenche com o cadastro (ao trocar de empresa ou numa proposta nova).
+      const preencherFechamento = (f = null) => {
+        const e = empresaDe({ empresaId: form.empresaId.value });
+        const v = fechamentoDe({ extras: { fechamento: f || {} } }, e);
+        form.fimCidade.value = v.cidade; form.fimData.value = v.data; form.fimRepresentante.value = v.representante;
+        form.fimRg.value = v.rg; form.fimCpf.value = v.cpf; form.fimCargo.value = v.cargo;
+      };
       const mostrarEmpresa = () => {
         const e = empresaDe({ empresaId: form.empresaId.value });
         raiz.querySelector('#empresa-resumo').innerHTML = e.cnpj
@@ -292,8 +454,12 @@ LH.vistas = LH.vistas || {};
       form.empresaId.innerHTML = empresas.length
         ? LH.opcoes(empresas.map((e) => [e.id, `${e.razao || 'Empresa sem nome'}${e.cnpj ? ` · ${LH.cnpj.mascara(e.cnpj)}` : ''}`]), LH.repo.empresaAtualId?.() || '')
         : '<option value="">Nenhuma empresa cadastrada</option>';
-      form.empresaId.addEventListener('change', mostrarEmpresa);
+      form.empresaId.addEventListener('change', () => { mostrarEmpresa(); mostrarBanco(); preencherFechamento(); });
+      form.bancoOrigem.addEventListener('change', () => mostrarBanco());
       mostrarEmpresa();
+      desenharDeclaracoes(declaracoesPadrao());
+      mostrarBanco();
+      preencherFechamento();
 
       // Busca a licitação pelo ID, nº de controle ou link do PNCP.
       const buscarCodigo = async () => {
@@ -340,6 +506,10 @@ LH.vistas = LH.vistas || {};
             form.observacoes.value = atual.observacoes;
             if (atual.empresaId && empresas.some((e) => String(e.id) === String(atual.empresaId))) form.empresaId.value = atual.empresaId;
             mostrarEmpresa();
+            desenharDeclaracoes(declaracoesDe(atual));
+            form.bancoOrigem.value = atual.extras?.banco?.origem === 'proposta' ? 'proposta' : 'cadastro';
+            mostrarBanco(atual.extras?.banco);
+            preencherFechamento(atual.extras?.fechamento);
             if (atual.itens?.length) corpo.innerHTML = atual.itens.map(linhaItem).join('');
             raiz.querySelector('h1').textContent = `Proposta ${atual.numero}`;
           } else {
@@ -404,6 +574,7 @@ LH.vistas = LH.vistas || {};
           recalcular();
         }
         if (acao === 'buscar-licitacao') buscarCodigo();
+        if (acao === 'decl-padrao') desenharDeclaracoes(declaracoesPadrao());
 
         if (acao === 'importar') importar();
         if (acao === 'previa') previa().scrollIntoView({ behavior: 'smooth' });
