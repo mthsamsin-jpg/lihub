@@ -92,3 +92,28 @@ test('centavos: o total é a soma exata das linhas exibidas', () => {
   const soma = itens.reduce((s, it) => s + BigInt(r.totalLinha(it).toFixed(2).replace('.', '')), 0n);
   assert.equal(r.totalProposta(itens).toFixed(2).replace('.', ''), soma.toString());
 });
+
+test('conferência: proposta completa não tem pendências', () => {
+  const e = { id: 'a', razao: 'X', cnpj: '1', endereco: 'Rua' };
+  const p = { licitacao: { orgao: 'O', numero: '1', objeto: 'Obj', abertura: '2026-12-10', hora: '09:00', limite: '2026-12-10', horaLimite: '09:00' },
+    itens: [{ numero: '1', descricao: 'd', quantidade: 1, unitario: 2 }] };
+  const ok = { empresa: e, banco: { banco: 'b', agencia: '1', conta: '2' }, fim: { cidade: 'c', representante: 'r', cpf: '529.982.247-25' } };
+  igual(r.pendencias(p, ok), []);
+  // Cada problema aparece sozinho.
+  const campos = (mudaP, mudaC) => r.pendencias({ ...p, ...mudaP }, { ...ok, ...mudaC }).map((x) => x.campo);
+  for (const k of ['orgao', 'numero', 'objeto']) assert.equal(campos({ licitacao: { ...p.licitacao, [k]: ' ' } }).length, 1, k);
+  for (const k of ['razao', 'cnpj', 'endereco']) assert.equal(campos({}, { empresa: { ...e, [k]: '' } }).length, 1, k);
+  for (const k of ['cidade', 'representante', 'cpf']) assert.equal(campos({}, { fim: { ...ok.fim, [k]: '' } }).length, 1, k);
+  igual(campos({}, { fim: { ...ok.fim, cpf: '111.111.111-11' } }), ['CPF do representante inválido']);
+  igual(campos({ licitacao: { ...p.licitacao, horaLimite: '09:01' } }), ['Envio das propostas depois da abertura da sessão']);
+  igual(campos({ itens: [...p.itens, { numero: '2', descricao: '', quantidade: 0, unitario: 0 }] }), ['Sem descrição: item 2', 'Sem quantidade: item 2', 'Sem valor unitário: item 2']);
+  igual(campos({ itens: [p.itens[0], p.itens[0]] }), ['Número de item repetido']);
+  assert.equal(campos({}, { banco: { banco: 'b', agencia: '', conta: '2' } }).length, 1);
+});
+
+test('CPF e validade', () => {
+  assert.ok(r.cpfValido('52998224725'));
+  for (const c of ['', '123', '529.982.247-24', '00000000000']) assert.ok(!r.cpfValido(c), c);
+  for (const v of ['1', 60, '365']) assert.ok(r.validadeOk(v), String(v));
+  for (const v of ['', '0', '366', '10,5', 'abc', '-3']) assert.ok(!r.validadeOk(v), v);
+});

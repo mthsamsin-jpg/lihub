@@ -89,5 +89,48 @@ window.LH = window.LH || {};
     return { ultimo: maior + 1, numero: `PROP-${ano}-${String(maior + 1).padStart(3, '0')}` };
   }
 
-  LH.propostasRegras = { LEGAIS, textoLegal, declaracoesPadrao, declaracoesDe, snapshotEmpresa, empresaDe, duplicar, totalLinha, totalProposta, proximoNumero };
+  // --- Conferência antes de salvar ou baixar -------------------------------------------
+  function cpfValido(cpf) {
+    const d = String(cpf || '').replace(/\D/g, '');
+    if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+    return [9, 10].every((n) => {
+      const soma = [...d.slice(0, n)].reduce((s, x, i) => s + Number(x) * (n + 1 - i), 0);
+      return ((soma * 10) % 11) % 10 === Number(d[n]);
+    });
+  }
+  /** O que falta ou está incoerente: [{ campo, onde: 'empresa' | 'proposta' | 'itens' }]. */
+  function pendencias(p, { empresa: e, banco, fim }) {
+    const tem = (v) => !!String(v ?? '').trim();
+    const l = p.licitacao || {};
+    const naProposta = p.extras?.banco?.origem === 'proposta';
+    const envio = tem(l.limite) && `${l.limite}T${l.horaLimite || '00:00'}`;
+    const sessao = tem(l.abertura) && `${l.abertura}T${l.hora || '23:59'}`;
+    const itens = p.itens || [];
+    const nums = (f) => itens.map((it, i) => (f(it) ? it.numero || i + 1 : null)).filter((x) => x !== null);
+    const deItens = (f, texto) => { const n = nums(f); return n.length > 0 && { campo: `${texto}: ${n.length === 1 ? 'item' : 'itens'} ${n.slice(0, 10).join(', ')}${n.length > 10 ? '…' : ''}`, onde: 'itens' }; };
+    const numeros = itens.map((it) => String(it.numero ?? ''));
+    return [
+      !tem(l.orgao) && { campo: 'Órgão licitante', onde: 'proposta' },
+      !tem(l.numero) && { campo: 'Nº da compra / edital', onde: 'proposta' },
+      !tem(l.objeto) && { campo: 'Objeto', onde: 'proposta' },
+      envio && sessao && envio > sessao && { campo: 'Envio das propostas depois da abertura da sessão', onde: 'proposta' },
+      !tem(e.id) && { campo: 'Empresa proponente selecionada', onde: 'empresa' },
+      !tem(e.razao) && { campo: 'Razão social', onde: 'empresa' },
+      !tem(e.cnpj) && { campo: 'CNPJ', onde: 'empresa' },
+      !tem(e.endereco) && { campo: 'Endereço', onde: 'empresa' },
+      !tem(fim.cidade) && { campo: 'Cidade da assinatura', onde: 'proposta' },
+      !tem(fim.representante) && { campo: 'Representante legal', onde: 'proposta' },
+      !tem(fim.cpf) ? { campo: 'CPF do representante', onde: 'proposta' }
+        : !cpfValido(fim.cpf) && { campo: 'CPF do representante inválido', onde: 'proposta' },
+      !(tem(banco.banco) && tem(banco.agencia) && tem(banco.conta)) && { campo: 'Dados bancários (banco, agência e conta)', onde: naProposta ? 'proposta' : 'empresa' },
+      deItens((it) => !tem(it.descricao), 'Sem descrição'),
+      deItens((it) => !(it.quantidade > 0), 'Sem quantidade'),
+      deItens((it) => !(it.unitario > 0), 'Sem valor unitário'),
+      numeros.some((n, i) => numeros.indexOf(n) !== i) && { campo: 'Número de item repetido', onde: 'itens' },
+    ].filter(Boolean);
+  }
+  /** Validade em dias: inteiro de 1 a 365 (limite do banco). */
+  const validadeOk = (v) => /^\d{1,3}$/.test(String(v).trim()) && Number(v) >= 1 && Number(v) <= 365;
+
+  LH.propostasRegras = { pendencias, cpfValido, validadeOk, LEGAIS, textoLegal, declaracoesPadrao, declaracoesDe, snapshotEmpresa, empresaDe, duplicar, totalLinha, totalProposta, proximoNumero };
 }());

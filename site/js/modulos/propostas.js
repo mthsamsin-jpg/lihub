@@ -12,6 +12,7 @@ LH.vistas = LH.vistas || {};
   const { declaracoesPadrao, declaracoesDe, totalLinha, totalProposta } = regras;
   // Preço unitário pode ter mais de 2 casas (até 6): mostra o que foi digitado.
   const fmtUnitario = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 6 });
+  const quebravel = (v) => v.replace(/\u00a0/g, ' '); // permite quebrar só depois do "R$"
   const NUMERO_PENDENTE = 'Número gerado ao salvar ou baixar';
   const STATUS = ['Rascunho', 'Enviada', 'Em análise', 'Aceita', 'Recusada'];
   const AVISO_RESPONSABILIDADE = `<p class="nota nota--alerta nao-imprimir">${icone('alerta')} Revise a proposta e o edital antes de enviar. O Uso LicitaHub ajuda a montar o documento, mas a responsabilidade final pela proposta é sua.</p>`;
@@ -79,22 +80,13 @@ LH.vistas = LH.vistas || {};
     return d ? `${fmt.data(d)}${hora ? ` ${hora}` : ''}` : hora;
   };
 
-  /** O que falta para a proposta sair sem lacunas: [{ campo, onde }]. */
+  /** O que falta ou está incoerente na proposta. */
   function pendenciasDe(p) {
     const e = empresaDe(p);
-    const selecionada = !!e.id;
-    const b = bancoDe(p, e);
-    const fim = fechamentoDe(p, e);
-    const naProposta = p.extras?.banco?.origem === 'proposta';
-    return [
-      !selecionada && { campo: 'Empresa proponente selecionada', onde: 'empresa' },
-      !String(e.razao || '').trim() && { campo: 'Razão social', onde: 'empresa' },
-      !String(e.cnpj || '').trim() && { campo: 'CNPJ', onde: 'empresa' },
-      !String(fim.cidade || '').trim() && { campo: 'Cidade da assinatura', onde: 'proposta' },
-      !String(fim.representante || '').trim() && { campo: 'Representante legal', onde: 'proposta' },
-      !(b.banco && b.agencia && b.conta) && { campo: `Dados bancários (banco, agência e conta)${naProposta ? ' desta proposta' : ' do cadastro'}`, onde: naProposta ? 'proposta' : 'empresa' },
-    ].filter(Boolean);
+    return regras.pendencias(p, { empresa: e, banco: bancoDe(p, e), fim: fechamentoDe(p, e) });
   }
+  /** Texto com as quebras de linha digitadas. */
+  const linhas = (t) => esc(t).replace(/\r?\n/g, '<br>');
   // Lacuna no documento: linha para preencher à mão (nunca "[Cidade]" nem "não informado").
   const LACUNA = '____________________';
 
@@ -104,9 +96,9 @@ LH.vistas = LH.vistas || {};
     if (!faltam.length) return Promise.resolve(true);
     return new Promise((resolver) => {
       LH.modal({
-        titulo: 'Faltam dados na proposta',
-        html: `<p>Sem estes dados, a proposta sai com espaços em branco para preencher à mão:</p>
-          <ul class="pendencias-proposta">${faltam.map((f) => `<li>${esc(f.campo)} <span class="fraco">(${f.onde === 'empresa' ? 'cadastro da empresa' : 'nesta proposta'})</span></li>`).join('')}</ul>
+        titulo: 'Confira a proposta',
+        html: `<p>Confira estes pontos. O que estiver vazio sai em branco, para preencher à mão:</p>
+          <ul class="pendencias-proposta">${faltam.map((f) => `<li>${esc(f.campo)} <span class="fraco">(${{ empresa: 'cadastro da empresa', itens: 'itens', proposta: 'nesta proposta' }[f.onde]})</span></li>`).join('')}</ul>
           ${faltam.some((f) => f.onde === 'empresa') ? `<p>${icone('info')} Complete o cadastro em <a href="#/empresa" data-ir-empresa>Minha empresa</a>.</p>` : ''}`,
         acoes: [
           { rotulo: 'Corrigir', classe: 'btn--fantasma', acao: (f) => { f(); resolver(false); } },
@@ -133,15 +125,15 @@ LH.vistas = LH.vistas || {};
     const cnpj = e.cnpj ? LH.cnpj.mascara(e.cnpj) : '';
     const sessao = dataHora(l.abertura, l.hora);
     const limite = dataHora(l.limite, l.horaLimite);
-    const linhaInfo = (rotulo, valor) => (valor ? `<tr><th scope="row">${rotulo}</th><td>${esc(valor)}</td></tr>` : '');
+    const linhaInfo = (rotulo, valor) => (valor ? `<tr><th scope="row" width="28%">${rotulo}</th><td>${linhas(valor)}</td></tr>` : '');
     const faltam = documento ? [] : pendenciasDe(p);
     // Logo: tamanho em pt (o Word ignora max-width/max-height); o mesmo na tela e no PDF.
-    const logo = e.logo ? `<img class="folha__logo" src="${esc(e.logo)}" alt="Logo ${esc(e.razao || '')}"${p.logoPt ? ` width="${Math.round(p.logoPt.w * 4 / 3)}" height="${Math.round(p.logoPt.h * 4 / 3)}" style="width:${p.logoPt.w}pt;height:${p.logoPt.h}pt"` : ''}>` : '';
+    const logo = e.logo ? `<img class="folha__logo" decoding="sync" src="${esc(e.logo)}" alt="Logo ${esc(e.razao || '')}"${p.logoPt ? ` width="${Math.round(p.logoPt.w * 4 / 3)}" height="${Math.round(p.logoPt.h * 4 / 3)}" style="width:${p.logoPt.w}pt;height:${p.logoPt.h}pt"` : ''}>` : '';
     return `
-      ${faltam.length ? `<p class="nota nota--alerta nao-imprimir aviso-lacunas">${icone('alerta')} Faltam dados (${esc(faltam.map((f) => f.campo).join(', '))}): eles saem como linhas em branco. <a href="#/empresa">Completar o cadastro</a>.</p>` : ''}
+      ${faltam.length ? `<p class="nota nota--alerta nao-imprimir aviso-lacunas">${icone('alerta')} Confira: ${esc(faltam.map((f) => f.campo).join('; '))}. O que estiver vazio sai em branco.${faltam.some((f) => f.onde === 'empresa') ? ' <a href="#/empresa">Completar o cadastro</a>.' : ''}</p>` : ''}
       <div class="folha folha--proposta">
         <table class="folha__topo" role="presentation"><tr>
-          ${logo ? `<td class="folha__topo-logo">${logo}</td>` : ''}
+          ${logo ? `<td class="folha__topo-logo"${p.logoPt ? ` width="${Math.round((p.logoPt.w + 14) * 4 / 3)}"` : ''}>${logo}</td>` : ''}
           <td class="folha__empresa">
             <div><strong>${esc(e.razao || LACUNA)}</strong></div>
             ${[cnpj && `CNPJ ${cnpj}`,
@@ -150,14 +142,14 @@ LH.vistas = LH.vistas || {};
           </td>
         </tr></table>
         <h2>PROPOSTA COMERCIAL</h2>
-        <p class="fraco folha__centro">${esc(p.numero || NUMERO_PENDENTE)}</p>
-        <h3>Ao(À) ${esc(l.orgao || 'órgão licitante')}${local ? ` · ${esc(local)}` : ''}</h3>
+        <p class="folha__centro" align="center">${esc(p.numero || NUMERO_PENDENTE)}</p>
+        <h3>Ao(À) ${esc(l.orgao || LACUNA)}${local ? ` · ${esc(local)}` : ''}</h3>
         <table class="folha__info">
-          ${linhaInfo('Referência', ref || 'edital')}
+          ${linhaInfo('Referência', l.numero ? ref : [l.modalidade, `nº ${LACUNA}`].filter(Boolean).join(' '))}
           ${linhaInfo('Processo', l.processo)}
           ${linhaInfo('Sessão pública (abertura)', sessao)}
           ${linhaInfo('Envio das propostas até', limite)}
-          ${linhaInfo('Objeto', l.objeto)}
+          ${linhaInfo('Objeto', l.objeto || LACUNA)}
         </table>
         <h3>Proponente</h3>
         <table class="folha__info">
@@ -170,9 +162,9 @@ LH.vistas = LH.vistas || {};
         <h3>Itens</h3>
         <table class="folha__itens${temMarca ? '' : ' folha__itens--sem-marca'}">
           <colgroup><col class="c-item"><col class="c-desc">${temMarca ? '<col class="c-marca">' : ''}<col class="c-un"><col class="c-qtd"><col class="c-valor"><col class="c-valor"></colgroup>
-          <thead><tr><th>Item</th><th>Descrição / especificação</th>${temMarca ? '<th>Marca</th>' : ''}<th>Un.</th><th class="numero">Qtd.</th><th class="numero">Valor unitário</th><th class="numero">Valor global</th></tr></thead>
-          <tbody>${p.itens.map((it, i) => `<tr><td>${esc(it.numero ?? i + 1)}</td><td class="quebra">${esc(it.descricao)}</td>${temMarca ? `<td class="quebra">${esc(it.marca || '')}</td>` : ''}<td>${esc(it.unidade)}</td>
-            <td class="numero">${fmt.numero(it.quantidade)}</td><td class="numero">${fmtUnitario.format(it.unitario)}</td><td class="numero">${fmt.moeda(totalLinha(it))}</td></tr>`).join('')}</tbody>
+          <thead><tr><th width="7%">Item</th><th>Descrição / especificação</th>${temMarca ? '<th width="13%">Marca</th>' : ''}<th width="8%">Un.</th><th class="numero" width="9%">Qtd.</th><th class="numero" width="16%">Valor unitário</th><th class="numero" width="17%">Valor global</th></tr></thead>
+          <tbody>${p.itens.map((it, i) => `<tr${String(it.descricao).length > 700 ? ' class="longa" style="page-break-inside:auto"' : ''}><td>${esc(it.numero ?? i + 1)}</td><td class="quebra">${linhas(it.descricao || LACUNA)}</td>${temMarca ? `<td class="quebra">${esc(it.marca || '')}</td>` : ''}<td>${esc(it.unidade)}</td>
+            <td class="numero">${fmt.numero(it.quantidade)}</td><td class="numero">${quebravel(fmtUnitario.format(it.unitario))}</td><td class="numero">${quebravel(fmt.moeda(totalLinha(it)))}</td></tr>`).join('')}</tbody>
           <tfoot><tr><th colspan="${temMarca ? 6 : 5}" class="numero">Valor global da proposta</th><th class="numero">${fmt.moeda(total)}</th></tr></tfoot>
         </table>
         <p class="folha__extenso"><strong>Valor global:</strong> ${fmt.moeda(total)} (${esc(LH.porExtenso(total))}).</p>
@@ -180,16 +172,16 @@ LH.vistas = LH.vistas || {};
         <p>Validade da proposta: ${esc(p.validade)} dias a contar da data de abertura da sessão pública.</p>
         <p>Prazo de entrega/execução: ${esc(p.prazo || 'conforme o edital')}.</p>
         <p>Condições de pagamento: ${esc(p.pagamento || 'conforme o edital')}.</p>
-        ${p.observacoes ? `<p>${esc(p.observacoes)}</p>` : ''}
+        ${p.observacoes ? `<p>${linhas(p.observacoes)}</p>` : ''}
         ${decl.length ? `<h3>Declarações</h3>
-        <ol class="folha__declaracoes">${decl.map((d) => `<li><strong>${esc(d.titulo)}.</strong> ${esc(textoDeclaracao(d.texto, p))}</li>`).join('')}</ol>` : ''}
+        <ol class="folha__declaracoes">${decl.map((d) => `<li><strong>${esc(d.titulo)}.</strong> ${linhas(textoDeclaracao(d.texto, p))}</li>`).join('')}</ol>` : ''}
         <h3>Dados bancários</h3>
         <table class="folha__info">${linhaInfo('Banco', banco.banco || LACUNA)}${linhaInfo('Agência', banco.agencia || LACUNA)}${linhaInfo('Conta corrente', banco.conta || LACUNA)}${linhaInfo('Titular', [e.razao, cnpj && `CNPJ ${cnpj}`].filter(Boolean).join(' · ') || LACUNA)}</table>
         <p class="folha__local">${esc(fim.cidade || LACUNA)}, ${esc(fmt.dataLonga(fim.data))}.</p>
         <div class="folha__assinatura">${documento ? `<div>${LACUNA}${LACUNA}</div>` : "<span></span>"}
-          <strong>${esc(fim.representante || LACUNA)}</strong><br>
-          ${esc([fim.cargo, fim.rg && `RG ${fim.rg}`, fim.cpf && `CPF ${fim.cpf}`].filter(Boolean).join(' · '))}<br>
-          ${esc(e.razao || '')}${cnpj ? ` · CNPJ ${esc(cnpj)}` : ''}
+          <div><strong>${esc(fim.representante || LACUNA)}</strong></div>
+          <div>${esc([fim.cargo, fim.rg && `RG ${fim.rg}`, `CPF ${fim.cpf || LACUNA}`].filter(Boolean).join(' · '))}</div>
+          <div>${esc(e.razao || '')}${cnpj ? ` · CNPJ ${esc(cnpj)}` : ''}</div>
         </div>
         <div class="folha__rodape">
           ${[[e.razao, cnpj && `CNPJ ${cnpj}`], [e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.telefone, e.email]]
@@ -199,27 +191,41 @@ LH.vistas = LH.vistas || {};
       </div>`;
   }
 
-  /** Proposta em Word (.doc): HTML com estilos de impressão, que o Word abre e edita. */
-  /** Tamanho do logo em pt (até 180 × 60 pt, mantendo a proporção). Null sem logo. */
+  /** Rodapé de cada página (PDF e Word). */
+  const rodapePagina = (p) => [empresaDe(p).razao, p.numero && `Proposta ${p.numero}`].filter(Boolean).join(' · ');
+  /** PDF: rodapé e número em todas as páginas (só existe enquanto a prévia está na tela). */
+  const estiloPagina = (p) => {
+    const texto = rodapePagina(p).replace(/[\\"<>]/g, ' ').replace(/\s+/g, ' ');
+    const letra = 'font: 8pt Arial, sans-serif; color: #5a6b80;';
+    return `<style>@page { margin: 14mm 12mm 18mm; @bottom-left { content: "${texto}"; ${letra} } @bottom-right { content: "Página " counter(page) " de " counter(pages); ${letra} white-space: nowrap; } }</style>`;
+  };
+
+  /** Tamanho do logo em pt (até 180 × 60 pt, sem ampliar). Null sem logo. */
   async function medirLogo(src) {
     if (!src) return null;
     const img = new Image();
     img.src = src;
     try { await img.decode(); } catch { return null; }
     if (!img.naturalWidth || !img.naturalHeight) return null;
-    const escala = Math.min(180 / img.naturalWidth, 60 / img.naturalHeight);
+    const escala = Math.min(0.75, 180 / img.naturalWidth, 60 / img.naturalHeight);
     return { w: Math.round(img.naturalWidth * escala), h: Math.round(img.naturalHeight * escala) };
   }
 
+  /** Proposta em Word (.doc): HTML que o Word abre e edita. */
   async function baixarWord(p) {
     const logoPt = await medirLogo(empresaDe(p).logo);
-    const estilos = `body{font-family:Arial,sans-serif;font-size:11pt;color:#000}h2,h3{font-family:Arial,sans-serif;font-style:normal;color:#000}h2{text-align:center;font-size:15pt}h3{font-size:12pt;margin:14pt 0 4pt}
-      table{border-collapse:collapse;width:100%}th,td{border:1px solid #444;padding:4pt;font-size:10pt;vertical-align:top}th{background:#e8e8e8}
-      .numero{text-align:right}.fraco{color:#444}.folha__centro{text-align:center}.folha__assinatura{margin-top:48pt;text-align:center}.folha__assinatura span{display:block;width:60%;margin:0 auto 4pt;border-top:1px solid #000}
-      table.folha__topo{width:100%;border-bottom:1.5pt solid #1b2533;margin-bottom:10pt}table.folha__topo td{border:none;vertical-align:middle;padding:0 8pt 6pt 0}td.folha__topo-logo{width:190pt}.folha__empresa div{font-size:9pt;margin:0}.folha__empresa strong{font-size:11pt}
-      .folha__info th{width:28%;text-align:left}.folha__declaracoes li{margin-bottom:4pt;text-align:justify}.folha__local{margin-top:18pt}
-      .folha__rodape{margin-top:24pt;border-top:1px solid #444;padding-top:4pt;text-align:center;font-size:8pt;color:#444}.folha__rodape div{margin:0}`;
-    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${esc(p.numero)}</title><style>${estilos}</style></head><body>${folhaProposta({ ...p, logoPt }, { documento: true })}</body></html>`;
+    // Word: só entende uma classe por elemento; seção e rodapé usam as marcas mso-*.
+    const estilos = `@page S1{size:595.3pt 841.9pt;margin:42pt 42pt 54pt 42pt;mso-footer-margin:24pt;mso-footer:f1;mso-paper-source:0}div.S1{page:S1}
+      body{font-family:Arial,sans-serif;font-size:10.5pt;color:#000}p,div{margin:0 0 4pt}h2,h3{font-family:Arial,sans-serif;font-style:normal;color:#000;page-break-after:avoid}h2{text-align:center;font-size:15pt;margin:0}h3{font-size:12pt;margin:12pt 0 4pt}
+      table{border-collapse:collapse;width:100%}th,td{border:1px solid #444;padding:3pt 4pt;font-size:9.5pt;vertical-align:top}th{background:#e8e8e8}tr{page-break-inside:avoid}
+      .numero{text-align:right}.folha__assinatura{margin-top:36pt;text-align:center;page-break-inside:avoid}.folha__assinatura div{margin:0}
+      table.folha__topo{margin-bottom:10pt}table.folha__topo td{border:none;border-bottom:1.5pt solid #1b2533;vertical-align:middle;padding:0 8pt 6pt 0}.folha__empresa div{font-size:9pt;margin:0}
+      .folha__info th{text-align:left}p.vao{font-size:4pt;margin:0}table.folha__itens{table-layout:fixed}.folha__itens th,.folha__itens td{font-size:8pt}.folha__declaracoes li{margin-bottom:4pt;text-align:justify}.folha__local{margin-top:18pt}
+      .folha__rodape{margin-top:20pt;border-top:1px solid #444;padding-top:4pt;text-align:center;font-size:8pt;color:#444}.folha__rodape div{margin:0}
+      p.MsoFooter{text-align:center;font-size:8pt;color:#444;margin:0}table.so-rodape{margin:0 0 0 900pt;width:1pt;height:1pt;overflow:hidden}`;
+    const campo = (nome) => `<!--[if supportFields]><span style='mso-element:field-begin'></span> ${nome} <span style='mso-element:field-end'></span><![endif]-->`;
+    const rodape = `<table class="so-rodape" border="0" cellspacing="0" cellpadding="0"><tr><td style="border:none"><div style="mso-element:footer" id="f1"><p class="MsoFooter">${esc(rodapePagina(p))} · Página&nbsp;${campo('PAGE')}&nbsp;de&nbsp;${campo('NUMPAGES')}</p></div></td></tr></table>`;
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${esc(p.numero)}</title><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]--><style>${estilos}</style></head><body><div class="S1">${folhaProposta({ ...p, logoPt }, { documento: true }).replaceAll('</table>', '</table><p class="vao">&nbsp;</p>').replace('<div class="folha__rodape">', '<p class="vao">&nbsp;</p><p class="vao">&nbsp;</p>$&')}${rodape}</div></body></html>`;
     const url = URL.createObjectURL(new Blob(['﻿', html], { type: 'application/msword' }));
     const a = Object.assign(document.createElement('a'), { href: url, download: `Proposta-${String(p.numero).replace(/[^\w-]+/g, '_')}.doc` });
     document.body.append(a);
@@ -303,7 +309,7 @@ LH.vistas = LH.vistas || {};
           <div class="form__linha">
             <label class="campo"><span class="campo__rotulo">Envio das propostas até (data)</span><input type="date" name="limite"></label>
             <label class="campo"><span class="campo__rotulo">Envio das propostas até (hora)</span><input type="time" name="horaLimite"></label>
-            <p class="fraco" style="align-self:end">Confira no edital: o PNCP informa o fim do recebimento das propostas, que costuma coincidir com a abertura da sessão.</p>
+            <p class="nota nota--alerta" id="nota-horarios" hidden>Envio e abertura estão iguais: o PNCP só informa o fim do recebimento das propostas. Confira o horário da sessão no edital.</p>
           </div>
           <label class="campo"><span class="campo__rotulo">Objeto</span><textarea name="objeto" rows="2" maxlength="2000"></textarea></label>
           <input type="hidden" name="idPncp">
@@ -451,12 +457,27 @@ LH.vistas = LH.vistas || {};
       };
       const previa = () => {
         const caixa = raiz.querySelector('#previa');
-        caixa.innerHTML = `<div class="secao__titulo nao-imprimir"><h2>Pré-visualização</h2></div>${folhaProposta(ler())}`;
+        const proposta = ler();
+        caixa.innerHTML = `${estiloPagina(proposta)}<div class="secao__titulo nao-imprimir"><h2>Pré-visualização</h2></div>${folhaProposta(proposta)}`;
         return caixa;
       };
+      // Ctrl+P também imprime a proposta atual (sem a prévia, sairia em branco).
+      let imprimindo = false;
+      const antesDeImprimir = () => {
+        if (!raiz.isConnected || !form.isConnected) return window.removeEventListener('beforeprint', antesDeImprimir);
+        if (imprimindo) return; // o botão Baixar PDF já preparou a prévia
+        previa();
+      };
+      window.addEventListener('beforeprint', antesDeImprimir);
+      const avisarHorarios = () => {
+        const iguais = form.abertura.value && form.abertura.value === form.limite.value && form.hora.value === form.horaLimite.value;
+        raiz.querySelector('#nota-horarios').hidden = !iguais;
+      };
+      for (const k of ['abertura', 'hora', 'limite', 'horaLimite']) form[k].addEventListener('input', avisarHorarios);
       const preencherLicitacao = (cab) => {
         if (!cab) return;
         for (const k of CAMPOS_LIC) if (cab[k] != null && form[k]) form[k].value = cab[k];
+        avisarHorarios();
       };
       const usarLicitacao = (l) => {
         preencherLicitacao(cabecalhoDe(l));
@@ -479,13 +500,14 @@ LH.vistas = LH.vistas || {};
           </div>`).join('');
       };
       // Banco: com "cadastro", os campos mostram os dados da empresa (só leitura).
+      let bancoDigitado = null; // volta ao alternar cadastro/proposta
       const mostrarBanco = (salvo = null) => {
         const e = empresaForm();
         const daProposta = form.bancoOrigem.value === 'proposta';
         for (const k of ['banco', 'agencia', 'conta']) {
           form[k].readOnly = !daProposta;
           if (!daProposta) form[k].value = e[k] || '';
-          else if (salvo) form[k].value = salvo[k] || '';
+          else if (salvo || bancoDigitado) form[k].value = (salvo || bancoDigitado)[k] || '';
         }
         raiz.querySelector('#banco-nota').innerHTML = daProposta ? 'Estes dados valem só para esta proposta; o cadastro da empresa não muda.'
           : (e.banco ? 'Dados do cadastro da empresa.' : `${icone('info')} A empresa não tem dados bancários. <a href="#/empresa">Cadastre</a> ou escolha "Informar outros".`);
@@ -518,6 +540,9 @@ LH.vistas = LH.vistas || {};
         const meepp = raiz.querySelector('[data-decl="meepp"] input[type=checkbox]');
         if (meepp) meepp.checked = false; // outra empresa: precisa ser marcada de novo
       });
+      for (const k of ['banco', 'agencia', 'conta']) {
+        form[k].addEventListener('input', () => { bancoDigitado = { banco: form.banco.value, agencia: form.agencia.value, conta: form.conta.value }; });
+      }
       form.bancoOrigem.addEventListener('change', () => mostrarBanco());
       mostrarEmpresa();
       desenharDeclaracoes(declaracoesPadrao());
@@ -578,6 +603,7 @@ LH.vistas = LH.vistas || {};
             mostrarEmpresa();
             desenharDeclaracoes(declaracoesDe(atual));
             form.bancoOrigem.value = atual.extras?.banco?.origem === 'proposta' ? 'proposta' : 'cadastro';
+            if (atual.extras?.banco?.origem === 'proposta') bancoDigitado = atual.extras.banco;
             mostrarBanco(atual.extras?.banco);
             preencherFechamento(atual.extras?.fechamento);
             if (atual.itens?.length) corpo.innerHTML = atual.itens.map(linhaItem).join('');
@@ -655,22 +681,33 @@ LH.vistas = LH.vistas || {};
         if (acao === 'previa') previa().scrollIntoView({ behavior: 'smooth' });
         if (acao === 'pdf' || acao === 'word') gerar(acao);
       });
+      const validadeValida = (proposta) => {
+        if (regras.validadeOk(proposta.validade)) return true;
+        LH.aviso('A validade da proposta deve ser um número inteiro de 1 a 365 dias.', 'alerta');
+        form.validade.focus();
+        return false;
+      };
       async function gerar(acao) {
         if (!form.reportValidity()) return;
         const proposta = ler();
+        if (!validadeValida(proposta)) return;
         if (!proposta.total) return LH.aviso('Preencha a quantidade e o valor unitário dos itens.', 'alerta');
         if (!(await conferirPendencias(proposta, 'Baixar mesmo assim'))) return;
         try { proposta.numero = await garantirNumero(); } catch (erro) { return LH.aviso(erro.message, 'perigo'); }
         if (acao === 'word') return baixarWord(proposta);
         previa();
+        await Promise.all([...raiz.querySelectorAll('#previa img')].map((i) => i.decode().catch(() => {}))); // logo pronto antes de imprimir
         const titulo = document.title;
         document.title = `Proposta ${proposta.numero}`; // nome sugerido do arquivo PDF
+        imprimindo = true;
         window.print();
+        imprimindo = false;
         setTimeout(() => { document.title = titulo; }, 1000);
       }
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const proposta = ler();
+        if (!validadeValida(proposta)) return;
         if (!proposta.total) return LH.aviso('Preencha a quantidade e o valor unitário dos itens.', 'alerta');
         if (!(await conferirPendencias(proposta, 'Salvar mesmo assim'))) return;
         const botao = form.querySelector('[type=submit]');

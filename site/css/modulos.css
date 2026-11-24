@@ -1284,18 +1284,23 @@ li.item--termo { box-shadow: inset 3px 0 0 #facc15; border-radius: 8px; }
 .folha__itens td, .folha__itens th { padding: 5px 6px; vertical-align: top; }
 .folha__itens .quebra { overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
 /* Valores: quebram só depois do "R$" quando não cabem (nunca saem da coluna). */
-.folha__itens .numero { white-space: normal; overflow-wrap: anywhere; }
+.folha__itens .numero { white-space: normal; overflow-wrap: break-word; }
 .folha__itens .c-item { width: 6%; }
 .folha__itens .c-desc { width: auto; }
-.folha__itens .c-marca { width: 12%; }
+.folha__itens .c-marca { width: 13%; }
 .folha__itens .c-un { width: 6%; }
-.folha__itens .c-qtd { width: 8%; }
+.folha__itens .c-qtd { width: 10%; }
 .folha__itens .c-valor { width: 17%; }
 .folha__itens tr { break-inside: avoid; page-break-inside: avoid; }
+/* Descrição enorme pode continuar na página seguinte (senão sobra página vazia). */
+.folha__itens tr.longa { break-inside: auto; page-break-inside: auto; }
 .folha__itens thead { display: table-header-group; }
+/* O total sai uma vez, no fim (tfoot se repetiria em cada página). */
+.folha__itens tfoot { display: table-row-group; }
 .folha__extenso { margin-top: 8px; }
-.folha__declaracoes { margin: 0; padding-left: 20px; display: grid; gap: 6px; text-align: justify; }
+.folha__declaracoes { margin: 0; padding-left: 30px; display: grid; gap: 6px; text-align: justify; }
 .folha__local { margin-top: 26px; }
+.folha p.folha__centro { color: #5a6b80; }
 .folha__assinatura strong { color: #0b1b2e; }
 .folha__rodape { display: grid; gap: 2px; margin-top: 34px; padding-top: 8px; border-top: 1px solid #c7d0db; font-size: 0.72rem; color: #5a6b80; text-align: center; }
 .folha__rodape div { margin: 0; }
@@ -1309,8 +1314,13 @@ li.item--termo { box-shadow: inset 3px 0 0 #facc15; border-radius: 8px; }
 @media print {
   @page { size: A4; margin: 14mm 12mm; }
   .pular { display: none !important; }
-  .folha--proposta { max-width: none; font-size: 10.5pt; overflow: visible !important; }
-  .folha__itens { min-width: 0 !important; font-size: 8.5pt; }
+  html, body { background: #fff !important; color-scheme: light !important; }
+  .folha--proposta { max-width: none; font-size: 10pt; line-height: 1.4; overflow: visible !important; box-shadow: none; border-radius: 0; background: #fff; }
+  .folha--proposta table.folha__info { font-size: 9pt; }
+  .folha--proposta table.folha__itens { min-width: 0 !important; font-size: 8pt; }
+  .folha--proposta table.folha__itens th { font-size: 7.5pt; }
+  .folha--proposta .folha__info td, .folha--proposta .folha__info th { padding: 4px 8px; }
+  .folha__local { break-after: avoid; page-break-after: avoid; }
   .folha h3, .folha__assinatura, .folha__declaracoes li { break-inside: avoid; page-break-inside: avoid; }
   .folha h3 { break-after: avoid; page-break-after: avoid; }
   .folha th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
