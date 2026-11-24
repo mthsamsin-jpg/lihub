@@ -67,12 +67,29 @@ LH.vistas = LH.vistas || {};
       'Declaramos que esta proposta é válida por {validade} dias, contados da data de abertura da sessão pública.'],
     ['pagamento', 'Forma de pagamento conforme o edital',
       'Declaramos que aceitamos a forma e as condições de pagamento previstas no edital{pagamento}.'],
+    // Declarações de habilitação (Lei 14.133/2021, art. 63 e art. 68; LC 123/2006).
+    ['habilitacao', 'Cumprimento dos requisitos de habilitação',
+      'Declaramos, sob as penas da lei, que atendemos aos requisitos de habilitação previstos no edital, nos termos do art. 63, inciso I, da Lei nº 14.133/2021, e que respondemos pela veracidade das informações e dos documentos apresentados.'],
+    // TODO: a Lei 14.133/2021 não tem um artigo próprio para esta declaração (vinha do art. 32, § 2º, da Lei 8.666/1993).
+    // Texto genérico, sem número de artigo; o edital costuma trazer a redação exigida.
+    ['impeditivo', 'Inexistência de fato impeditivo',
+      'Declaramos, sob as penas da lei, que até a presente data inexistem fatos impeditivos à nossa participação nesta licitação e à contratação com a Administração Pública, e que nos comprometemos a informar qualquer fato superveniente.'],
+    ['menor', 'Não emprego de menor',
+      'Declaramos, para os fins do art. 68, inciso VI, da Lei nº 14.133/2021, que cumprimos o disposto no art. 7º, inciso XXXIII, da Constituição Federal: não empregamos menor de 18 anos em trabalho noturno, perigoso ou insalubre, nem menor de 16 anos em qualquer trabalho, salvo na condição de aprendiz, a partir de 14 anos.'],
+    ['reserva', 'Reserva de cargos para pessoa com deficiência e reabilitado',
+      'Declaramos que cumprimos as exigências de reserva de cargos para pessoa com deficiência e para reabilitado da Previdência Social, previstas em lei e em outras normas específicas, nos termos do art. 63, inciso IV, da Lei nº 14.133/2021.'],
+    // Só vem marcada quando o cadastro indica ME/EPP (porte) ou Simples Nacional/MEI (regime).
+    ['meepp', 'Enquadramento como ME/EPP',
+      'Declaramos, sob as penas da lei, que esta empresa se enquadra como microempresa ou empresa de pequeno porte, nos termos do art. 3º da Lei Complementar nº 123/2006, que não está incluída nas vedações do § 4º desse artigo e que, no ano-calendário de realização desta licitação, não celebrou contratos com a Administração Pública cujos valores somados extrapolem a receita bruta máxima admitida para o enquadramento como empresa de pequeno porte (art. 4º, § 2º, da Lei nº 14.133/2021).',
+      (e) => ['MEI', 'ME', 'EPP'].includes(e?.porte) || /simples|mei/i.test(e?.regime || '')],
   ];
-  const declaracoesPadrao = () => DECLARACOES.map(([id, titulo, texto]) => ({ id, titulo, texto, ativo: true }));
+  /** Declarações padrão. A ativa por padrão pode depender da empresa (ME/EPP). */
+  const declaracoesPadrao = (e = {}) => DECLARACOES.map(([id, titulo, texto, ativo = true]) =>
+    ({ id, titulo, texto, ativo: typeof ativo === 'function' ? !!ativo(e) : ativo }));
   /** Declarações salvas na proposta, completando as que faltarem (propostas antigas). */
   const declaracoesDe = (p) => {
     const salvas = Array.isArray(p.extras?.declaracoes) ? p.extras.declaracoes : [];
-    return declaracoesPadrao().map((d) => ({ ...d, ...(salvas.find((s) => s.id === d.id) || {}) }));
+    return declaracoesPadrao(empresaDe(p)).map((d) => ({ ...d, ...(salvas.find((s) => s.id === d.id) || {}) }));
   };
   const textoDeclaracao = (texto, p) => String(texto || '')
     .replaceAll('{validade}', String(p.validade || 60))
@@ -92,9 +109,54 @@ LH.vistas = LH.vistas || {};
       cpf: ou(f.cpf, e.cpfRepresentante), cargo: ou(f.cargo, e.cargo),
     };
   };
-  const dataHora = (d, h) => (d ? `${fmt.data(d)}${h ? ` às ${h}` : ''}` : (h ? `às ${h}` : ''));
+  const dataHora = (d, h) => {
+    const hora = h ? `às ${h} (horário de Brasília)` : '';
+    return d ? `${fmt.data(d)}${hora ? ` ${hora}` : ''}` : hora;
+  };
 
-  function folhaProposta(p) {
+  /** O que falta para a proposta sair sem lacunas: [{ campo, onde }]. */
+  function pendenciasDe(p) {
+    const lista = LH.repo.empresas?.() || [];
+    const selecionada = lista.some((x) => String(x.id) === String(p.empresaId));
+    const e = empresaDe(p);
+    const b = bancoDe(p, e);
+    const fim = fechamentoDe(p, e);
+    const naProposta = p.extras?.banco?.origem === 'proposta';
+    return [
+      !selecionada && { campo: 'Empresa proponente selecionada', onde: 'empresa' },
+      !String(e.razao || '').trim() && { campo: 'Razão social', onde: 'empresa' },
+      !String(e.cnpj || '').trim() && { campo: 'CNPJ', onde: 'empresa' },
+      !String(fim.cidade || '').trim() && { campo: 'Cidade da assinatura', onde: 'proposta' },
+      !String(fim.representante || '').trim() && { campo: 'Representante legal', onde: 'proposta' },
+      !(b.banco && b.agencia && b.conta) && { campo: `Dados bancários (banco, agência e conta)${naProposta ? ' desta proposta' : ' do cadastro'}`, onde: naProposta ? 'proposta' : 'empresa' },
+    ].filter(Boolean);
+  }
+  // Lacuna no documento: linha para preencher à mão (nunca "[Cidade]" nem "não informado").
+  const LACUNA = '____________________';
+
+  /** Avisa o que falta. Resolve true para seguir ("mesmo assim") e false para corrigir. */
+  function conferirPendencias(p, rotuloSeguir) {
+    const faltam = pendenciasDe(p);
+    if (!faltam.length) return Promise.resolve(true);
+    return new Promise((resolver) => {
+      LH.modal({
+        titulo: 'Faltam dados na proposta',
+        html: `<p>Sem estes dados, a proposta sai com espaços em branco para preencher à mão:</p>
+          <ul class="pendencias-proposta">${faltam.map((f) => `<li>${esc(f.campo)} <span class="fraco">(${f.onde === 'empresa' ? 'cadastro da empresa' : 'nesta proposta'})</span></li>`).join('')}</ul>
+          ${faltam.some((f) => f.onde === 'empresa') ? `<p>${icone('info')} Complete o cadastro em <a href="#/empresa" data-ir-empresa>Minha empresa</a>.</p>` : ''}`,
+        acoes: [
+          { rotulo: 'Corrigir', classe: 'btn--fantasma', acao: (f) => { f(); resolver(false); } },
+          { rotulo: rotuloSeguir, classe: 'btn--primario', acao: (f) => { f(); resolver(true); } },
+        ],
+      });
+      document.querySelector('[data-ir-empresa]')?.addEventListener('click', () => {
+        document.querySelectorAll('.modal-fundo').forEach((m) => m.remove());
+        resolver(false);
+      });
+    });
+  }
+
+  function folhaProposta(p, { documento = false } = {}) {
     const e = empresaDe(p);
     const l = p.licitacao || {};
     const total = p.itens.reduce((s, it) => s + it.quantidade * it.unitario, 0);
@@ -108,17 +170,21 @@ LH.vistas = LH.vistas || {};
     const sessao = dataHora(l.abertura, l.hora);
     const limite = dataHora(l.limite, l.horaLimite);
     const linhaInfo = (rotulo, valor) => (valor ? `<tr><th scope="row">${rotulo}</th><td>${esc(valor)}</td></tr>` : '');
+    const faltam = documento ? [] : pendenciasDe(p);
+    // Logo: tamanho em pt (o Word ignora max-width/max-height); o mesmo na tela e no PDF.
+    const logo = e.logo ? `<img class="folha__logo" src="${esc(e.logo)}" alt="Logo ${esc(e.razao || '')}"${p.logoPt ? ` width="${Math.round(p.logoPt.w * 4 / 3)}" height="${Math.round(p.logoPt.h * 4 / 3)}" style="width:${p.logoPt.w}pt;height:${p.logoPt.h}pt"` : ''}>` : '';
     return `
+      ${faltam.length ? `<p class="nota nota--alerta nao-imprimir aviso-lacunas">${icone('alerta')} Faltam dados (${esc(faltam.map((f) => f.campo).join(', '))}): eles saem como linhas em branco. <a href="#/empresa">Completar o cadastro</a>.</p>` : ''}
       <div class="folha folha--proposta">
-        <header class="folha__topo">
-          ${e.logo ? `<img class="folha__logo" src="${esc(e.logo)}" alt="Logo ${esc(e.razao || '')}">` : ''}
-          <div class="folha__empresa">
-            <strong>${esc(e.razao || 'Empresa proponente')}</strong>
-            ${cnpj ? `<span>CNPJ ${esc(cnpj)}</span>` : ''}
-            <span>${esc([e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.cep && `CEP ${e.cep}`].filter(Boolean).join(' · '))}</span>
-            <span>${esc([e.email, e.telefone].filter(Boolean).join(' · '))}</span>
-          </div>
-        </header>
+        <table class="folha__topo" role="presentation"><tr>
+          ${logo ? `<td class="folha__topo-logo">${logo}</td>` : ''}
+          <td class="folha__empresa">
+            <div><strong>${esc(e.razao || LACUNA)}</strong></div>
+            ${[cnpj && `CNPJ ${cnpj}`,
+              [e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.cep && `CEP ${e.cep}`].filter(Boolean).join(' · '),
+              [e.email, e.telefone].filter(Boolean).join(' · ')].filter(Boolean).map((t) => `<div>${esc(t)}</div>`).join('')}
+          </td>
+        </tr></table>
         <h2>PROPOSTA COMERCIAL</h2>
         <p class="fraco folha__centro">${esc(p.numero)}</p>
         <h3>Ao(À) ${esc(l.orgao || 'órgão licitante')}${local ? ` · ${esc(local)}` : ''}</h3>
@@ -131,10 +197,10 @@ LH.vistas = LH.vistas || {};
         </table>
         <h3>Proponente</h3>
         <table class="folha__info">
-          ${linhaInfo('Razão social', e.razao || '—')}
-          ${linhaInfo('CNPJ', cnpj || 'não informado')}
+          ${linhaInfo('Razão social', e.razao || LACUNA)}
+          ${linhaInfo('CNPJ', cnpj || LACUNA)}
           ${linhaInfo('Inscrições', [e.ie && `IE ${e.ie}`, e.im && `IM ${e.im}`].filter(Boolean).join(' · '))}
-          ${linhaInfo('Endereço', [e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.cep && `CEP ${e.cep}`].filter(Boolean).join(' · ') || 'não informado')}
+          ${linhaInfo('Endereço', [e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.cep && `CEP ${e.cep}`].filter(Boolean).join(' · ') || LACUNA)}
           ${linhaInfo('Contato', [e.email, e.telefone].filter(Boolean).join(' · '))}
         </table>
         <h3>Itens</h3>
@@ -154,32 +220,42 @@ LH.vistas = LH.vistas || {};
         ${decl.length ? `<h3>Declarações</h3>
         <ol class="folha__declaracoes">${decl.map((d) => `<li><strong>${esc(d.titulo)}.</strong> ${esc(textoDeclaracao(d.texto, p))}</li>`).join('')}</ol>` : ''}
         <h3>Dados bancários</h3>
-        ${banco.banco || banco.agencia || banco.conta
-          ? `<table class="folha__info">${linhaInfo('Banco', banco.banco)}${linhaInfo('Agência', banco.agencia)}${linhaInfo('Conta corrente', banco.conta)}${linhaInfo('Titular', [e.razao, cnpj && `CNPJ ${cnpj}`].filter(Boolean).join(' · '))}</table>`
-          : '<p class="fraco">Dados bancários não informados.</p>'}
-        <p class="folha__local">${esc(fim.cidade || '[Cidade]')}, ${esc(fmt.dataLonga(fim.data))}.</p>
-        <div class="folha__assinatura"><span></span>
-          <strong>${esc(fim.representante || 'Representante legal')}</strong><br>
+        <table class="folha__info">${linhaInfo('Banco', banco.banco || LACUNA)}${linhaInfo('Agência', banco.agencia || LACUNA)}${linhaInfo('Conta corrente', banco.conta || LACUNA)}${linhaInfo('Titular', [e.razao, cnpj && `CNPJ ${cnpj}`].filter(Boolean).join(' · ') || LACUNA)}</table>
+        <p class="folha__local">${esc(fim.cidade || LACUNA)}, ${esc(fmt.dataLonga(fim.data))}.</p>
+        <div class="folha__assinatura">${documento ? `<div>${LACUNA}${LACUNA}</div>` : "<span></span>"}
+          <strong>${esc(fim.representante || LACUNA)}</strong><br>
           ${esc([fim.cargo, fim.rg && `RG ${fim.rg}`, fim.cpf && `CPF ${fim.cpf}`].filter(Boolean).join(' · '))}<br>
           ${esc(e.razao || '')}${cnpj ? ` · CNPJ ${esc(cnpj)}` : ''}
         </div>
-        <footer class="folha__rodape">
-          <span>${esc([e.razao, cnpj && `CNPJ ${cnpj}`].filter(Boolean).join(' · '))}</span>
-          <span>${esc([e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.telefone, e.email].filter(Boolean).join(' · '))}</span>
-          <span class="folha__rodape-sistema">Proposta ${esc(p.numero)} · gerada no Uso LicitaHub em ${esc(fmt.data(p.criada || LH.datas.hoje()))}. Confira com o edital antes de enviar.</span>
-        </footer>
+        <div class="folha__rodape">
+          ${[[e.razao, cnpj && `CNPJ ${cnpj}`], [e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.telefone, e.email]]
+            .map((l) => l.filter(Boolean).join(' · ')).filter(Boolean).map((t) => `<div>${esc(t)}</div>`).join('')}
+          <div class="folha__rodape-sistema">Proposta ${esc(p.numero)} · gerada no Uso LicitaHub em ${esc(fmt.data(p.criada || LH.datas.hoje()))}. Confira com o edital antes de enviar.</div>
+        </div>
       </div>`;
   }
 
   /** Proposta em Word (.doc): HTML com estilos de impressão, que o Word abre e edita. */
-  function baixarWord(p) {
-    const estilos = `body{font-family:Arial,sans-serif;font-size:11pt;color:#000}h2{text-align:center;font-size:15pt}h3{font-size:12pt;margin:14pt 0 4pt}
+  /** Tamanho do logo em pt (até 180 × 60 pt, mantendo a proporção). Null sem logo. */
+  async function medirLogo(src) {
+    if (!src) return null;
+    const img = new Image();
+    img.src = src;
+    try { await img.decode(); } catch { return null; }
+    if (!img.naturalWidth || !img.naturalHeight) return null;
+    const escala = Math.min(180 / img.naturalWidth, 60 / img.naturalHeight);
+    return { w: Math.round(img.naturalWidth * escala), h: Math.round(img.naturalHeight * escala) };
+  }
+
+  async function baixarWord(p) {
+    const logoPt = await medirLogo(empresaDe(p).logo);
+    const estilos = `body{font-family:Arial,sans-serif;font-size:11pt;color:#000}h2,h3{font-family:Arial,sans-serif;font-style:normal;color:#000}h2{text-align:center;font-size:15pt}h3{font-size:12pt;margin:14pt 0 4pt}
       table{border-collapse:collapse;width:100%}th,td{border:1px solid #444;padding:4pt;font-size:10pt;vertical-align:top}th{background:#e8e8e8}
       .numero{text-align:right}.fraco{color:#444}.folha__centro{text-align:center}.folha__assinatura{margin-top:48pt;text-align:center}.folha__assinatura span{display:block;width:60%;margin:0 auto 4pt;border-top:1px solid #000}
-      .folha__topo{border-bottom:1px solid #444;padding-bottom:6pt;margin-bottom:10pt}.folha__logo{max-height:60pt;max-width:180pt}.folha__empresa span{display:block;font-size:9pt}
+      table.folha__topo{width:100%;border-bottom:1.5pt solid #1b2533;margin-bottom:10pt}table.folha__topo td{border:none;vertical-align:middle;padding:0 8pt 6pt 0}td.folha__topo-logo{width:190pt}.folha__empresa div{font-size:9pt;margin:0}.folha__empresa strong{font-size:11pt}
       .folha__info th{width:28%;text-align:left}.folha__declaracoes li{margin-bottom:4pt;text-align:justify}.folha__local{margin-top:18pt}
-      .folha__rodape{margin-top:24pt;border-top:1px solid #444;padding-top:4pt;font-size:8pt;color:#444}.folha__rodape span{display:block}`;
-    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${esc(p.numero)}</title><style>${estilos}</style></head><body>${folhaProposta(p)}</body></html>`;
+      .folha__rodape{margin-top:24pt;border-top:1px solid #444;padding-top:4pt;text-align:center;font-size:8pt;color:#444}.folha__rodape div{margin:0}`;
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${esc(p.numero)}</title><style>${estilos}</style></head><body>${folhaProposta({ ...p, logoPt }, { documento: true })}</body></html>`;
     const url = URL.createObjectURL(new Blob(['﻿', html], { type: 'application/msword' }));
     const a = Object.assign(document.createElement('a'), { href: url, download: `Proposta-${String(p.numero).replace(/[^\w-]+/g, '_')}.doc` });
     document.body.append(a);
@@ -454,10 +530,14 @@ LH.vistas = LH.vistas || {};
       form.empresaId.innerHTML = empresas.length
         ? LH.opcoes(empresas.map((e) => [e.id, `${e.razao || 'Empresa sem nome'}${e.cnpj ? ` · ${LH.cnpj.mascara(e.cnpj)}` : ''}`]), LH.repo.empresaAtualId?.() || '')
         : '<option value="">Nenhuma empresa cadastrada</option>';
-      form.empresaId.addEventListener('change', () => { mostrarEmpresa(); mostrarBanco(); preencherFechamento(); });
+      form.empresaId.addEventListener('change', () => {
+        mostrarEmpresa(); mostrarBanco(); preencherFechamento();
+        const meepp = raiz.querySelector('[data-decl="meepp"] input[type=checkbox]');
+        if (meepp) meepp.checked = declaracoesPadrao(empresaDe({ empresaId: form.empresaId.value })).find((d) => d.id === 'meepp').ativo;
+      });
       form.bancoOrigem.addEventListener('change', () => mostrarBanco());
       mostrarEmpresa();
-      desenharDeclaracoes(declaracoesPadrao());
+      desenharDeclaracoes(declaracoesPadrao(empresaDe({ empresaId: form.empresaId.value })));
       mostrarBanco();
       preencherFechamento();
 
@@ -574,26 +654,29 @@ LH.vistas = LH.vistas || {};
           recalcular();
         }
         if (acao === 'buscar-licitacao') buscarCodigo();
-        if (acao === 'decl-padrao') desenharDeclaracoes(declaracoesPadrao());
+        if (acao === 'decl-padrao') desenharDeclaracoes(declaracoesPadrao(empresaDe({ empresaId: form.empresaId.value })));
 
         if (acao === 'importar') importar();
         if (acao === 'previa') previa().scrollIntoView({ behavior: 'smooth' });
-        if (acao === 'pdf' || acao === 'word') {
-          if (!form.reportValidity()) return;
-          const proposta = ler();
-          if (!proposta.total) return LH.aviso('Preencha a quantidade e o valor unitário dos itens.', 'alerta');
-          if (acao === 'word') return baixarWord(proposta);
-          previa();
-          const titulo = document.title;
-          document.title = `Proposta ${proposta.numero}`; // nome sugerido do arquivo PDF
-          window.print();
-          setTimeout(() => { document.title = titulo; }, 1000);
-        }
+        if (acao === 'pdf' || acao === 'word') gerar(acao);
       });
+      async function gerar(acao) {
+        if (!form.reportValidity()) return;
+        const proposta = ler();
+        if (!proposta.total) return LH.aviso('Preencha a quantidade e o valor unitário dos itens.', 'alerta');
+        if (!(await conferirPendencias(proposta, 'Baixar mesmo assim'))) return;
+        if (acao === 'word') return baixarWord(proposta);
+        previa();
+        const titulo = document.title;
+        document.title = `Proposta ${proposta.numero}`; // nome sugerido do arquivo PDF
+        window.print();
+        setTimeout(() => { document.title = titulo; }, 1000);
+      }
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const proposta = ler();
         if (!proposta.total) return LH.aviso('Preencha a quantidade e o valor unitário dos itens.', 'alerta');
+        if (!(await conferirPendencias(proposta, 'Salvar mesmo assim'))) return;
         const botao = form.querySelector('[type=submit]');
         botao.disabled = true;
         try {
