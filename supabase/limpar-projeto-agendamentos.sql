@@ -57,7 +57,7 @@ begin
   drop table if exists
     public.robo_concorrentes, public.robo_historico, public.mercado_resultados, public.mercado_coleta, public.chat_mensagens,
     public.auction_live_bids, public.robo_sessoes, public.portal_credentials,
-    public.robo_itens, public.documentos, public.propostas, public.radares, public.eventos, public.monitoramentos,
+    public.robo_itens, public.documentos, public.propostas, public.proposta_numeros, public.radares, public.eventos, public.monitoramentos,
     public.crm_cards, public.favoritos, public.licitacao_observacoes, public.analises_edital, public.licitacao_itens,
     public.kanban_etapas, public.empresas, public.consentimentos, public.assinaturas,
     public.sync_execucoes, public.mercado_retro_termos, public.licitacoes_busca, public.busca_correlatos, public.site_textos, public.site_midias, public.membros, public.perfis, public.licitacoes, public.organizacoes;
@@ -70,7 +70,7 @@ begin
     'public.tipo_objeto(text)', 'public.radical_busca(text)', 'public.licitacoes_busca_sincronizar()', 'public.radar_novidades(text, text[], text[], int[], timestamptz, int)', 'public.radar_destinatarios(uuid[])', 'public.mercado_pesquisa(text, text[], text, int, int)', 'public.mercado_concorrente_painel(text)', 'public.banco_tamanho_mb()', 'public.licitacoes_external_id()',
     'public.mercado_concorrentes(text, int)', 'public.mercado_concorrente_itens(text, int)', 'public.mercado_precos(text, text[], text, date)',
     'public.radar_contagem(text, text[], text[], int[], date, date)',
-    'public.exportar_meus_dados()', 'public.criar_organizacao(text, text)',
+    'public.exportar_meus_dados()', 'public.criar_organizacao(text, text)', 'public.proximo_numero_proposta(uuid)',
     'public.limpar_licitacoes_antigas(int)', 'public.validar_card()', 'public.verificar_limite_empresas()',
     'public.proteger_ultimo_dono()', 'public.ao_excluir_usuario()', 'public.ao_criar_usuario()',
     'public.ao_criar_organizacao()', 'public.normalizar_cnpj()', 'public.compartilha_organizacao(uuid)',

@@ -8,6 +8,11 @@ LH.vistas = LH.vistas || {};
 
 (function () {
   const { esc, icone, fmt } = LH;
+  const regras = LH.propostasRegras;
+  const { declaracoesPadrao, declaracoesDe, totalLinha, totalProposta } = regras;
+  // Preço unitário pode ter mais de 2 casas (até 6): mostra o que foi digitado.
+  const fmtUnitario = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 6 });
+  const NUMERO_PENDENTE = 'Número gerado ao salvar ou baixar';
   const STATUS = ['Rascunho', 'Enviada', 'Em análise', 'Aceita', 'Recusada'];
   const AVISO_RESPONSABILIDADE = `<p class="nota nota--alerta nao-imprimir">${icone('alerta')} Revise a proposta e o edital antes de enviar. O Uso LicitaHub ajuda a montar o documento, mas a responsabilidade final pela proposta é sua.</p>`;
 
@@ -32,11 +37,8 @@ LH.vistas = LH.vistas || {};
     limite: l.abertura || '', horaLimite: l.hora || '', idPncp: l.numeroControle || l.numero || '',
   } : null);
 
-  /** Empresa proponente: a escolhida na proposta, senão a empresa ativa. */
-  const empresaDe = (p) => {
-    const lista = LH.repo.empresas?.() || [];
-    return lista.find((e) => String(e.id) === String(p.empresaId)) || empresa();
-  };
+  /** Empresa da proposta: a cópia salva nela ou a escolhida no cadastro (nunca outra). */
+  const empresaDe = (p) => regras.empresaDe(p, LH.repo.empresas?.() || []);
 
   function linhaItem(item = {}, i = 0) {
     const unit = item.unitario ? String(item.unitario).replace('.', ',') : '';
@@ -54,43 +56,6 @@ LH.vistas = LH.vistas || {};
       </tr>`;
   }
 
-  // --- Declarações da proposta (texto completo, editável por proposta) ----------------
-  // {validade} e {pagamento} são trocados pelos campos da proposta na hora de gerar.
-  const DECLARACOES = [
-    ['ciencia', 'Ciência do instrumento convocatório',
-      'Declaramos que temos pleno conhecimento de todas as condições do edital (instrumento convocatório) e de seus anexos, com as quais concordamos integralmente, e que recebemos todas as informações necessárias à elaboração desta proposta.'],
-    ['exigencias', 'Cumprimento das exigências do edital',
-      'Declaramos que cumprimos plenamente as exigências do edital e que o objeto ofertado atende a todas as especificações do termo de referência, responsabilizando-nos pela veracidade das informações prestadas.'],
-    ['custos', 'Impostos, taxas, frete e custos indiretos inclusos',
-      'Declaramos que nos preços propostos estão incluídos todos os impostos, taxas, tributos, fretes, seguros, encargos sociais e trabalhistas e demais custos diretos e indiretos necessários ao cumprimento integral do objeto, nada mais podendo ser cobrado além do valor proposto.'],
-    ['validade', 'Validade da proposta',
-      'Declaramos que esta proposta é válida por {validade} dias, contados da data de abertura da sessão pública.'],
-    ['pagamento', 'Forma de pagamento conforme o edital',
-      'Declaramos que aceitamos a forma e as condições de pagamento previstas no edital{pagamento}.'],
-    // Declarações de habilitação (Lei 14.133/2021, art. 63 e art. 68; LC 123/2006).
-    ['habilitacao', 'Cumprimento dos requisitos de habilitação',
-      'Declaramos, sob as penas da lei, que atendemos aos requisitos de habilitação previstos no edital, nos termos do art. 63, inciso I, da Lei nº 14.133/2021, e que respondemos pela veracidade das informações e dos documentos apresentados.'],
-    // TODO: a Lei 14.133/2021 não tem um artigo próprio para esta declaração (vinha do art. 32, § 2º, da Lei 8.666/1993).
-    // Texto genérico, sem número de artigo; o edital costuma trazer a redação exigida.
-    ['impeditivo', 'Inexistência de fato impeditivo',
-      'Declaramos, sob as penas da lei, que até a presente data inexistem fatos impeditivos à nossa participação nesta licitação e à contratação com a Administração Pública, e que nos comprometemos a informar qualquer fato superveniente.'],
-    ['menor', 'Não emprego de menor',
-      'Declaramos, para os fins do art. 68, inciso VI, da Lei nº 14.133/2021, que cumprimos o disposto no art. 7º, inciso XXXIII, da Constituição Federal: não empregamos menor de 18 anos em trabalho noturno, perigoso ou insalubre, nem menor de 16 anos em qualquer trabalho, salvo na condição de aprendiz, a partir de 14 anos.'],
-    ['reserva', 'Reserva de cargos para pessoa com deficiência e reabilitado',
-      'Declaramos que cumprimos as exigências de reserva de cargos para pessoa com deficiência e para reabilitado da Previdência Social, previstas em lei e em outras normas específicas, nos termos do art. 63, inciso IV, da Lei nº 14.133/2021.'],
-    // Só vem marcada quando o cadastro indica ME/EPP (porte) ou Simples Nacional/MEI (regime).
-    ['meepp', 'Enquadramento como ME/EPP',
-      'Declaramos, sob as penas da lei, que esta empresa se enquadra como microempresa ou empresa de pequeno porte, nos termos do art. 3º da Lei Complementar nº 123/2006, que não está incluída nas vedações do § 4º desse artigo e que, no ano-calendário de realização desta licitação, não celebrou contratos com a Administração Pública cujos valores somados extrapolem a receita bruta máxima admitida para o enquadramento como empresa de pequeno porte (art. 4º, § 2º, da Lei nº 14.133/2021).',
-      (e) => ['MEI', 'ME', 'EPP'].includes(e?.porte) || /simples|mei/i.test(e?.regime || '')],
-  ];
-  /** Declarações padrão. A ativa por padrão pode depender da empresa (ME/EPP). */
-  const declaracoesPadrao = (e = {}) => DECLARACOES.map(([id, titulo, texto, ativo = true]) =>
-    ({ id, titulo, texto, ativo: typeof ativo === 'function' ? !!ativo(e) : ativo }));
-  /** Declarações salvas na proposta, completando as que faltarem (propostas antigas). */
-  const declaracoesDe = (p) => {
-    const salvas = Array.isArray(p.extras?.declaracoes) ? p.extras.declaracoes : [];
-    return declaracoesPadrao(empresaDe(p)).map((d) => ({ ...d, ...(salvas.find((s) => s.id === d.id) || {}) }));
-  };
   const textoDeclaracao = (texto, p) => String(texto || '')
     .replaceAll('{validade}', String(p.validade || 60))
     .replaceAll('{pagamento}', p.pagamento ? ` (${p.pagamento})` : '');
@@ -116,9 +81,8 @@ LH.vistas = LH.vistas || {};
 
   /** O que falta para a proposta sair sem lacunas: [{ campo, onde }]. */
   function pendenciasDe(p) {
-    const lista = LH.repo.empresas?.() || [];
-    const selecionada = lista.some((x) => String(x.id) === String(p.empresaId));
     const e = empresaDe(p);
+    const selecionada = !!e.id;
     const b = bancoDe(p, e);
     const fim = fechamentoDe(p, e);
     const naProposta = p.extras?.banco?.origem === 'proposta';
@@ -159,7 +123,7 @@ LH.vistas = LH.vistas || {};
   function folhaProposta(p, { documento = false } = {}) {
     const e = empresaDe(p);
     const l = p.licitacao || {};
-    const total = p.itens.reduce((s, it) => s + it.quantidade * it.unitario, 0);
+    const total = totalProposta(p.itens);
     const local = [l.municipio, l.uf].filter(Boolean).join('/');
     const ref = [l.modalidade, l.numero && `nº ${l.numero}`].filter(Boolean).join(' ');
     const temMarca = p.itens.some((it) => it.marca);
@@ -186,7 +150,7 @@ LH.vistas = LH.vistas || {};
           </td>
         </tr></table>
         <h2>PROPOSTA COMERCIAL</h2>
-        <p class="fraco folha__centro">${esc(p.numero)}</p>
+        <p class="fraco folha__centro">${esc(p.numero || NUMERO_PENDENTE)}</p>
         <h3>Ao(À) ${esc(l.orgao || 'órgão licitante')}${local ? ` · ${esc(local)}` : ''}</h3>
         <table class="folha__info">
           ${linhaInfo('Referência', ref || 'edital')}
@@ -208,7 +172,7 @@ LH.vistas = LH.vistas || {};
           <colgroup><col class="c-item"><col class="c-desc">${temMarca ? '<col class="c-marca">' : ''}<col class="c-un"><col class="c-qtd"><col class="c-valor"><col class="c-valor"></colgroup>
           <thead><tr><th>Item</th><th>Descrição / especificação</th>${temMarca ? '<th>Marca</th>' : ''}<th>Un.</th><th class="numero">Qtd.</th><th class="numero">Valor unitário</th><th class="numero">Valor global</th></tr></thead>
           <tbody>${p.itens.map((it, i) => `<tr><td>${esc(it.numero ?? i + 1)}</td><td class="quebra">${esc(it.descricao)}</td>${temMarca ? `<td class="quebra">${esc(it.marca || '')}</td>` : ''}<td>${esc(it.unidade)}</td>
-            <td class="numero">${fmt.numero(it.quantidade)}</td><td class="numero">${fmt.moeda(it.unitario)}</td><td class="numero">${fmt.moeda(it.quantidade * it.unitario)}</td></tr>`).join('')}</tbody>
+            <td class="numero">${fmt.numero(it.quantidade)}</td><td class="numero">${fmtUnitario.format(it.unitario)}</td><td class="numero">${fmt.moeda(totalLinha(it))}</td></tr>`).join('')}</tbody>
           <tfoot><tr><th colspan="${temMarca ? 6 : 5}" class="numero">Valor global da proposta</th><th class="numero">${fmt.moeda(total)}</th></tr></tfoot>
         </table>
         <p class="folha__extenso"><strong>Valor global:</strong> ${fmt.moeda(total)} (${esc(LH.porExtenso(total))}).</p>
@@ -230,7 +194,7 @@ LH.vistas = LH.vistas || {};
         <div class="folha__rodape">
           ${[[e.razao, cnpj && `CNPJ ${cnpj}`], [e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.telefone, e.email]]
             .map((l) => l.filter(Boolean).join(' · ')).filter(Boolean).map((t) => `<div>${esc(t)}</div>`).join('')}
-          <div class="folha__rodape-sistema">Proposta ${esc(p.numero)} · gerada no Uso LicitaHub em ${esc(fmt.data(p.criada || LH.datas.hoje()))}. Confira com o edital antes de enviar.</div>
+          <div class="folha__rodape-sistema">Proposta ${esc(p.numero || '(sem número)')} · gerada no Uso LicitaHub em ${esc(fmt.data(p.criada || LH.datas.hoje()))}. Confira com o edital antes de enviar.</div>
         </div>
       </div>`;
   }
@@ -425,6 +389,19 @@ LH.vistas = LH.vistas || {};
       let numero = '';
       let lista = []; // licitações do usuário (favoritas/CRM)
 
+      let foto = null; // snapshot da empresa salvo na proposta aberta
+      /** Empresa do formulário: o snapshot da proposta, enquanto for a mesma empresa. */
+      const empresaForm = () => (LH.repo.modo === 'demo' && !form.empresaId.value && !atual ? empresa() : null) || empresaDe({
+        empresaId: form.empresaId.value || null,
+        extras: foto && form.empresaId.value === String(foto.id) ? { empresa: foto } : {},
+      });
+      /** Reserva o número só quando o documento vai existir (salvar ou baixar). */
+      const garantirNumero = async () => {
+        numero = numero || await LH.repo.proximoNumeroProposta();
+        raiz.querySelector('#numero-proposta').textContent = numero;
+        return numero;
+      };
+
       const ler = () => {
         const itens = [...corpo.rows].map((tr, i) => ({
           numero: tr.querySelector("[name=item]").value.trim() || String(i + 1),
@@ -434,10 +411,12 @@ LH.vistas = LH.vistas || {};
           quantidade: fmt.lerNumero(tr.querySelector('[name=quantidade]').value),
           unitario: fmt.lerNumero(tr.querySelector('[name=unitario]').value),
         }));
-        const total = itens.reduce((s, it) => s + it.quantidade * it.unitario, 0);
+        const total = totalProposta(itens);
         const licitacao = Object.fromEntries(CAMPOS_LIC.map((k) => [k, String(form[k].value || '').trim()]));
         const origem = form.bancoOrigem.value;
         const extras = {
+          ...(atual?.extras || {}),
+          empresa: regras.snapshotEmpresa(empresaForm()),
           declaracoes: [...raiz.querySelectorAll('[data-decl]')].map((d) => ({
             id: d.dataset.decl, titulo: d.dataset.titulo, ativo: d.querySelector('input[type=checkbox]').checked,
             texto: d.querySelector('textarea').value.trim().slice(0, 2000),
@@ -464,7 +443,7 @@ LH.vistas = LH.vistas || {};
         [...corpo.rows].forEach((tr) => {
           const q = fmt.lerNumero(tr.querySelector('[name=quantidade]').value);
           const u = fmt.lerNumero(tr.querySelector('[name=unitario]').value);
-          tr.querySelector('[data-total]').textContent = q && u ? fmt.moeda(q * u) : '—';
+          tr.querySelector('[data-total]').textContent = q && u ? fmt.moeda(totalLinha({ quantidade: q, unitario: u })) : '—';
         });
         const { total } = ler();
         raiz.querySelector('#total').textContent = fmt.moeda(total);
@@ -501,7 +480,7 @@ LH.vistas = LH.vistas || {};
       };
       // Banco: com "cadastro", os campos mostram os dados da empresa (só leitura).
       const mostrarBanco = (salvo = null) => {
-        const e = empresaDe({ empresaId: form.empresaId.value });
+        const e = empresaForm();
         const daProposta = form.bancoOrigem.value === 'proposta';
         for (const k of ['banco', 'agencia', 'conta']) {
           form[k].readOnly = !daProposta;
@@ -513,16 +492,20 @@ LH.vistas = LH.vistas || {};
       };
       // Fechamento: preenche com o cadastro (ao trocar de empresa ou numa proposta nova).
       const preencherFechamento = (f = null) => {
-        const e = empresaDe({ empresaId: form.empresaId.value });
+        const e = empresaForm();
         const v = fechamentoDe({ extras: { fechamento: f || {} } }, e);
         form.fimCidade.value = v.cidade; form.fimData.value = v.data; form.fimRepresentante.value = v.representante;
         form.fimRg.value = v.rg; form.fimCpf.value = v.cpf; form.fimCargo.value = v.cargo;
       };
       const mostrarEmpresa = () => {
-        const e = empresaDe({ empresaId: form.empresaId.value });
+        const e = empresaForm();
         raiz.querySelector('#empresa-resumo').innerHTML = e.cnpj
           ? `${esc(LH.cnpj.mascara(e.cnpj))}${e.banco ? ` · banco ${esc(e.banco)} ag. ${esc(e.agencia)} c/c ${esc(e.conta)}` : ' · <a href="#/empresa">cadastre os dados bancários</a>'}`
           : `${icone('info')} <a href="#/empresa">Complete os dados da empresa</a>: eles entram na proposta.`;
+        if (foto && form.empresaId.value === String(foto.id)) {
+          const noCadastro = empresas.some((x) => String(x.id) === String(foto.id));
+          raiz.querySelector('#empresa-resumo').innerHTML += `<br>Dados congelados quando a proposta foi salva.${noCadastro ? ' <button type="button" class="link-botao" data-acao="atualizar-empresa">Atualizar com o cadastro</button>' : ''}`;
+        }
       };
 
       // Empresas da conta (a ativa vem marcada).
@@ -533,11 +516,11 @@ LH.vistas = LH.vistas || {};
       form.empresaId.addEventListener('change', () => {
         mostrarEmpresa(); mostrarBanco(); preencherFechamento();
         const meepp = raiz.querySelector('[data-decl="meepp"] input[type=checkbox]');
-        if (meepp) meepp.checked = declaracoesPadrao(empresaDe({ empresaId: form.empresaId.value })).find((d) => d.id === 'meepp').ativo;
+        if (meepp) meepp.checked = false; // outra empresa: precisa ser marcada de novo
       });
       form.bancoOrigem.addEventListener('change', () => mostrarBanco());
       mostrarEmpresa();
-      desenharDeclaracoes(declaracoesPadrao(empresaDe({ empresaId: form.empresaId.value })));
+      desenharDeclaracoes(declaracoesPadrao());
       mostrarBanco();
       preencherFechamento();
 
@@ -584,7 +567,14 @@ LH.vistas = LH.vistas || {};
             form.prazo.value = atual.prazo;
             form.pagamento.value = atual.pagamento;
             form.observacoes.value = atual.observacoes;
-            if (atual.empresaId && empresas.some((e) => String(e.id) === String(atual.empresaId))) form.empresaId.value = atual.empresaId;
+            foto = atual.extras?.empresa?.razao ? atual.extras.empresa : null;
+            const idEmpresa = String(foto?.id || atual.empresaId || '');
+            // Empresa excluída do cadastro: continua na proposta, com os dados salvos.
+            if (foto && !empresas.some((e) => String(e.id) === idEmpresa)) {
+              form.empresaId.add(new Option(`${foto.razao} (dados salvos na proposta)`, idEmpresa));
+            }
+            if (!idEmpresa) form.empresaId.add(new Option('Escolha a empresa', ''), 0);
+            form.empresaId.value = idEmpresa;
             mostrarEmpresa();
             desenharDeclaracoes(declaracoesDe(atual));
             form.bancoOrigem.value = atual.extras?.banco?.origem === 'proposta' ? 'proposta' : 'cadastro';
@@ -593,9 +583,9 @@ LH.vistas = LH.vistas || {};
             if (atual.itens?.length) corpo.innerHTML = atual.itens.map(linhaItem).join('');
             raiz.querySelector('h1').textContent = `Proposta ${atual.numero}`;
           } else {
-            numero = await LH.repo.proximoNumeroProposta();
+            numero = '';
           }
-          raiz.querySelector('#numero-proposta').textContent = numero;
+          raiz.querySelector('#numero-proposta').textContent = numero || NUMERO_PENDENTE;
           recalcular();
           const escolhida = Number(atual?.licitacaoId || p.licitacao) || null;
           lista = await LH.repo.licitacoesDoUsuario();
@@ -653,8 +643,13 @@ LH.vistas = LH.vistas || {};
           corpo.rows[corpo.rows.length - 1].querySelector('textarea').focus();
           recalcular();
         }
+        if (acao === 'atualizar-empresa') {
+          foto = null;
+          mostrarEmpresa(); mostrarBanco(); preencherFechamento();
+          LH.aviso('Dados da empresa atualizados. Salve a proposta para guardar.', 'sucesso');
+        }
         if (acao === 'buscar-licitacao') buscarCodigo();
-        if (acao === 'decl-padrao') desenharDeclaracoes(declaracoesPadrao(empresaDe({ empresaId: form.empresaId.value })));
+        if (acao === 'decl-padrao') desenharDeclaracoes(declaracoesPadrao());
 
         if (acao === 'importar') importar();
         if (acao === 'previa') previa().scrollIntoView({ behavior: 'smooth' });
@@ -665,6 +660,7 @@ LH.vistas = LH.vistas || {};
         const proposta = ler();
         if (!proposta.total) return LH.aviso('Preencha a quantidade e o valor unitário dos itens.', 'alerta');
         if (!(await conferirPendencias(proposta, 'Baixar mesmo assim'))) return;
+        try { proposta.numero = await garantirNumero(); } catch (erro) { return LH.aviso(erro.message, 'perigo'); }
         if (acao === 'word') return baixarWord(proposta);
         previa();
         const titulo = document.title;
@@ -680,8 +676,11 @@ LH.vistas = LH.vistas || {};
         const botao = form.querySelector('[type=submit]');
         botao.disabled = true;
         try {
+          proposta.numero = await garantirNumero();
           const id = await LH.repo.salvarProposta(proposta);
           atual = { ...proposta, id };
+          foto = proposta.extras.empresa.razao ? proposta.extras.empresa : null;
+          mostrarEmpresa();
           LH.aviso(`Proposta ${proposta.numero} salva em "Minhas propostas".`, 'sucesso');
         } catch (erro) { LH.aviso(erro.message, 'perigo'); }
         botao.disabled = false;
@@ -733,17 +732,18 @@ LH.vistas = LH.vistas || {};
           </tr>`;
         }).join('') : `<tr><td colspan="6">${LH.vazio('arquivo', 'Nenhuma proposta ainda', '', '<a class="btn btn--primario" href="#/proposta/criar">Criar a primeira</a>')}</td></tr>`;
       };
-      const achar = (id) => lista.find((p) => String(p.id) === id);
       LH.ao(raiz, 'change', '[data-status]', async (e, s) => {
         try {
-          await LH.repo.salvarProposta({ ...achar(s.dataset.status), status: s.value });
+          await LH.repo.mudarStatusProposta(s.dataset.status, s.value);
           LH.aviso('Situação atualizada.', 'sucesso');
         } catch (erro) { LH.aviso(erro.message, 'perigo'); }
       });
       LH.ao(raiz, 'click', '[data-duplicar]', async (e, b) => {
         try {
-          const original = achar(b.dataset.duplicar);
-          await LH.repo.salvarProposta({ ...original, id: undefined, numero: await LH.repo.proximoNumeroProposta(), status: 'Rascunho', criada: undefined });
+          const original = await LH.repo.proposta(b.dataset.duplicar);
+          if (!original) throw new Error('Proposta não encontrada.');
+          const copia = regras.duplicar(original, { numero: await LH.repo.proximoNumeroProposta(), hoje: LH.datas.hoje(), empresas: LH.repo.empresas() });
+          await LH.repo.salvarProposta({ ...copia, total: totalProposta(copia.itens) });
           LH.aviso('Proposta duplicada.', 'sucesso');
           desenhar();
         } catch (erro) { LH.aviso(erro.message, 'perigo'); }
@@ -760,33 +760,7 @@ LH.vistas = LH.vistas || {};
   };
 
   // --- Gerador de declarações ---------------------------------------------------------
-  const PORTES = { ME: 'microempresa', EPP: 'empresa de pequeno porte' };
-  const MODELOS = [
-    {
-      id: 'habilitacao', titulo: 'Cumprimento dos requisitos de habilitação', ref: 'Art. 63, I, da Lei nº 14.133/2021',
-      texto: (d) => `DECLARA, para fins de participação no(a) ${d.edital}, promovido(a) pelo(a) ${d.orgao}, que cumpre plenamente os requisitos de habilitação exigidos no edital, respondendo pela veracidade das informações prestadas, na forma da lei.`,
-    },
-    {
-      id: 'menor', titulo: 'Não emprega menor (art. 7º, XXXIII, da Constituição)', ref: 'Art. 68, VI, da Lei nº 14.133/2021',
-      texto: () => 'DECLARA que não emprega menor de 18 (dezoito) anos em trabalho noturno, perigoso ou insalubre e não emprega menor de 16 (dezesseis) anos, salvo a partir de 14 (quatorze) anos, na condição de aprendiz, nos termos do art. 7º, XXXIII, da Constituição Federal.',
-    },
-    {
-      id: 'reserva', titulo: 'Reserva de cargos para PcD e reabilitados', ref: 'Art. 63, IV, da Lei nº 14.133/2021',
-      texto: () => 'DECLARA que cumpre as exigências de reserva de cargos para pessoa com deficiência e para reabilitado da Previdência Social, previstas em lei e em outras normas específicas.',
-    },
-    {
-      id: 'custos', titulo: 'Proposta compreende todos os custos trabalhistas', ref: 'Art. 63, § 1º, da Lei nº 14.133/2021',
-      texto: () => 'DECLARA que sua proposta econômica compreende a integralidade dos custos para atendimento dos direitos trabalhistas assegurados na Constituição Federal, nas leis trabalhistas, nas normas infralegais, nas convenções coletivas de trabalho e nos termos de ajustamento de conduta vigentes na data de entrega das propostas.',
-    },
-    {
-      id: 'meepp', titulo: 'Enquadramento como ME/EPP', ref: 'LC nº 123/2006 e art. 4º da Lei nº 14.133/2021',
-      texto: (d) => `DECLARA, sob as penas da lei, que se enquadra como ${PORTES[d.porte] || 'microempresa ou empresa de pequeno porte'}, nos termos do art. 3º da Lei Complementar nº 123/2006, estando apta a usufruir do tratamento favorecido previsto em seus arts. 42 a 49, conforme o art. 4º da Lei nº 14.133/2021, e que não se enquadra em nenhuma das vedações do § 4º do art. 3º da mesma Lei Complementar.`,
-    },
-    {
-      id: 'impeditivo', titulo: 'Inexistência de fato impeditivo', ref: 'Art. 14 da Lei nº 14.133/2021',
-      texto: (d) => `DECLARA, sob as penas da lei, que não existem fatos impeditivos à sua participação no(a) ${d.edital}, não estando incursa em nenhuma das vedações do art. 14 da Lei nº 14.133/2021, e que se compromete a informar a ocorrência de qualquer fato superveniente.`,
-    },
-  ];
+  const MODELOS = regras.LEGAIS.map((d) => ({ ...d, texto: (x) => regras.textoLegal(d, 'DECLARA', x.porte) }));
 
   LH.vistas.declaracoes = {
     titulo: 'Gerador de declarações',

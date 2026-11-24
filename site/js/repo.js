@@ -601,7 +601,7 @@ window.LH = window.LH || {};
 
     // --- Propostas -------------------------------------------------------------
     async propostas() {
-      const { data, error } = await db().from('propostas').select('*').eq('organizacao_id', ctx().organizacao.id).order('criado_em', { ascending: false });
+      const { data, error } = await db().from('propostas').select('id, numero, status, licitacao_id, licitacao_resumo, criado_em, total, empresa_id').eq('organizacao_id', ctx().organizacao.id).order('criado_em', { ascending: false });
       if (error) throw erroBanco(error, 'Não consegui carregar as propostas');
       return data.map(propostaParaTela);
     },
@@ -611,14 +611,19 @@ window.LH = window.LH || {};
       return data ? propostaParaTela(data) : null;
     },
     async proximoNumeroProposta() {
-      const { count } = await db().from('propostas').select('id', { count: 'exact', head: true }).eq('organizacao_id', ctx().organizacao.id);
-      return `PROP-${new Date().getFullYear()}-${String((count ?? 0) + 1).padStart(3, '0')}`;
+      const { data, error } = await db().rpc('proximo_numero_proposta', { p_org: ctx().organizacao.id });
+      if (error || !data) throw erroBanco(error || {}, 'Não consegui gerar o número da proposta');
+      return data;
+    },
+    async mudarStatusProposta(id, status) {
+      const { error } = await db().from('propostas').update({ status }).eq('id', id);
+      if (error) throw erroBanco(error, 'Não consegui mudar a situação');
     },
     async salvarProposta(p) {
       const linha = {
         numero: p.numero, status: p.status || 'Rascunho', licitacao_id: p.licitacaoId || null, licitacao_resumo: p.licitacao || null,
         validade_dias: Number(p.validade) || null, prazo: p.prazo || null, pagamento: p.pagamento || null,
-        observacoes: p.observacoes || null, itens: p.itens || [], total: Number(p.total) || 0, empresa_id: p.empresaId || ctx().empresaAtual || null,
+        observacoes: p.observacoes || null, itens: p.itens || [], total: Number(p.total) || 0, empresa_id: ctx().empresas.some((e) => String(e.id) === String(p.empresaId)) ? p.empresaId : null,
         extras: p.extras || {},
       };
       const gravar = (l) => (p.id
@@ -631,6 +636,7 @@ window.LH = window.LH || {};
         r = await gravar(semExtras);
         if (!r.error) LH.aviso('Proposta salva, mas as declarações e os dados bancários desta proposta só ficam guardados depois da atualização do banco.', 'alerta', 9000);
       }
+      if (r.error?.code === '23505') throw new Error('Já existe uma proposta com este número. Recarregue a página e tente de novo.');
       if (r.error) throw erroBanco(r.error, 'Não consegui salvar a proposta');
       return r.data.id;
     },
@@ -955,7 +961,16 @@ window.LH = window.LH || {};
     },
     propostas: async () => LH.estado.obter('propostas'),
     proposta: async (id) => LH.estado.obter('propostas').find((p) => p.id === id) ?? null,
-    proximoNumeroProposta: async () => `PROP-${new Date().getFullYear()}-${String(LH.estado.obter('propostas').length + 14).padStart(3, '0')}`,
+    async proximoNumeroProposta() {
+      const ano = new Date().getFullYear();
+      const anterior = LH.estado.obter('propostaNumeros') || {};
+      const n = LH.propostasRegras.proximoNumero(LH.estado.obter('propostas').map((p) => p.numero), ano, anterior[ano]);
+      LH.estado.salvar('propostaNumeros', { ...anterior, [ano]: n.ultimo });
+      return n.numero;
+    },
+    async mudarStatusProposta(id, status) {
+      LH.estado.salvar('propostas', LH.estado.obter('propostas').map((p) => (String(p.id) === String(id) ? { ...p, status } : p)));
+    },
     async salvarProposta(p) {
       const nova = { ...p, id: p.id || LH.idNovo('p'), criada: p.criada || LH.datas.hoje() };
       LH.estado.salvar('propostas', [nova, ...LH.estado.obter('propostas').filter((x) => x.id !== nova.id)]);

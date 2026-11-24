@@ -568,3 +568,41 @@ test('cadastro: telefone (WhatsApp) obrigatório e validado no banco', async () 
   const id = await criarUsuario('tel@exemplo.com', { nome: 'Tel', telefone: '+55 11 98765-4321' });
   assert.equal((await db.query('select telefone from public.perfis where id = $1', [id])).rows[0].telefone, '(11) 98765-4321', 'grava formatado');
 });
+
+test('propostas: numeração única por organização, sem repetir depois de excluir, e snapshot congelado', async () => {
+  const u = await criarUsuario('num@exemplo.com', { nome: 'Num', empresa: 'Num' });
+  const v = await criarUsuario('num2@exemplo.com', { nome: 'Num2', empresa: 'Num2' });
+  const org = await orgDe(u);
+  const orgV = await orgDe(v);
+  const ano = (await db.query("select extract(year from now() at time zone 'America/Sao_Paulo')::int a")).rows[0].a;
+  const proximo = async (quem, o) => (await como(quem, 'select public.proximo_numero_proposta($1) n', [o])).rows[0].n;
+  const inserir = (n, emp = null) => como(u, 'insert into public.propostas (organizacao_id, numero, empresa_id) values ($1, $2, $3) returning id', [org, n, emp]);
+
+  await inserir(`PROP-${ano}-005`); // proposta de antes da sequência
+  const n6 = await proximo(u, org);
+  assert.equal(n6, `PROP-${ano}-006`);
+  await inserir(n6);
+  await como(u, 'delete from public.propostas where organizacao_id = $1', [org]);
+  assert.equal(await proximo(u, org), `PROP-${ano}-007`, 'não volta depois de excluir');
+  assert.equal(await proximo(v, orgV), `PROP-${ano}-001`, 'cada organização tem a sua');
+  await assert.rejects(proximo(v, org), /Sem permissão/);
+  await assert.rejects(como(u, 'select * from public.proposta_numeros'), /permission denied/);
+
+  await inserir('LIVRE-1');
+  await assert.rejects(inserir('LIVRE-1'), /propostas_numero_unico|duplicate key/);
+
+  // Atualização: congela a empresa das propostas já salvas e não mexe de novo.
+  const emp = (await como(u, `insert into public.empresas (organizacao_id, cnpj, razao_social, dados)
+    values ($1, '11.222.333/0001-81', 'ANTES LTDA', '{"banco":"Banco 1"}') returning id`, [org])).rows[0].id;
+  const id = (await inserir('LIVRE-2', emp)).rows[0].id;
+  const sql = await readFile(new URL('supabase/atualizar-proposta-integridade.sql', raiz), 'utf8');
+  await db.exec(sql);
+  await db.query(`update public.empresas set razao_social = 'DEPOIS LTDA' where id = $1`, [emp]);
+  await db.exec(sql);
+  await db.query('delete from public.empresas where id = $1', [emp]);
+  const foto = (await db.query('select extras, empresa_id from public.propostas where id = $1', [id])).rows[0];
+  assert.equal(foto.empresa_id, null);
+  assert.equal(foto.extras.empresa.razao, 'ANTES LTDA');
+  assert.equal(foto.extras.empresa.banco, 'Banco 1');
+  assert.equal(foto.extras.empresa.id, emp);
+});
