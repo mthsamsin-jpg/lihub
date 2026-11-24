@@ -3,6 +3,7 @@
 // for diferente. Para mapear um portal novo, preencha worker/adaptadores/seletores.js.
 import { ErroAdaptador, PortalAdapter } from './base.js';
 import { camposPendentes } from './seletores.js';
+import { etapaAtinge, etapaDoPortal } from '../fases.js';
 
 const TEMPO_PADRAO_MS = 20_000;
 // Diferença mínima no fim previsto da etapa para avisar o motor (o cronômetro anda
@@ -189,12 +190,16 @@ export class AdaptadorPorSeletores extends PortalAdapter {
     return (await this.pagina.locator(pronta).count().catch(() => 0)) > 0;
   }
 
-  exigir(grupos) {
+  /**
+   * Confere os campos do mapa e a etapa do portal antes de agir.
+   * etapaMinima: 'login' para entrar, 'leitura' para abrir/ler a sala (lances: placeBid).
+   */
+  exigir(grupos, etapaMinima = 'leitura') {
     const faltam = camposPendentes(this.sel, grupos);
     if (faltam.length) {
       throw new ErroAdaptador(`O portal ${this.portal} ainda não foi mapeado para o modo real (faltam: ${faltam.join(', ')}).`, 'seletores_pendentes', faltam);
     }
-    if (!this.sel.validado && !this.permitirNaoValidado) {
+    if (!etapaAtinge(etapaDoPortal(this.sel), etapaMinima) && !this.permitirNaoValidado) {
       throw new ErroAdaptador(`Os seletores do portal ${this.portal} ainda não foram conferidos numa sessão real.`, 'seletores_pendentes');
     }
   }
@@ -238,7 +243,7 @@ export class AdaptadorPorSeletores extends PortalAdapter {
 
   async login() {
     const certificado = this.credencial?.tipo === 'certificado';
-    this.exigir([]);
+    this.exigir([], 'login');
     const l = this.sel.login;
     const p = this.pagina;
     if (certificado) {
@@ -246,7 +251,7 @@ export class AdaptadorPorSeletores extends PortalAdapter {
       await p.goto(l.urlCertificado);
       await p.click(l.botaoCertificado);
     } else {
-      this.exigir(['login']);
+      this.exigir(['login'], 'login');
       await p.goto(l.url);
       await p.fill(l.usuario, String(this.credencial.login ?? ''));
       await p.fill(l.senha, String(this.credencial.senha ?? ''));

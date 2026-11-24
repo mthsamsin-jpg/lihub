@@ -1588,6 +1588,14 @@ create table if not exists public.portal_credentials (
   ultimo_uso_em     timestamptz,
   unique (user_id, portal)
 );
+-- Situação da credencial (atualizar-credencial-situacao.sql): gravada só pelo servidor.
+alter table public.portal_credentials add column if not exists situacao text not null default 'nao_testada';
+alter table public.portal_credentials add column if not exists situacao_detalhe text;
+alter table public.portal_credentials add column if not exists situacao_em timestamptz;
+alter table public.portal_credentials add column if not exists testado_em timestamptz;
+alter table public.portal_credentials drop constraint if exists portal_credentials_situacao;
+alter table public.portal_credentials add constraint portal_credentials_situacao
+  check (situacao in ('nao_testada', 'aguardando_validacao', 'credencial_ok', 'bloqueada'));
 alter table public.portal_credentials drop constraint if exists portal_credentials_portal;
 alter table public.portal_credentials add constraint portal_credentials_portal check (portal in (
   'comprasnet', 'licitacoes-e', 'bbmnet', 'bnc', 'pcp', 'bll', 'licitanet', 'licitar', 'licitamais',

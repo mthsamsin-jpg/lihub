@@ -3,6 +3,8 @@
 //   GET    /api/portais/credenciais              credenciais salvas (só metadados: nunca o segredo)
 //   PUT    /api/portais/credenciais/:portal      salva/troca a credencial (cifrada no servidor)
 //   DELETE /api/portais/credenciais/:portal      apaga a credencial
+//   POST   /api/portais/credenciais/:portal/testar     FASE 1: testa só o login (sem pregão)
+//   POST   /api/portais/credenciais/:portal/situacao   o usuário avisa: conta em análise no portal (ou desfaz)
 //   POST   /api/robo/sessoes                     conecta um item a um pregão real (monitorar ou dar lances)
 //   POST   /api/robo/sessoes/:id/:acao           pausar | retomar | parar | limites
 import { bodyLimit } from 'hono/body-limit';
@@ -70,7 +72,7 @@ export function ligarModoReal(app, { admin, cofre, gerenciador, navegadorDisponi
   // --- Cofre de credenciais ---
   app.get('/api/portais/credenciais', async (c) => {
     const { data, error } = await admin.from('portal_credentials')
-      .select('portal, tipo, login_mascarado, certificado_nome, atualizado_em, ultimo_uso_em')
+      .select('portal, tipo, login_mascarado, certificado_nome, atualizado_em, ultimo_uso_em, situacao, situacao_detalhe, situacao_em, testado_em')
       .eq('user_id', c.get('usuario').id).order('portal');
     if (error) return c.json({ erro: `Falha ao ler o cofre: ${error.message}` }, 500);
     return c.json({ credenciais: data });
@@ -96,6 +98,8 @@ export function ligarModoReal(app, { admin, cofre, gerenciador, navegadorDisponi
       }
       const { error } = await admin.from('portal_credentials').upsert({
         user_id: dono, portal, tipo: p.tipo, ...extra, segredo_cifrado: cofre.cifrar(segredo, { dono, portal }),
+        // Credencial nova ou trocada: precisa ser testada de novo.
+        situacao: 'nao_testada', situacao_detalhe: null, situacao_em: new Date().toISOString(),
       }, { onConflict: 'user_id,portal' });
       if (error) return c.json({ erro: `Falha ao salvar no cofre: ${error.message}` }, 500);
       return c.json({ ok: true, portal, tipo: p.tipo, ...extra });
@@ -108,6 +112,32 @@ export function ligarModoReal(app, { admin, cofre, gerenciador, navegadorDisponi
       const { error } = await admin.from('portal_credentials').delete().eq('user_id', c.get('usuario').id).eq('portal', c.req.param('portal'));
       if (error) return c.json({ erro: `Falha ao apagar: ${error.message}` }, 500);
       return c.json({ ok: true });
+    } catch (e) { return responderErro(c, e); }
+  });
+
+  // FASE 1: teste de login com a credencial do cofre (sem pregão, sem sala, sem lance).
+  app.post('/api/portais/credenciais/:portal/testar', async (c) => {
+    try {
+      exigirCofre();
+      exigirGerenciador();
+      const portal = c.req.param('portal');
+      portalValido(portal);
+      return c.json(await gerenciador.testarLogin({ usuario: c.get('usuario'), portal }));
+    } catch (e) { return responderErro(c, e); }
+  });
+
+  // O usuário avisa que a conta ainda está em análise no portal (ou desfaz o aviso).
+  app.post('/api/portais/credenciais/:portal/situacao', async (c) => {
+    try {
+      const portal = c.req.param('portal');
+      portalValido(portal);
+      const { situacao } = await lerJson(c, z.object({ situacao: z.enum(['aguardando_validacao', 'nao_testada'], { error: 'Situação inválida.' }) }));
+      const { data, error } = await admin.from('portal_credentials')
+        .update({ situacao, situacao_detalhe: situacao === 'aguardando_validacao' ? 'Informado pelo usuário: cadastro em análise no portal.' : null, situacao_em: new Date().toISOString() })
+        .eq('user_id', c.get('usuario').id).eq('portal', portal).select('portal');
+      if (error) return c.json({ erro: `Falha ao gravar: ${error.message}` }, 500);
+      if (!data?.length) return c.json({ erro: 'Salve a credencial deste portal no cofre primeiro.', codigo: 'sem_credencial' }, 404);
+      return c.json({ ok: true, situacao });
     } catch (e) { return responderErro(c, e); }
   });
 

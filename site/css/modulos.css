@@ -1321,3 +1321,20 @@ li.item--termo { box-shadow: inset 3px 0 0 #facc15; border-radius: 8px; }
 .logo-empresa__previa { width: 200px; height: 80px; display: grid; place-items: center; border: 1px dashed rgba(148, 163, 184, 0.4); border-radius: 10px; background: #fff; overflow: hidden; }
 .logo-empresa__previa img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .logo-empresa__previa .fraco { color: #64748b; }
+
+/* --- Modo real: fases e situação da credencial ---------------------------------- */
+.etapa-portal--perigo { background: rgba(239, 68, 68, 0.14); color: #fca5a5; border-color: rgba(252, 165, 165, 0.35); }
+.cofre__detalhe { display: block; margin-top: 3px; font-size: 0.74rem; color: var(--texto-2); }
+.cofre__estado .etapa-portal { margin-left: 6px; }
+.cofre__acoes { flex-wrap: wrap; }
+.fases-real { list-style: none; margin: 4px 0 10px; padding: 0; display: grid; gap: 8px; }
+.fases-real__item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.22); }
+.fases-real__item b { display: block; font-size: 0.86rem; }
+.fases-real__item small { display: block; font-size: 0.78rem; color: var(--texto-2); }
+.fases-real__marca { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; }
+.fases-real__marca svg { width: 14px; height: 14px; }
+.fases-real__item--feito .fases-real__marca { background: rgba(34, 197, 94, 0.18); color: #4ade80; }
+.fases-real__item--agora .fases-real__marca { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+.fases-real__item--travado { opacity: 0.75; }
+.fases-real__item--travado .fases-real__marca { background: rgba(148, 163, 184, 0.16); color: #cbd5e1; }
+.campo--travado { opacity: 0.6; }

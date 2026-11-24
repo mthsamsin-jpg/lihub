@@ -33,8 +33,11 @@
 //   lance.campo / lance.enviar / lance.confirmar   envio do lance
 //   lance.sucesso / lance.erro                      retorno do portal após enviar
 
+// etapa: mapeamento -> login -> leitura -> lances (ver worker/fases.js).
+// validado: true continua valendo como "lances" (mapas antigos).
 const PENDENTE = Object.freeze({
   validado: false,
+  etapa: 'mapeamento',
   urlBase: null,
   login: { url: null, urlCertificado: null, usuario: null, senha: null, entrar: null, botaoCertificado: null, logado: null, erro: null },
   sala: {
@@ -64,6 +67,9 @@ export const SELETORES = {
   bll: {
     ...PENDENTE,
     validado: false,
+    // Login conferido na página pública (e-mail + teclado virtual). A sala ainda
+    // precisa ser mapeada num pregão real, só monitorando.
+    etapa: 'login',
     urlBase: 'https://bllcompras.com',
     login: {
       ...PENDENTE.login,

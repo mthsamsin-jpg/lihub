@@ -21,6 +21,49 @@ window.LH = window.LH || {};
     return estadoCache;
   };
   const credenciais = async () => (await LH.nuvem.api('/api/portais/credenciais')).credenciais || [];
+
+  // Situação da credencial (mesmos nomes de worker/fases.js).
+  const SITUACAO = {
+    nao_testada: { rotulo: 'Login não testado', cor: 'fila' },
+    aguardando_validacao: { rotulo: 'Conta em validação no portal', cor: 'andamento' },
+    credencial_ok: { rotulo: 'Login OK', cor: 'ok' },
+    bloqueada: { rotulo: 'Login recusado', cor: 'perigo' },
+  };
+  const seloSituacao = (c) => {
+    const s = SITUACAO[c?.situacao] || SITUACAO.nao_testada;
+    const quando = c?.situacao_em ? ` · ${new Date(c.situacao_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : '';
+    return `<span class="etapa-portal etapa-portal--${s.cor}" title="${esc((c?.situacao_detalhe || s.rotulo) + quando)}">${esc(s.rotulo)}</span>`;
+  };
+  /** O login deste portal já pode ser testado (etapa do servidor "login" ou além)? */
+  const loginTestavel = (chave) => ['login', 'leitura', 'lances'].includes(estadoCache?.portais?.[chave]?.etapa) || !!estadoCache?.portais?.[chave]?.validado;
+
+  /**
+   * As 3 fases do modo real para um portal + credencial.
+   * { fases: [{ nome, estado: 'feito'|'agora'|'travado', texto }], monitorar: bool, lances: bool, motivo }
+   */
+  function fasesDoPortal(chave, cred) {
+    const etapa = estadoCache?.portais?.[chave]?.validado ? 'lances' : (estadoCache?.portais?.[chave]?.etapa || 'mapeamento');
+    const nivel = ['mapeamento', 'login', 'leitura', 'lances'].indexOf(etapa);
+    const sit = cred?.situacao || (cred ? 'nao_testada' : 'sem_credencial');
+    const contaOk = sit === 'credencial_ok';
+    const contaTravada = sit === 'aguardando_validacao' || sit === 'bloqueada';
+    const fases = [
+      { nome: '1. Teste de login (sem pregão)', estado: contaOk ? 'feito' : 'agora',
+        texto: !cred ? 'Salve a credencial no cofre.' : contaOk ? 'O robô entrou no portal com a sua credencial.'
+          : sit === 'aguardando_validacao' ? 'Sua conta ainda está em validação no portal.' : sit === 'bloqueada' ? 'O último login foi recusado: confira a senha.'
+          : nivel >= 1 ? 'Use "Testar login" no cofre.' : 'O login deste portal ainda está sendo mapeado.' },
+      { nome: '2. Acompanhamento ao vivo (só monitorar)', estado: nivel >= 2 ? (contaTravada ? 'travado' : 'feito') : 'travado',
+        texto: nivel >= 2 ? 'Sala mapeada: o robô lê lances, fases e chat sem enviar nada.' : 'A sala de disputa é mapeada num pregão real, só observando.' },
+      { nome: '3. Lances reais (com cautela)', estado: nivel >= 3 && contaOk ? 'feito' : 'travado',
+        texto: nivel >= 3 ? (contaOk ? 'Liberado. Comece por um item de valor baixo e acompanhe.' : 'Teste o login antes de dar lances reais.') : 'Só depois de a leitura da sala ser conferida.' },
+    ];
+    const monitorar = nivel >= 2 && !contaTravada && !!cred;
+    const lances = nivel >= 3 && contaOk;
+    return { fases, monitorar, lances, situacao: sit, etapa };
+  }
+  const fasesHtml = (f) => `<ol class="fases-real">${f.fases.map((x) => `<li class="fases-real__item fases-real__item--${x.estado}">
+    <span class="fases-real__marca" aria-hidden="true">${x.estado === 'feito' ? icone('check') : x.estado === 'agora' ? icone('raio') : icone('cadeado')}</span>
+    <span><b>${esc(x.nome)}</b><small>${esc(x.texto)}</small></span></li>`).join('')}</ol>`;
   const logado = () => LH.repo?.modo === 'real';
   const ultimoModal = () => [...document.querySelectorAll('.modal-fundo')].at(-1);
 
@@ -43,11 +86,18 @@ window.LH = window.LH || {};
         const por = Object.fromEntries(lista.map((c) => [c.portal, c]));
         return PORTAIS_COFRE().map((p) => {
           const c = por[p.chave];
+          const testavel = c && loginTestavel(p.chave);
+          const pendente = c?.situacao === 'aguardando_validacao';
           return `<li class="cofre__linha">${LH.portaisRobo.selo(p.chave)}
             <span class="cofre__estado">${c
-              ? `${icone('cadeado')} ${c.tipo === 'certificado' ? `Certificado ${esc(c.certificado_nome || '')}` : `Login ${esc(c.login_mascarado || '')}`}`
-              : '<span class="fraco">sem credencial</span>'}</span>
-            <span class="cofre__acoes"><button type="button" class="btn btn--pequeno btn--fantasma" data-cofre-editar="${p.chave}">${c ? 'Trocar' : 'Adicionar'}</button>
+              ? `${icone('cadeado')} ${c.tipo === 'certificado' ? `Certificado ${esc(c.certificado_nome || '')}` : `Login ${esc(c.login_mascarado || '')}`} ${seloSituacao(c)}`
+              : '<span class="fraco">sem credencial</span>'}
+              ${c?.situacao_detalhe && c.situacao !== 'credencial_ok' ? `<small class="cofre__detalhe">${esc(c.situacao_detalhe)}</small>` : ''}
+              ${c && !testavel ? '<small class="cofre__detalhe">Guardada. O login deste portal ainda está sendo mapeado no robô.</small>' : ''}</span>
+            <span class="cofre__acoes">
+            ${testavel ? `<button type="button" class="btn btn--pequeno" data-cofre-testar="${p.chave}" title="Entra no portal com esta credencial e sai (sem pregão e sem lance)">${icone('plugue')} Testar login</button>` : ''}
+            ${c ? `<button type="button" class="btn btn--pequeno btn--fantasma" data-cofre-pendente="${p.chave}" data-valor="${pendente ? 'nao_testada' : 'aguardando_validacao'}">${pendente ? 'Conta aprovada' : 'Conta em análise'}</button>` : ''}
+            <button type="button" class="btn btn--pequeno btn--fantasma" data-cofre-editar="${p.chave}">${c ? 'Trocar' : 'Adicionar'}</button>
             ${c ? `<button type="button" class="btn btn--pequeno btn--fantasma" data-cofre-apagar="${p.chave}" aria-label="Apagar credencial">${icone('lixeira')}</button>` : ''}</span></li>`;
         }).join('');
       };
@@ -83,7 +133,10 @@ window.LH = window.LH || {};
       const lista = caixa.querySelector('[data-cofre-lista]');
       const area = caixa.querySelector('[data-cofre-area]');
       const recarregar = async () => {
-        try { lista.innerHTML = listaHtml(await credenciais()); } catch (e) { lista.innerHTML = `<li>${LH.erroHtml(e)}</li>`; }
+        try {
+          await estadoServidor().catch(() => null);
+          lista.innerHTML = listaHtml(await credenciais());
+        } catch (e) { lista.innerHTML = `<li>${LH.erroHtml(e)}</li>`; }
       };
       const editar = (chave) => {
         area.innerHTML = formHtml(chave);
@@ -95,6 +148,27 @@ window.LH = window.LH || {};
         const b = e.target.closest('button');
         if (!b) return;
         if (b.dataset.cofreEditar) editar(b.dataset.cofreEditar);
+        // FASE 1: teste de login (o servidor entra no portal e sai; nada de pregão nem lance).
+        if (b.dataset.cofreTestar) {
+          const chave = b.dataset.cofreTestar;
+          const nome = LH.portaisRobo.de(chave).nome;
+          b.disabled = true;
+          b.innerHTML = `${icone('relogio')} Testando...`;
+          try {
+            const r = await LH.nuvem.api(`/api/portais/credenciais/${chave}/testar`, { metodo: 'POST', limiteMs: 120_000 });
+            LH.aviso(r.ok ? `Login no ${nome} OK: o robô entrou com a sua credencial.` : `${nome}: ${r.detalhe}`, r.ok ? 'sucesso' : 'alerta', 9000);
+          } catch (erro) { LH.aviso(erro.message, 'perigo', 8000); }
+          await recarregar();
+        }
+        if (b.dataset.cofrePendente) {
+          try {
+            await LH.nuvem.api(`/api/portais/credenciais/${b.dataset.cofrePendente}/situacao`, { metodo: 'POST', corpo: { situacao: b.dataset.valor } });
+            LH.aviso(b.dataset.valor === 'aguardando_validacao'
+              ? 'Anotado: enquanto a conta estiver em análise, o robô não tenta entrar neste portal. Use a Sala Simulada.'
+              : 'Anotado. Agora use "Testar login" para confirmar que a conta foi ativada.', 'info', 8000);
+            await recarregar();
+          } catch (erro) { LH.aviso(erro.message, 'perigo'); }
+        }
         if (b.dataset.cofreApagar) {
           if (!(await LH.confirmar('Apagar credencial', 'Apagar a credencial deste portal do cofre?', 'Apagar', true))) return;
           try { await LH.nuvem.api(`/api/portais/credenciais/${b.dataset.cofreApagar}`, { metodo: 'DELETE' }); await recarregar(); } catch (erro) { LH.aviso(erro.message, 'perigo'); }
@@ -140,22 +214,25 @@ window.LH = window.LH || {};
   // ---------------------------------------------------------------------------
   // Conectar um item a um pregão real
   // ---------------------------------------------------------------------------
-  function pedirConexao(i, situacaoPortal) {
+  function pedirConexao(i, cred) {
     return new Promise((resolver) => {
       let escolhido = null;
-      const naoMapeado = !situacaoPortal?.validado;
+      const f = fasesDoPortal(i.plataforma, cred);
       LH.modal({
         titulo: 'Conectar ao pregão real',
         html: `<form class="form" onsubmit="return false">
           <div class="cofre__form-topo">${LH.portaisRobo.selo(i.plataforma)}<b>${esc(i.descricao)}</b></div>
-          ${naoMapeado ? `<p class="fraco">${LH.portaisRobo.etiqueta(i.plataforma)} ${esc(LH.portaisRobo.suporte(i.plataforma).texto)}</p><p class="nota nota--alerta">${icone('alerta')} <span>A sala de disputa deste portal <b>ainda não foi mapeada</b> no Robô Turbo 2.0 (os seletores da página não foram conferidos numa sessão real). A conexão vai parar com o aviso do que falta mapear, e nenhum lance é enviado.</span></p>` : ''}
+          ${fasesHtml(f)}
+          ${f.monitorar ? '' : `<p class="nota nota--alerta">${icone('alerta')} <span>${f.situacao === 'aguardando_validacao' ? 'Sua conta neste portal ainda está em validação. Quando o portal aprovar, use <b>Testar login</b> no cofre.'
+            : f.situacao === 'bloqueada' ? 'O último login foi recusado. Confira a senha no cofre e use <b>Testar login</b>.'
+            : 'O acompanhamento ao vivo deste portal ainda não foi liberado: a sala de disputa está sendo mapeada. Enquanto isso, teste o login no cofre e use a <b>Sala Simulada</b>.'} Nenhum lance é enviado.</span></p>`}
           <div class="form__linha">
             <label class="campo"><span class="campo__rotulo">Nº do pregão / processo no portal</span><input name="pregao" required maxlength="120" value="${esc(i.pregaoRef || '')}" placeholder="ex.: 90012/2026"></label>
             <label class="campo"><span class="campo__rotulo">Lote / item</span><input name="lote" maxlength="40" value="${esc(i.loteRef || i.itemNumero || '')}"></label>
           </div>
           <fieldset class="robo-conectar__modos">
             <label class="campo--check"><input type="radio" name="modo" value="monitorar" checked><span><b>Só monitorar</b>: o robô acompanha a sala ao vivo (lances, fases, chat) e não envia nada. Recomendado para começar.</span></label>
-            <label class="campo--check"><input type="radio" name="modo" value="lances"><span><b>Robô dá lances de verdade</b>: cobre a praça por ${moeda(i.decremento ?? 0.01)}, entre o mínimo de ${moeda(i.piso)} e o teto de ${moeda(i.teto)}.</span></label>
+            <label class="campo--check${f.lances ? '' : ' campo--travado'}"><input type="radio" name="modo" value="lances" ${f.lances ? '' : 'disabled'}><span><b>Robô dá lances de verdade</b>: cobre a praça por ${moeda(i.decremento ?? 0.01)}, entre o mínimo de ${moeda(i.piso)} e o teto de ${moeda(i.teto)}.${f.lances ? ' Nas primeiras disputas, só itens de valor baixo.' : ' <i>(travado até a fase 3)</i>'}</span></label>
           </fieldset>
           <label class="campo--check robo-conectar__confirma" data-confirma hidden><input type="checkbox" name="confirmo"><span>Entendo que o robô vai <b>enviar lances reais</b> no portal, em nome da empresa, e que posso parar a qualquer momento.</span></label>
           <p class="texto-perigo" data-erro hidden></p>
@@ -166,6 +243,7 @@ window.LH = window.LH || {};
             const f = janela.querySelector('form').elements;
             const erro = janela.querySelector('[data-erro]');
             const modo = f.modo.value;
+            if (!fasesDoPortal(i.plataforma, cred).monitorar) { erro.textContent = 'Este portal ainda não pode ser conectado: veja as fases acima.'; erro.hidden = false; return; }
             if (!f.pregao.value.trim()) { erro.textContent = 'Informe o número do pregão.'; erro.hidden = false; return; }
             if (modo === 'lances' && !f.confirmo.checked) { erro.textContent = 'Confirme que o robô vai enviar lances reais.'; erro.hidden = false; return; }
             escolhido = { pregao: f.pregao.value.trim(), lote: f.lote.value.trim() || undefined, modo, confirmo_lances_reais: modo === 'lances' ? true : undefined };
@@ -290,10 +368,14 @@ window.LH = window.LH || {};
       if (!salvou) return;
     }
     if (!estado.navegador) LH.aviso('Atenção: o servidor ainda não tem o navegador do robô (Playwright) instalado. A conexão vai falhar até ele ser instalado.', 'alerta', 8000);
-    if (pedidoPronto && !estado.portais?.[i.plataforma]?.validado) {
-      LH.aviso(`A sala do ${LH.portaisRobo.de(i.plataforma).nome} ainda não foi mapeada no Robô Turbo 2.0: a conexão vai avisar o que falta (npm run mapear).`, 'alerta', 8000);
+    const cred = (await credenciais().catch(() => lista)).find((c) => c.portal === i.plataforma) || null;
+    const fases = fasesDoPortal(i.plataforma, cred);
+    // Atalho do feed ("monitorar"): sem a fase liberada, avisa e não chama o servidor.
+    if (pedidoPronto && (!fases.monitorar || (pedidoPronto.modo === 'lances' && !fases.lances))) {
+      LH.aviso(`${LH.portaisRobo.de(i.plataforma).nome}: ${fases.fases.find((x) => x.estado !== 'feito')?.texto || 'fase ainda não liberada.'}`, 'alerta', 8000);
+      return;
     }
-    const pedido = pedidoPronto || await pedirConexao(i, estado.portais?.[i.plataforma]);
+    const pedido = pedidoPronto || await pedirConexao(i, cred);
     if (!pedido) return;
     try {
       const { sessao } = await LH.nuvem.api('/api/robo/sessoes', { metodo: 'POST', corpo: { robo_item_id: i.id, ...pedido } });
@@ -304,7 +386,7 @@ window.LH = window.LH || {};
       await d.ligar();
     } catch (e) {
       LH.aviso(e.message, 'perigo', 8000);
-      if (e.codigo === 'sem_credencial') abrirCofre({ portal: i.plataforma });
+      if (['sem_credencial', 'conta_pendente', 'credencial_bloqueada', 'login_nao_testado'].includes(e.codigo)) abrirCofre({ portal: i.plataforma });
     }
   }
 

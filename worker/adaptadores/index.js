@@ -3,6 +3,7 @@
 import { BllAdapter } from './BllAdapter.js';
 import { AdaptadorPorSeletores } from './playwright.js';
 import { SELETORES, camposPendentes } from './seletores.js';
+import { etapaDoPortal } from '../fases.js';
 
 const CLASSES = { bll: BllAdapter };
 
@@ -17,6 +18,7 @@ export function situacaoDosPortais() {
   return Object.fromEntries(Object.entries(SELETORES).map(([portal, sel]) => [portal, {
     adaptador: CLASSES[portal] ? CLASSES[portal].name : 'AdaptadorPorSeletores',
     validado: !!sel.validado,
+    etapa: etapaDoPortal(sel),
     pendentes: camposPendentes(sel),
   }]));
 }

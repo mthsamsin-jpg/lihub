@@ -50,15 +50,17 @@ window.LH = window.LH || {};
   const ETAPAS = Object.freeze({
     pronto:     { ordem: 0, rotulo: 'Modo real liberado', curto: 'Pronto', cor: 'ok',
       texto: 'Sala mapeada e conferida numa disputa real. Dá para monitorar e dar lances de verdade.' },
-    login:      { ordem: 1, rotulo: 'Login mapeado · sala em mapeamento', curto: 'Em mapeamento', cor: 'andamento',
+    leitura:    { ordem: 1, rotulo: 'Acompanhamento ao vivo liberado', curto: 'Ao vivo', cor: 'ok',
+      texto: 'Sala mapeada e conferida: o robô acompanha o pregão ao vivo (só monitorando). Os lances reais ainda estão em validação.' },
+    login:      { ordem: 2, rotulo: 'Login mapeado · sala em mapeamento', curto: 'Em mapeamento', cor: 'andamento',
       texto: 'O robô já sabe entrar no portal. A sala de disputa será mapeada numa sessão real (primeiro só monitorando).' },
-    mapeamento: { ordem: 2, rotulo: 'Em adaptação', curto: 'Em adaptação', cor: 'andamento',
+    mapeamento: { ordem: 3, rotulo: 'Em adaptação', curto: 'Em adaptação', cor: 'andamento',
       texto: 'Endereço de login conferido. Falta mapear o login e a sala de disputa numa sessão real.' },
-    fila:       { ordem: 3, rotulo: 'Na fila do roadmap', curto: 'Na fila', cor: 'fila',
+    fila:       { ordem: 4, rotulo: 'Na fila do roadmap', curto: 'Na fila', cor: 'fila',
       texto: 'Ainda não começou a adaptação. Use a Sala Simulada para treinar a estratégia.' },
-    publica:    { ordem: 4, rotulo: 'Só publica as compras', curto: 'Sem disputa', cor: 'neutro',
+    publica:    { ordem: 5, rotulo: 'Só publica as compras', curto: 'Sem disputa', cor: 'neutro',
       texto: 'Não tem sala de lances: a disputa acontece no portal de origem do pregão.' },
-    manual:     { ordem: 5, rotulo: 'Só Sala Simulada', curto: 'Simulação', cor: 'neutro',
+    manual:     { ordem: 6, rotulo: 'Só Sala Simulada', curto: 'Simulação', cor: 'neutro',
       texto: 'Portal não listado: o robô treina a estratégia na Sala Simulada; no portal, os lances são seus.' },
   });
   // Etapa e prioridade (1 = próximo a ser liberado) de cada portal.
@@ -76,7 +78,9 @@ window.LH = window.LH || {};
   /** Situação do portal no modo real: { etapa, prioridade, ...ETAPAS[etapa] }. */
   function suporte(chave) {
     const [etapaBase, prioridade] = ROADMAP[chave] || ROADMAP.outros;
-    const etapa = doServidor[chave]?.validado ? 'pronto' : etapaBase;
+    // A etapa do servidor (worker/fases.js) vale mais que a lista: leitura -> Ao vivo; lances -> Pronto.
+    const srv = doServidor[chave];
+    const etapa = srv?.validado || srv?.etapa === 'lances' ? 'pronto' : srv?.etapa === 'leitura' ? 'leitura' : etapaBase;
     return { chave, etapa, prioridade, ...ETAPAS[etapa], pendentes: doServidor[chave]?.pendentes?.length ?? null };
   }
 
@@ -97,7 +101,7 @@ window.LH = window.LH || {};
     opcoesAgrupadas(atual) {
       const grupos = new Map();
       for (const p of LH.portaisRobo.porRoadmap()) {
-        const g = p.suporte.etapa === 'login' || p.suporte.etapa === 'mapeamento' ? 'Modo real em adaptação' : p.suporte.rotulo;
+        const g = p.suporte.etapa === 'login' || p.suporte.etapa === 'mapeamento' ? 'Modo real em adaptação' : p.suporte.etapa === 'leitura' ? 'Acompanhamento ao vivo' : p.suporte.rotulo;
         if (!grupos.has(g)) grupos.set(g, []);
         grupos.get(g).push(p);
       }
@@ -108,6 +112,7 @@ window.LH = window.LH || {};
     oQueFunciona(chave) {
       const x = suporte(chave);
       if (x.etapa === 'pronto') return 'Sala Simulada e modo real (monitorar e dar lances).';
+      if (x.etapa === 'leitura') return 'Sala Simulada e acompanhamento ao vivo (só monitorar). Lances reais em validação.';
       if (x.etapa === 'publica') return x.texto;
       return `Sala Simulada: sim. Modo real: ${x.rotulo.toLowerCase()}. ${x.texto}`;
     },

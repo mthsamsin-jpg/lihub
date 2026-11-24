@@ -106,6 +106,7 @@ if (config.roboReal.chaveCofre) {
 const gerenciadorReal = cofre ? criarGerenciador({
   admin, cofre, maxSessoes: config.roboReal.maxSessoes, permitirNaoValidado: config.roboReal.permitirNaoValidado,
   headless: config.roboReal.headless, executavel: config.roboReal.executavel, log: criarLog('robo-real'),
+  limiteInicial: config.roboReal.limiteInicial, sessoesMinimas: config.roboReal.sessoesIniciais,
 }) : null;
 ligarModoReal(app, {
   admin, cofre, gerenciador: gerenciadorReal,

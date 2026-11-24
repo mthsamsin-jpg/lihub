@@ -118,6 +118,10 @@ export const config = {
     // Chave do cofre de credenciais (32 bytes em base64). Sem ela, o cofre fica desligado.
     chaveCofre: texto('CREDENCIAIS_CHAVE'),
     maxSessoes: inteiro('ROBO_REAL_MAX_SESSOES', 3),
+    // Cautela nos primeiros lances reais: até ROBO_LIMITE_INICIAL reais por item (teto x quantidade)
+    // enquanto a organização tiver menos de ROBO_SESSOES_INICIAIS disputas reais concluídas (0 = desliga).
+    limiteInicial: inteiro('ROBO_LIMITE_INICIAL', 2000),
+    sessoesIniciais: inteiro('ROBO_SESSOES_INICIAIS', 3),
     // "permitir" = usa seletores ainda não conferidos (só para mapear um portal; nunca envia lance).
     permitirNaoValidado: texto('ROBO_SELETORES_NAO_VALIDADOS').toLowerCase() === 'permitir',
     // "nao" = abre o navegador visível (útil para mapear seletores no computador).
