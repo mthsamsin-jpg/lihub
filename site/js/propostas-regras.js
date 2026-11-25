@@ -56,7 +56,7 @@ window.LH = window.LH || {};
 
   // --- Empresa: cópia dos dados no momento de salvar ---------------------------------
   const CAMPOS_EMPRESA = ['id', 'razao', 'fantasia', 'cnpj', 'porte', 'regime', 'ie', 'im', 'uf', 'cidade', 'endereco', 'cep', 'email', 'telefone',
-    'representante', 'cpfRepresentante', 'rgRepresentante', 'cargo', 'banco', 'agencia', 'conta', 'logo'];
+    'representante', 'cpfRepresentante', 'rgRepresentante', 'cargo', 'banco', 'agencia', 'conta', 'tipoConta', 'pixTipo', 'pix', 'logo'];
   const snapshotEmpresa = (e) => Object.fromEntries(CAMPOS_EMPRESA.map((k) => [k, e?.[k] ?? '']));
   const VAZIA = Object.freeze(snapshotEmpresa({}));
   /** Empresa da proposta: snapshot > cadastro escolhido > vazia. Nunca outra empresa. */
@@ -89,6 +89,58 @@ window.LH = window.LH || {};
     return { ultimo: maior + 1, numero: `PROP-${ano}-${String(maior + 1).padStart(3, '0')}` };
   }
 
+  // --- Dados bancários: tipo de conta e chave Pix (opcional) ----------------------------
+  const CAMPOS_BANCO = ['banco', 'agencia', 'conta', 'tipoConta', 'pixTipo', 'pix'];
+  const TIPOS_CONTA = ['Conta corrente', 'Conta poupança', 'Conta de pagamento'];
+  const TIPOS_PIX = [['', 'Não informar'], ['cnpj', 'CNPJ'], ['cpf', 'CPF'], ['email', 'E-mail'], ['telefone', 'Telefone'], ['aleatoria', 'Chave aleatória']];
+  /** Dados bancários da proposta: os do cadastro ou os informados só nela. Sem tipo salvo = conta corrente, como sempre saiu. */
+  function bancoDe(p, e) {
+    const fonte = p.extras?.banco?.origem === 'proposta' ? p.extras.banco : e;
+    const b = Object.fromEntries(CAMPOS_BANCO.map((k) => [k, String(fonte?.[k] ?? '')]));
+    return { ...b, tipoConta: b.tipoConta || TIPOS_CONTA[0] };
+  }
+  function cnpjValido(cnpj) {
+    const d = String(cnpj || '').replace(/\D/g, '');
+    if (d.length !== 14 || /^(\d)\1{13}$/.test(d)) return false;
+    return [12, 13].every((n) => {
+      const soma = [...d.slice(0, n)].reduce((s, x, i) => s + Number(x) * (((n - 1 - i) % 8) + 2), 0);
+      return (soma % 11 < 2 ? 0 : 11 - (soma % 11)) === Number(d[n]);
+    });
+  }
+  /** Telefone do Pix sem o +55: DDD + número. */
+  const foneLocal = (v) => { const d = String(v).replace(/\D/g, ''); return d.length > 11 && d.startsWith('55') ? d.slice(2) : d; };
+  /** Confere só o formato: se a chave existe e de quem é, só o banco sabe. */
+  function pixValido(tipo, chave) {
+    const v = String(chave || '').trim();
+    if (tipo === 'cnpj') return cnpjValido(v);
+    if (tipo === 'cpf') return cpfValido(v);
+    if (tipo === 'email') return v.length <= 77 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    if (tipo === 'telefone') return /^[\d\s()+.-]+$/.test(v) && /^[1-9]{2}(9\d{8}|[2-5]\d{7})$/.test(foneLocal(v));
+    if (tipo === 'aleatoria') return /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(v);
+    return false;
+  }
+  /** Texto do Pix no documento. Vazio quando não informado. */
+  function pixTexto({ pixTipo: tipo, pix }) {
+    const v = String(pix || '').trim();
+    if (!tipo || !v) return '';
+    const d = v.replace(/\D/g, '');
+    let chave = v;
+    if (pixValido(tipo, v)) {
+      if (tipo === 'cnpj') chave = d.replace(/^(..)(...)(...)(....)(..)$/, '$1.$2.$3/$4-$5');
+      if (tipo === 'cpf') chave = d.replace(/^(...)(...)(...)(..)$/, '$1.$2.$3-$4');
+      if (tipo === 'telefone') chave = foneLocal(v).replace(/^(..)(\d+)(\d{4})$/, '($1) $2-$3');
+    }
+    return `${chave} (${Object.fromEntries(TIPOS_PIX)[tipo] || 'chave'})`;
+  }
+  function pendenciaPix({ pixTipo: tipo, pix }, e) {
+    if (!tipo) return '';
+    if (!String(pix || '').trim()) return 'Chave Pix';
+    if (!pixValido(tipo, pix)) return 'Chave Pix inválida para o tipo escolhido';
+    const so = (v) => String(v || '').replace(/\D/g, '');
+    if (tipo === 'cnpj' && so(e.cnpj) && so(pix) !== so(e.cnpj)) return 'Chave Pix com CNPJ diferente do da empresa';
+    return '';
+  }
+
   // --- Conferência antes de salvar ou baixar -------------------------------------------
   function cpfValido(cpf) {
     const d = String(cpf || '').replace(/\D/g, '');
@@ -106,6 +158,7 @@ window.LH = window.LH || {};
     const envio = tem(l.limite) && `${l.limite}T${l.horaLimite || '00:00'}`;
     const sessao = tem(l.abertura) && `${l.abertura}T${l.hora || '23:59'}`;
     const itens = p.itens || [];
+    const pix = pendenciaPix(banco, e);
     const nums = (f) => itens.map((it, i) => (f(it) ? it.numero || i + 1 : null)).filter((x) => x !== null);
     const deItens = (f, texto) => { const n = nums(f); return n.length > 0 && { campo: `${texto}: ${n.length === 1 ? 'item' : 'itens'} ${n.slice(0, 10).join(', ')}${n.length > 10 ? '…' : ''}`, onde: 'itens' }; };
     const numeros = itens.map((it) => String(it.numero ?? ''));
@@ -123,6 +176,7 @@ window.LH = window.LH || {};
       !tem(fim.cpf) ? { campo: 'CPF do representante', onde: 'proposta' }
         : !cpfValido(fim.cpf) && { campo: 'CPF do representante inválido', onde: 'proposta' },
       !(tem(banco.banco) && tem(banco.agencia) && tem(banco.conta)) && { campo: 'Dados bancários (banco, agência e conta)', onde: naProposta ? 'proposta' : 'empresa' },
+      pix && { campo: pix, onde: naProposta ? 'proposta' : 'empresa' },
       deItens((it) => !tem(it.descricao), 'Sem descrição'),
       deItens((it) => !(it.quantidade > 0), 'Sem quantidade'),
       deItens((it) => !(it.unitario > 0), 'Sem valor unitário'),
@@ -132,5 +186,5 @@ window.LH = window.LH || {};
   /** Validade em dias: inteiro de 1 a 365 (limite do banco). */
   const validadeOk = (v) => /^\d{1,3}$/.test(String(v).trim()) && Number(v) >= 1 && Number(v) <= 365;
 
-  LH.propostasRegras = { pendencias, cpfValido, validadeOk, LEGAIS, textoLegal, declaracoesPadrao, declaracoesDe, snapshotEmpresa, empresaDe, duplicar, totalLinha, totalProposta, proximoNumero };
+  LH.propostasRegras = { CAMPOS_BANCO, TIPOS_CONTA, TIPOS_PIX, bancoDe, pixValido, pixTexto, pendencias, cpfValido, validadeOk, LEGAIS, textoLegal, declaracoesPadrao, declaracoesDe, snapshotEmpresa, empresaDe, duplicar, totalLinha, totalProposta, proximoNumero };
 }());

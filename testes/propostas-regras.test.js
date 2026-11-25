@@ -111,6 +111,30 @@ test('conferência: proposta completa não tem pendências', () => {
   assert.equal(campos({}, { banco: { banco: 'b', agencia: '', conta: '2' } }).length, 1);
 });
 
+test('banco: tipo de conta e Pix; proposta antiga continua como conta corrente, sem Pix', () => {
+  const e = { banco: 'B', agencia: '1', conta: '2', tipoConta: 'Conta poupança', pixTipo: 'cnpj', pix: '11222333000181' };
+  assert.equal(r.bancoDe({}, e).tipoConta, 'Conta poupança');
+  const antiga = r.bancoDe({ extras: { banco: { origem: 'proposta', banco: 'X', agencia: '3', conta: '4' } } }, e);
+  igual(antiga, { banco: 'X', agencia: '3', conta: '4', tipoConta: 'Conta corrente', pixTipo: '', pix: '' });
+  assert.equal(r.pixTexto(antiga), '');
+  igual([r.snapshotEmpresa(e).tipoConta, r.snapshotEmpresa(e).pix], ['Conta poupança', '11222333000181']);
+  assert.equal(r.pixTexto(e), '11.222.333/0001-81 (CNPJ)');
+  assert.equal(r.pixTexto({ pixTipo: 'telefone', pix: '+55 19 98888-7777' }), '(19) 98888-7777 (Telefone)');
+  assert.equal(r.pixTexto({ pixTipo: 'cpf', pix: '52998224725' }), '529.982.247-25 (CPF)');
+});
+
+test('Pix: formato por tipo e pendências', () => {
+  const uuid = '123e4567-e89b-12d3-a456-426614174000';
+  for (const [t, v] of [['cnpj', '11.222.333/0001-81'], ['cpf', '529.982.247-25'], ['email', 'a@exemplo.invalid'], ['telefone', '(19) 98888-7777'], ['aleatoria', uuid]]) assert.ok(r.pixValido(t, v), t);
+  for (const [t, v] of [['cnpj', '11222333000180'], ['cpf', '52998224724'], ['email', 'a@b'], ['telefone', '123'], ['telefone', 'x19988887777'], ['aleatoria', 'abc'], ['', uuid], ['cpf', '']]) assert.ok(!r.pixValido(t, v), t + v);
+  const campos = (pix, cnpj = '11.222.333/0001-81') => r.pendencias({ itens: [] }, { empresa: { cnpj }, banco: pix, fim: {} }).map((x) => x.campo).filter((c) => c.includes('Pix'));
+  igual(campos({}), []);
+  igual(campos({ pixTipo: 'cnpj', pix: '11222333000181' }), []);
+  igual(campos({ pixTipo: 'cnpj', pix: '' }), ['Chave Pix']);
+  igual(campos({ pixTipo: 'cpf', pix: '1' }), ['Chave Pix inválida para o tipo escolhido']);
+  igual(campos({ pixTipo: 'cnpj', pix: '11222333000181' }, '11444777000161'), ['Chave Pix com CNPJ diferente do da empresa']);
+});
+
 test('CPF e validade', () => {
   assert.ok(r.cpfValido('52998224725'));
   for (const c of ['', '123', '529.982.247-24', '00000000000']) assert.ok(!r.cpfValido(c), c);

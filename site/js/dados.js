@@ -204,7 +204,7 @@ window.LH = window.LH || {};
       razao: 'MINHA EMPRESA LTDA', fantasia: 'Minha Empresa', cnpj: '', ie: '', im: '',
       regime: 'Simples Nacional', porte: 'ME', endereco: '', cidade: '', uf: 'SP', cep: '',
       email: '', telefone: '', representante: '', cpfRepresentante: '', cargo: 'Sócio-administrador',
-      banco: '', agencia: '', conta: '',
+      banco: '', agencia: '', conta: '', tipoConta: '', pixTipo: '', pix: '',
     },
     empresas: [
       { id: 'm1', razao: 'MINHA EMPRESA LTDA', cnpj: '', porte: 'ME', uf: 'SP', cidade: 'Campinas' },

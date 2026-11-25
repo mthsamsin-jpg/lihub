@@ -89,7 +89,13 @@ LH.vistas = LH.vistas || {};
             ${campo('banco', 'Banco', e.banco)}
             ${campo('agencia', 'Agência', e.agencia)}
             ${campo('conta', 'Conta', e.conta)}
+            <label class="campo"><span class="campo__rotulo">Tipo de conta</span><select name="tipoConta">${LH.opcoes(LH.propostasRegras.TIPOS_CONTA, e.tipoConta || LH.propostasRegras.TIPOS_CONTA[0])}</select></label>
           </div>
+          <div class="form__linha">
+            <label class="campo"><span class="campo__rotulo">Pix (opcional): tipo da chave</span><select name="pixTipo">${LH.opcoes(LH.propostasRegras.TIPOS_PIX, e.pixTipo || '')}</select></label>
+            ${campo('pix', 'Chave Pix', e.pix, 'maxlength="77"')}
+          </div>
+          <p class="fraco">A chave Pix sai nos dados bancários das propostas. Use a da conta da própria empresa.</p>
           <div class="card__rodape"><button class="btn btn--primario" type="submit">${icone('check')} Salvar dados da empresa</button></div>
         </section>
       </form>`;
@@ -98,6 +104,9 @@ LH.vistas = LH.vistas || {};
       const form = raiz.querySelector('#form-sua-empresa');
       const erro = raiz.querySelector('#erro-cnpj-emp');
       const atual = LH.repo.empresaPerfil();
+      const ajustarPix = () => { form.pix.readOnly = !form.pixTipo.value; if (!form.pixTipo.value) form.pix.value = ''; };
+      form.pixTipo.addEventListener('change', ajustarPix);
+      ajustarPix();
       raiz.querySelector('#empresa-atual')?.addEventListener('change', (e) => { LH.repo.escolherEmpresa(e.target.value); LH.ir('empresa'); });
       // Logo: reduz no navegador (máx. 480x160) para caber no cadastro sem pesar.
       const previaLogo = raiz.querySelector('[data-logo-previa]');
@@ -134,6 +143,10 @@ LH.vistas = LH.vistas || {};
           erro.hidden = false;
           form.cnpj.classList.add('invalido');
           return form.cnpj.focus();
+        }
+        if (form.pixTipo.value && !LH.propostasRegras.pixValido(form.pixTipo.value, form.pix.value)) {
+          LH.aviso('A chave Pix não confere com o tipo escolhido. Corrija ou escolha "Não informar".', 'alerta');
+          return form.pix.focus();
         }
         const dados = Object.fromEntries(new FormData(form));
         const botao = form.querySelector('[type=submit]');

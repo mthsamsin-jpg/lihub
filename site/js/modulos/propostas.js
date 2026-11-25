@@ -62,9 +62,7 @@ LH.vistas = LH.vistas || {};
     .replaceAll('{pagamento}', p.pagamento ? ` (${p.pagamento})` : '');
 
   /** Dados bancários da proposta: os do cadastro ou os informados só nesta proposta. */
-  const bancoDe = (p, e) => (p.extras?.banco?.origem === 'proposta'
-    ? { banco: p.extras.banco.banco || '', agencia: p.extras.banco.agencia || '', conta: p.extras.banco.conta || '' }
-    : { banco: e.banco || '', agencia: e.agencia || '', conta: e.conta || '' });
+  const { bancoDe, CAMPOS_BANCO } = regras;
   /** Fechamento: cidade, data e responsável (a proposta pode ajustar o que vem do cadastro). */
   const fechamentoDe = (p, e) => {
     const f = p.extras?.fechamento || {};
@@ -176,7 +174,7 @@ LH.vistas = LH.vistas || {};
         ${decl.length ? `<h3>Declarações</h3>
         <ol class="folha__declaracoes">${decl.map((d) => `<li><strong>${esc(d.titulo)}.</strong> ${linhas(textoDeclaracao(d.texto, p))}</li>`).join('')}</ol>` : ''}
         <h3>Dados bancários</h3>
-        <table class="folha__info">${linhaInfo('Banco', banco.banco || LACUNA)}${linhaInfo('Agência', banco.agencia || LACUNA)}${linhaInfo('Conta corrente', banco.conta || LACUNA)}${linhaInfo('Titular', [e.razao, cnpj && `CNPJ ${cnpj}`].filter(Boolean).join(' · ') || LACUNA)}</table>
+        <table class="folha__info">${linhaInfo('Banco', banco.banco || LACUNA)}${linhaInfo('Agência', banco.agencia || LACUNA)}${linhaInfo(esc(banco.tipoConta), banco.conta || LACUNA)}${linhaInfo('Pix', regras.pixTexto(banco))}${linhaInfo('Titular', [e.razao, cnpj && `CNPJ ${cnpj}`].filter(Boolean).join(' · ') || LACUNA)}</table>
         <p class="folha__local">${esc(fim.cidade || LACUNA)}, ${esc(fmt.dataLonga(fim.data))}.</p>
         <div class="folha__assinatura">${documento ? `<div>${LACUNA}${LACUNA}</div>` : "<span></span>"}
           <div><strong>${esc(fim.representante || LACUNA)}</strong></div>
@@ -342,7 +340,12 @@ LH.vistas = LH.vistas || {};
               <select name="bancoOrigem"><option value="cadastro">Usar os do cadastro da empresa</option><option value="proposta">Informar outros só nesta proposta</option></select></label>
             <label class="campo"><span class="campo__rotulo">Banco</span><input name="banco" maxlength="80"></label>
             <label class="campo"><span class="campo__rotulo">Agência</span><input name="agencia" maxlength="20"></label>
-            <label class="campo"><span class="campo__rotulo">Conta corrente</span><input name="conta" maxlength="30"></label>
+            <label class="campo"><span class="campo__rotulo">Conta</span><input name="conta" maxlength="30"></label>
+          </div>
+          <div class="form__linha">
+            <label class="campo"><span class="campo__rotulo">Tipo de conta</span><select name="tipoConta">${LH.opcoes(regras.TIPOS_CONTA, regras.TIPOS_CONTA[0])}</select></label>
+            <label class="campo"><span class="campo__rotulo">Pix (opcional): tipo da chave</span><select name="pixTipo">${LH.opcoes(regras.TIPOS_PIX, '')}</select></label>
+            <label class="campo"><span class="campo__rotulo">Chave Pix</span><input name="pix" maxlength="77"></label>
           </div>
           <p class="fraco" id="banco-nota"></p>
           <div class="form__linha">
@@ -428,7 +431,7 @@ LH.vistas = LH.vistas || {};
             texto: d.querySelector('textarea').value.trim().slice(0, 2000),
           })),
           banco: origem === 'proposta'
-            ? { origem, banco: form.banco.value.trim(), agencia: form.agencia.value.trim(), conta: form.conta.value.trim() }
+            ? { origem, ...lerBanco() }
             : { origem: 'cadastro' },
           fechamento: {
             cidade: form.fimCidade.value.trim(), data: form.fimData.value || LH.datas.hoje(), representante: form.fimRepresentante.value.trim(),
@@ -500,15 +503,18 @@ LH.vistas = LH.vistas || {};
           </div>`).join('');
       };
       // Banco: com "cadastro", os campos mostram os dados da empresa (só leitura).
+      const lerBanco = () => ({ ...Object.fromEntries(CAMPOS_BANCO.map((k) => [k, form[k].value.trim()])), ...(form.pixTipo.value ? {} : { pix: '' }) });
       let bancoDigitado = null; // volta ao alternar cadastro/proposta
       const mostrarBanco = (salvo = null) => {
         const e = empresaForm();
         const daProposta = form.bancoOrigem.value === 'proposta';
-        for (const k of ['banco', 'agencia', 'conta']) {
-          form[k].readOnly = !daProposta;
-          if (!daProposta) form[k].value = e[k] || '';
-          else if (salvo || bancoDigitado) form[k].value = (salvo || bancoDigitado)[k] || '';
+        const fonte = daProposta ? salvo || bancoDigitado : e;
+        const valores = fonte && bancoDe({}, fonte);
+        for (const k of CAMPOS_BANCO) {
+          if (form[k].tagName === 'SELECT') form[k].disabled = !daProposta; else form[k].readOnly = !daProposta;
+          if (valores) form[k].value = valores[k];
         }
+        form.pix.readOnly = !daProposta || !form.pixTipo.value;
         raiz.querySelector('#banco-nota').innerHTML = daProposta ? 'Estes dados valem só para esta proposta; o cadastro da empresa não muda.'
           : (e.banco ? 'Dados do cadastro da empresa.' : `${icone('info')} A empresa não tem dados bancários. <a href="#/empresa">Cadastre</a> ou escolha "Informar outros".`);
       };
@@ -522,7 +528,7 @@ LH.vistas = LH.vistas || {};
       const mostrarEmpresa = () => {
         const e = empresaForm();
         raiz.querySelector('#empresa-resumo').innerHTML = e.cnpj
-          ? `${esc(LH.cnpj.mascara(e.cnpj))}${e.banco ? ` · banco ${esc(e.banco)} ag. ${esc(e.agencia)} c/c ${esc(e.conta)}` : ' · <a href="#/empresa">cadastre os dados bancários</a>'}`
+          ? `${esc(LH.cnpj.mascara(e.cnpj))}${e.banco ? ` · banco ${esc(e.banco)} ag. ${esc(e.agencia)} ${esc(bancoDe({}, e).tipoConta.toLowerCase())} ${esc(e.conta)}` : ' · <a href="#/empresa">cadastre os dados bancários</a>'}`
           : `${icone('info')} <a href="#/empresa">Complete os dados da empresa</a>: eles entram na proposta.`;
         if (foto && form.empresaId.value === String(foto.id)) {
           const noCadastro = empresas.some((x) => String(x.id) === String(foto.id));
@@ -540,8 +546,11 @@ LH.vistas = LH.vistas || {};
         const meepp = raiz.querySelector('[data-decl="meepp"] input[type=checkbox]');
         if (meepp) meepp.checked = false; // outra empresa: precisa ser marcada de novo
       });
-      for (const k of ['banco', 'agencia', 'conta']) {
-        form[k].addEventListener('input', () => { bancoDigitado = { banco: form.banco.value, agencia: form.agencia.value, conta: form.conta.value }; });
+      for (const k of CAMPOS_BANCO) {
+        form[k].addEventListener('input', () => {
+          if (k === 'pixTipo') { form.pix.readOnly = !form.pixTipo.value; if (!form.pixTipo.value) form.pix.value = ''; }
+          bancoDigitado = lerBanco();
+        });
       }
       form.bancoOrigem.addEventListener('change', () => mostrarBanco());
       mostrarEmpresa();

@@ -13,7 +13,7 @@ window.LH = window.LH || {};
   const COLUNAS = 'id, fonte, numero_controle_pncp, objeto, orgao_razao_social, uf, municipio, modalidade_nome, '
     + 'valor_estimado, data_publicacao, data_encerramento_proposta, sistema_origem, link_sistema_origem, link_pncp, orgao_esfera, '
     + 'unidade_codigo, numero_compra, ano_compra, municipio_ibge, processo';
-  const EXTRAS = ['ie', 'im', 'regime', 'endereco', 'cep', 'representante', 'cpfRepresentante', 'cargo', 'banco', 'agencia', 'conta', 'rgRepresentante', 'logo'];
+  const EXTRAS = ['ie', 'im', 'regime', 'endereco', 'cep', 'representante', 'cpfRepresentante', 'cargo', 'banco', 'agencia', 'conta', 'tipoConta', 'pixTipo', 'pix', 'rgRepresentante', 'logo'];
   const POR_PAGINA = 20;
 
   // Licitações já vistas nesta visita (para abrir os detalhes sem buscar de novo).
