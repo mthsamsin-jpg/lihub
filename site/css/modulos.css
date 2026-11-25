@@ -1320,6 +1320,8 @@ li.item--termo { box-shadow: inset 3px 0 0 #facc15; border-radius: 8px; }
   .folha--proposta table.folha__itens { min-width: 0 !important; font-size: 8pt; }
   .folha--proposta table.folha__itens th { font-size: 7.5pt; }
   .folha--proposta .folha__info td, .folha--proposta .folha__info th { padding: 4px 8px; }
+  /* Banco, data, assinatura e rodapé ficam juntos: a assinatura nunca vai sozinha. */
+  .folha__fecho { break-inside: avoid; page-break-inside: avoid; }
   .folha__local { break-after: avoid; page-break-after: avoid; }
   .folha h3, .folha__assinatura, .folha__declaracoes li { break-inside: avoid; page-break-inside: avoid; }
   .folha h3 { break-after: avoid; page-break-after: avoid; }

@@ -173,6 +173,7 @@ LH.vistas = LH.vistas || {};
         ${p.observacoes ? `<p>${linhas(p.observacoes)}</p>` : ''}
         ${decl.length ? `<h3>Declarações</h3>
         <ol class="folha__declaracoes">${decl.map((d) => `<li><strong>${esc(d.titulo)}.</strong> ${linhas(textoDeclaracao(d.texto, p))}</li>`).join('')}</ol>` : ''}
+        <div class="folha__fecho">
         <h3>Dados bancários</h3>
         <table class="folha__info">${linhaInfo('Banco', banco.banco || LACUNA)}${linhaInfo('Agência', banco.agencia || LACUNA)}${linhaInfo(esc(banco.tipoConta), banco.conta || LACUNA)}${linhaInfo('Pix', regras.pixTexto(banco))}${linhaInfo('Titular', [e.razao, cnpj && `CNPJ ${cnpj}`].filter(Boolean).join(' · ') || LACUNA)}</table>
         <p class="folha__local">${esc(fim.cidade || LACUNA)}, ${esc(fmt.dataLonga(fim.data))}.</p>
@@ -185,6 +186,7 @@ LH.vistas = LH.vistas || {};
           ${[[e.razao, cnpj && `CNPJ ${cnpj}`], [e.endereco, e.cidade && `${e.cidade}/${e.uf}`, e.telefone, e.email]]
             .map((l) => l.filter(Boolean).join(' · ')).filter(Boolean).map((t) => `<div>${esc(t)}</div>`).join('')}
           <div class="folha__rodape-sistema">Proposta ${esc(p.numero || '(sem número)')} · gerada no Uso LicitaHub em ${esc(fmt.data(p.criada || LH.datas.hoje()))}. Confira com o edital antes de enviar.</div>
+        </div>
         </div>
       </div>`;
   }
@@ -223,7 +225,24 @@ LH.vistas = LH.vistas || {};
       p.MsoFooter{text-align:center;font-size:8pt;color:#444;margin:0}table.so-rodape{margin:0 0 0 900pt;width:1pt;height:1pt;overflow:hidden}`;
     const campo = (nome) => `<!--[if supportFields]><span style='mso-element:field-begin'></span> ${nome} <span style='mso-element:field-end'></span><![endif]-->`;
     const rodape = `<table class="so-rodape" border="0" cellspacing="0" cellpadding="0"><tr><td style="border:none"><div style="mso-element:footer" id="f1"><p class="MsoFooter">${esc(rodapePagina(p))} · Página&nbsp;${campo('PAGE')}&nbsp;de&nbsp;${campo('NUMPAGES')}</p></div></td></tr></table>`;
-    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${esc(p.numero)}</title><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]--><style>${estilos}</style></head><body><div class="S1">${folhaProposta({ ...p, logoPt }, { documento: true }).replaceAll('</table>', '</table><p class="vao">&nbsp;</p>').replace('<div class="folha__rodape">', '<p class="vao">&nbsp;</p><p class="vao">&nbsp;</p>$&')}${rodape}</div></body></html>`;
+    // O Word só mantém o fechamento na mesma página com "manter com o próximo" em cada parágrafo.
+    const junto = 'page-break-after:avoid';
+    const manterJunto = (t) => t
+      .replace(/<(t[hd])([^>]*)>([\s\S]*?)<\/\1>/g, (_, x, attr, miolo) => `<${x}${attr}><p style="margin:0;${junto}">${miolo}</p></${x}>`)
+      .replace(/<(p|div|h3)((?: class="(?!folha__rodape-sistema)[^"]*")?)>/g, `<$1$2 style="${junto}">`);
+    // Itens com largura fixa em pt: palavra sem espaço quebra dentro da coluna em vez de alargá-la.
+    const larguras = p.itens.some((it) => it.marca) ? [30, 164, 66, 34, 45, 80, 100] : [30, 230, 34, 45, 80, 100];
+    const fixarItens = (t) => t.replace(/<colgroup>[\s\S]*?<\/colgroup>/, '')
+      .replace(/(<table class="[^"]*")>/, `$1 width="692" style="width:519pt;table-layout:fixed;mso-table-layout-alt:fixed">`)
+      .replace(/<tr[^>]*>[\s\S]*?<\/tr>/g, (tr) => {
+        if (tr.includes('colspan')) return tr;
+        let n = 0;
+        return tr.replace(/<(t[hd])\b([^>]*)>/g, (_, x, attr) => {
+          const l = larguras[n++];
+          return `<${x}${attr.replace(/ width="[^"]*"/, '')} width="${Math.round(l * 4 / 3)}" style="width:${l}pt">`;
+        });
+      });
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${esc(p.numero)}</title><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]--><style>${estilos}</style></head><body><div class="S1">${folhaProposta({ ...p, logoPt }, { documento: true }).replace(/<table class="folha__itens[\s\S]*?<\/table>/, fixarItens).replaceAll('</table>', '</table><p class="vao">&nbsp;</p>').replace('<div class="folha__rodape">', '<p class="vao">&nbsp;</p><p class="vao">&nbsp;</p>$&').replace(/<div class="folha__fecho">[\s\S]*/, manterJunto)}${rodape}</div></body></html>`;
     const url = URL.createObjectURL(new Blob(['﻿', html], { type: 'application/msword' }));
     const a = Object.assign(document.createElement('a'), { href: url, download: `Proposta-${String(p.numero).replace(/[^\w-]+/g, '_')}.doc` });
     document.body.append(a);
