@@ -104,6 +104,22 @@ LH.vistas = LH.vistas || {};
       const form = raiz.querySelector('#form-sua-empresa');
       const erro = raiz.querySelector('#erro-cnpj-emp');
       const atual = LH.repo.empresaPerfil();
+      // Cadastro mudou em outra aba ou aparelho: recarrega a tela, se nada foi digitado aqui.
+      let mexeu = false;
+      form.addEventListener('input', () => { mexeu = true; });
+      const conferirCadastro = async () => {
+        try {
+          if (!(await LH.repo.atualizarEmpresas()) || !form.isConnected) return;
+          if (!mexeu) return LH.ir('empresa');
+          LH.aviso('O cadastro foi alterado em outro lugar. Copie o que digitou e recarregue a página antes de salvar.', 'alerta', 9000);
+        } catch { /* sem conexão: fica com o que já carregou */ }
+      };
+      const aoVoltar = () => {
+        if (!form.isConnected) return document.removeEventListener('visibilitychange', aoVoltar);
+        if (document.visibilityState === 'visible') conferirCadastro();
+      };
+      document.addEventListener('visibilitychange', aoVoltar);
+      conferirCadastro();
       const ajustarPix = () => { form.pix.readOnly = !form.pixTipo.value; if (!form.pixTipo.value) form.pix.value = ''; };
       form.pixTipo.addEventListener('change', ajustarPix);
       ajustarPix();
@@ -113,6 +129,7 @@ LH.vistas = LH.vistas || {};
       const botaoRemover = raiz.querySelector('[data-logo-remover]');
       const usarLogo = (url) => {
         form.logo.value = url || '';
+        mexeu = true;
         previaLogo.innerHTML = url ? `<img src="${esc(url)}" alt="Logo da empresa">` : '<span class="fraco">Sem logo</span>';
         botaoRemover.hidden = !url;
       };
@@ -154,6 +171,7 @@ LH.vistas = LH.vistas || {};
         try {
           await LH.repo.salvarEmpresa(real ? { ...dados, id: atual.id } : { ...dados, cnpj: LH.cnpj.limpar(dados.cnpj), razao: dados.razao.trim().toUpperCase(), perfil: true });
           LH.atualizarUsuario?.();
+          mexeu = false;
           LH.aviso('Dados da empresa salvos.', 'sucesso');
           if (real && !atual.id) LH.ir('empresa');
         } catch (erro2) {

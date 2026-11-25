@@ -66,6 +66,19 @@ window.LH = window.LH || {};
     return (p.empresaId && empresas.find((e) => String(e.id) === String(p.empresaId))) || { ...VAZIA };
   }
 
+  // --- Fechamento (assinatura): o que vem do cadastro e o que foi ajustado na proposta ---
+  const fechamentoPadrao = (e) => ({
+    cidade: e?.cidade ? `${e.cidade}${e.uf ? `/${e.uf}` : ''}` : '', representante: e?.representante || '',
+    rg: e?.rgRepresentante || '', cpf: e?.cpfRepresentante || '', cargo: e?.cargo || '',
+  });
+  /** O cadastro mudou: troca só o que ainda estava igual ao cadastro antigo (o ajustado à mão fica). */
+  function atualizarFechamento(atual, antes, depois) {
+    const a = fechamentoPadrao(antes);
+    const d = fechamentoPadrao(depois);
+    const igual = (x, y) => String(x ?? '').trim() === String(y ?? '').trim();
+    return { ...atual, ...Object.fromEntries(Object.keys(a).map((k) => [k, igual(atual?.[k], a[k]) ? d[k] : atual?.[k] ?? ''])) };
+  }
+
   /** Cópia da proposta: sem id, assinatura de hoje, empresa atualizada e ME/EPP desmarcada. */
   function duplicar(p, { numero, hoje, empresas = [] }) {
     const extras = JSON.parse(JSON.stringify(p.extras || {}));
@@ -73,7 +86,10 @@ window.LH = window.LH || {};
     extras.declaracoes = declaracoesDe(p).map((d) => (d.id === 'meepp' ? { ...d, ativo: false } : d));
     const id = p.empresaId || extras.empresa?.id;
     const atual = id && empresas.find((e) => String(e.id) === String(id));
-    if (atual) extras.empresa = snapshotEmpresa(atual);
+    if (atual) {
+      if (extras.empresa) extras.fechamento = atualizarFechamento(extras.fechamento, extras.empresa, atual);
+      extras.empresa = snapshotEmpresa(atual);
+    }
     return { ...p, id: undefined, criada: undefined, numero, status: 'Rascunho', extras };
   }
 
@@ -81,6 +97,24 @@ window.LH = window.LH || {};
   const centavosLinha = (it) => Math.round(Number(((Number(it.quantidade) || 0) * (Number(it.unitario) || 0) * 100).toPrecision(15)));
   const totalLinha = (it) => centavosLinha(it) / 100;
   const totalProposta = (itens = []) => itens.reduce((s, it) => s + centavosLinha(it), 0) / 100;
+
+  /** Número digitado: "1.000" é mil, "1.234,56" e "1234.56" também valem. Inválido vira 0. */
+  function lerNumero(v) {
+    const t = String(v ?? '').replace(/R\$|\s/g, '');
+    if (/^\d{1,3}(\.\d{3})+(,\d*)?$/.test(t)) return Number(t.replace(/\./g, '').replace(',', '.')) || 0;
+    return /^\d+([.,]\d*)?$|^[.,]\d+$/.test(t) ? Number(t.replace(',', '.')) || 0 : 0;
+  }
+  /** Número -> texto do campo, com vírgula (volta igual por lerNumero). */
+  const numeroTexto = (n) => (n === '' || n == null || !Number.isFinite(Number(n)) ? ''
+    : Number(n).toLocaleString('pt-BR', { useGrouping: false, maximumFractionDigits: 12 }));
+
+  /** Item do PNCP -> item da proposta. O estimado não vira preço e quantidade ausente fica em branco. */
+  const itemDoEdital = (it, k) => ({
+    numero: it.numero ?? k + 1, descricao: it.descricao || '', unidade: String(it.unidade || 'UN').toUpperCase().slice(0, 12),
+    quantidade: Number(it.quantidade) > 0 ? Number(it.quantidade) : '', unitario: 0, marca: '',
+  });
+  /** Item que o órgão tirou da disputa. */
+  const itemEncerrado = (it) => /anulad|revogad|cancelad|desert|fracassad/i.test(it?.situacao || '');
 
   /** Próximo número da sequência (demonstração). No modo real, quem numera é o banco. */
   function proximoNumero(numeros, ano, ultimo = 0) {
@@ -187,5 +221,5 @@ window.LH = window.LH || {};
   /** Validade em dias: inteiro de 1 a 365 (limite do banco). */
   const validadeOk = (v) => /^\d{1,3}$/.test(String(v).trim()) && Number(v) >= 1 && Number(v) <= 365;
 
-  LH.propostasRegras = { CAMPOS_BANCO, TIPOS_CONTA, TIPOS_PIX, bancoDe, pixValido, pixTexto, pendencias, cpfValido, validadeOk, LEGAIS, textoLegal, declaracoesPadrao, declaracoesDe, snapshotEmpresa, empresaDe, duplicar, totalLinha, totalProposta, proximoNumero };
+  LH.propostasRegras = { fechamentoPadrao, atualizarFechamento, lerNumero, numeroTexto, itemDoEdital, itemEncerrado, CAMPOS_BANCO, TIPOS_CONTA, TIPOS_PIX, bancoDe, pixValido, pixTexto, pendencias, cpfValido, validadeOk, LEGAIS, textoLegal, declaracoesPadrao, declaracoesDe, snapshotEmpresa, empresaDe, duplicar, totalLinha, totalProposta, proximoNumero };
 }());

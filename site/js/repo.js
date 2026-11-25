@@ -20,6 +20,10 @@ window.LH = window.LH || {};
   const cache = new Map();
   LH.licitacaoEmCache = (id) => cache.get(Number(id)) ?? LH.dados.licitacao(id);
 
+  const emBrasilia = (d) => {
+    const [data, hora] = d.toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).split(' ');
+    return { data, hora: hora.slice(0, 5) };
+  };
   /** Linha do banco -> formato usado pelas telas. */
   function normalizar(r) {
     const prazo = r.data_encerramento_proposta ? new Date(r.data_encerramento_proposta) : null;
@@ -35,6 +39,8 @@ window.LH = window.LH || {};
       valor: Number(r.valor_estimado) > 0 ? Number(r.valor_estimado) : null,
       abertura: prazo ? LH.datas.paraIso(prazo) : null,
       hora: prazo ? `${dois(prazo.getHours())}:${dois(prazo.getMinutes())}` : '',
+      // Documento: sempre no horário de Brasília, qualquer que seja o fuso do computador.
+      brasilia: prazo ? emBrasilia(prazo) : null,
       plataforma: r.sistema_origem || 'Não informada',
       publicada: r.data_publicacao ? LH.datas.paraIso(new Date(r.data_publicacao)) : null,
       fonte: ({ pncp: 'PNCP', manual: 'Manual' })[r.fonte] || String(r.fonte || 'PNCP').replaceAll('_', ' ').replace(/^./, (x) => x.toUpperCase()),
@@ -417,6 +423,16 @@ window.LH = window.LH || {};
 
     // --- Empresas ------------------------------------------------------------
     empresas: () => ctx().empresas.map(empresaParaTela),
+    /** Relê o cadastro (outra aba, aparelho ou colega pode ter mudado). True se mudou. */
+    async atualizarEmpresas() {
+      const c = ctx();
+      const { data, error } = await db().from('empresas').select('*').eq('organizacao_id', c.organizacao.id).eq('ativo', true).order('criado_em');
+      if (error) throw erroBanco(error, 'Não consegui atualizar os dados das empresas');
+      if (JSON.stringify(data) === JSON.stringify(c.empresas)) return false;
+      c.empresas = data;
+      if (!data.some((e) => e.id === c.empresaAtual)) c.empresaAtual = data[0]?.id ?? null;
+      return true;
+    },
     empresaAtualId: () => ctx().empresaAtual,
     escolherEmpresa: (id) => LH.nuvem.escolherEmpresa(id),
     limiteEmpresas: () => ctx().organizacao.limite_empresas,
@@ -626,9 +642,10 @@ window.LH = window.LH || {};
         observacoes: p.observacoes || null, itens: p.itens || [], total: Number(p.total) || 0, empresa_id: ctx().empresas.some((e) => String(e.id) === String(p.empresaId)) ? p.empresaId : null,
         extras: p.extras || {},
       };
-      const gravar = (l) => (p.id
+      // A situação muda só em "Minhas propostas": salvar o conteúdo não a desfaz.
+      const gravar = ({ status, ...l }) => (p.id
         ? db().from('propostas').update(l).eq('id', p.id).select('id').single()
-        : db().from('propostas').insert({ ...l, organizacao_id: ctx().organizacao.id }).select('id').single());
+        : db().from('propostas').insert({ ...l, status, organizacao_id: ctx().organizacao.id }).select('id').single());
       let r = await gravar(linha);
       // Banco sem a coluna extras (atualizar-proposta-completa.sql não rodou): salva o resto.
       if (r.error?.code === '42703' || r.error?.code === 'PGRST204') {
@@ -902,6 +919,7 @@ window.LH = window.LH || {};
       LH.estado.salvar('crm', crm);
     },
 
+    async atualizarEmpresas() { return false; },
     empresas: () => LH.estado.obter('empresas').map((m) => ({ ...EMPRESA_VAZIA, ...m })),
     empresaAtualId: () => LH.estado.obter('empresas')[0]?.id ?? null,
     escolherEmpresa: () => {},

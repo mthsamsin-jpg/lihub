@@ -22,6 +22,14 @@ test('licitação com valor estimado 0 (PNCP sem valor/sigiloso) vira "sem valor
   assert.equal(normalizar({ ...base, id: 3, valor_estimado: '1500.50' }).valor, 1500.5);
 });
 
+test('horário do documento é o de Brasília', () => {
+  const { normalizar } = carregar();
+  const l = normalizar({ id: 9, objeto: 'X', data_encerramento_proposta: '2026-12-01T02:30:00Z' });
+  assert.equal(l.brasilia.data, '2026-11-30');
+  assert.equal(l.brasilia.hora, '23:30');
+  assert.equal(normalizar({ id: 10, objeto: 'X' }).brasilia, null);
+});
+
 test('erroBanco: regra do robô vira mensagem útil e o detalhe vai para o console', () => {
   const { erroBanco, erros } = carregar();
   const e = erroBanco({ code: '23514', message: 'new row for relation "robo_itens" violates check constraint "robo_itens_max_price_check"', details: 'Failing row...' }, 'Não consegui salvar o item');

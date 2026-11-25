@@ -12,6 +12,7 @@ LH.vistas = LH.vistas || {};
   const { declaracoesPadrao, declaracoesDe, totalLinha, totalProposta } = regras;
   // Preço unitário pode ter mais de 2 casas (até 6): mostra o que foi digitado.
   const fmtUnitario = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 6 });
+  const fmtQtd = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 6 });
   const quebravel = (v) => v.replace(/\u00a0/g, ' '); // permite quebrar só depois do "R$"
   const NUMERO_PENDENTE = 'Número gerado ao salvar ou baixar';
   const STATUS = ['Rascunho', 'Enviada', 'Em análise', 'Aceita', 'Recusada'];
@@ -33,20 +34,20 @@ LH.vistas = LH.vistas || {};
   const cabecalhoDe = (l) => (l ? {
     orgao: l.orgao || '', uf: l.uf && l.uf !== '—' ? l.uf : '', municipio: l.municipio || '', modalidade: l.modalidade || '',
     numero: l.edital || numeroCurto(l.numero) || '', processo: l.processo || '', objeto: l.objeto || '',
-    publicacao: l.publicada || '', abertura: l.abertura || '', hora: l.hora || '',
+    publicacao: l.publicada || '', abertura: l.brasilia?.data || l.abertura || '', hora: l.brasilia?.hora || l.hora || '',
     // O PNCP informa o fim do recebimento das propostas, que costuma ser a abertura da sessão.
-    limite: l.abertura || '', horaLimite: l.hora || '', idPncp: l.numeroControle || l.numero || '',
+    limite: l.brasilia?.data || l.abertura || '', horaLimite: l.brasilia?.hora || l.hora || '', idPncp: l.numeroControle || l.numero || '',
   } : null);
 
   /** Empresa da proposta: a cópia salva nela ou a escolhida no cadastro (nunca outra). */
   const empresaDe = (p) => regras.empresaDe(p, LH.repo.empresas?.() || []);
 
   function linhaItem(item = {}, i = 0) {
-    const unit = item.unitario ? String(item.unitario).replace('.', ',') : '';
+    const unit = item.unitario ? numeroTexto(item.unitario) : '';
     return `
       <tr>
         <td class="col-item"><input name="item" inputmode="numeric" value="${esc(item.numero ?? i + 1)}" aria-label="Número do item"></td>
-        <td class="col-qtd"><input name="quantidade" inputmode="decimal" value="${esc(item.quantidade ?? 1)}" aria-label="Quantidade"></td>
+        <td class="col-qtd"><input name="quantidade" inputmode="decimal" value="${esc(numeroTexto(item.quantidade ?? 1))}" aria-label="Quantidade"></td>
         <td class="col-un"><input name="unidade" list="unidades-proposta" value="${esc(item.unidade || 'UN')}" aria-label="Unidade"></td>
         <td class="col-desc"><textarea name="descricao" rows="2" placeholder="Descrição / especificação conforme o edital" required aria-label="Descrição">${esc(item.descricao || '')}</textarea>
           <button type="button" class="link-botao item-preco" data-preco title="Preços homologados de itens parecidos no PNCP">${icone('moeda')} Preço de referência</button></td>
@@ -62,16 +63,13 @@ LH.vistas = LH.vistas || {};
     .replaceAll('{pagamento}', p.pagamento ? ` (${p.pagamento})` : '');
 
   /** Dados bancários da proposta: os do cadastro ou os informados só nesta proposta. */
-  const { bancoDe, CAMPOS_BANCO } = regras;
+  const { bancoDe, CAMPOS_BANCO, itemDoEdital, numeroTexto } = regras;
   /** Fechamento: cidade, data e responsável (a proposta pode ajustar o que vem do cadastro). */
   const fechamentoDe = (p, e) => {
     const f = p.extras?.fechamento || {};
     const ou = (a, b) => (String(a ?? '').trim() ? String(a).trim() : (b || ''));
-    return {
-      cidade: ou(f.cidade, e.cidade ? `${e.cidade}${e.uf ? `/${e.uf}` : ''}` : ''), data: ou(f.data, LH.datas.hoje()),
-      representante: ou(f.representante, e.representante), rg: ou(f.rg, e.rgRepresentante),
-      cpf: ou(f.cpf, e.cpfRepresentante), cargo: ou(f.cargo, e.cargo),
-    };
+    const padrao = regras.fechamentoPadrao(e);
+    return { ...Object.fromEntries(Object.keys(padrao).map((k) => [k, ou(f[k], padrao[k])])), data: ou(f.data, LH.datas.hoje()) };
   };
   const dataHora = (d, h) => {
     const hora = h ? `às ${h} (horário de Brasília)` : '';
@@ -162,7 +160,7 @@ LH.vistas = LH.vistas || {};
           <colgroup><col class="c-item"><col class="c-desc">${temMarca ? '<col class="c-marca">' : ''}<col class="c-un"><col class="c-qtd"><col class="c-valor"><col class="c-valor"></colgroup>
           <thead><tr><th width="7%">Item</th><th>Descrição / especificação</th>${temMarca ? '<th width="13%">Marca</th>' : ''}<th width="8%">Un.</th><th class="numero" width="9%">Qtd.</th><th class="numero" width="16%">Valor unitário</th><th class="numero" width="17%">Valor global</th></tr></thead>
           <tbody>${p.itens.map((it, i) => `<tr${String(it.descricao).length > 700 ? ' class="longa" style="page-break-inside:auto"' : ''}><td>${esc(it.numero ?? i + 1)}</td><td class="quebra">${linhas(it.descricao || LACUNA)}</td>${temMarca ? `<td class="quebra">${esc(it.marca || '')}</td>` : ''}<td>${esc(it.unidade)}</td>
-            <td class="numero">${fmt.numero(it.quantidade)}</td><td class="numero">${quebravel(fmtUnitario.format(it.unitario))}</td><td class="numero">${quebravel(fmt.moeda(totalLinha(it)))}</td></tr>`).join('')}</tbody>
+            <td class="numero">${fmtQtd.format(it.quantidade)}</td><td class="numero">${quebravel(fmtUnitario.format(it.unitario))}</td><td class="numero">${quebravel(fmt.moeda(totalLinha(it)))}</td></tr>`).join('')}</tbody>
           <tfoot><tr><th colspan="${temMarca ? 6 : 5}" class="numero">Valor global da proposta</th><th class="numero">${fmt.moeda(total)}</th></tr></tfoot>
         </table>
         <p class="folha__extenso"><strong>Valor global:</strong> ${fmt.moeda(total)} (${esc(LH.porExtenso(total))}).</p>
@@ -259,9 +257,9 @@ LH.vistas = LH.vistas || {};
       html: `<p class="fraco">${fmt.numero(itens.length)} item(ns) publicados no PNCP. Marque os que você vai cotar.</p>
         <label class="itens-termo__so" style="margin:6px 0"><input type="checkbox" data-todos checked> Marcar todos</label>
         <ul class="importar-itens">${itens.map((it, k) => `<li><label>
-          <input type="checkbox" data-k="${k}" checked>
+          <input type="checkbox" data-k="${k}" ${regras.itemEncerrado(it) ? '' : 'checked'}>
           <span><b>Item ${esc(it.numero ?? k + 1)}</b> · ${LH.termos.destacar(it.descricao, grupos)}<br>
-          <small class="fraco">${it.quantidade == null ? '—' : fmt.numero(it.quantidade)} ${esc(it.unidade || '')}${it.valorUnitario ? ` · estimado ${fmt.moeda(it.valorUnitario)}/un.` : ''}</small></span></label></li>`).join('')}</ul>`,
+          <small class="fraco">${it.quantidade == null ? '—' : fmt.numero(it.quantidade)} ${esc(it.unidade || '')}${it.valorUnitario ? ` · estimado ${fmt.moeda(it.valorUnitario)}/un.` : ''}${regras.itemEncerrado(it) ? ` · <b>${esc(it.situacao)}</b>` : ''}</small></span></label></li>`).join('')}</ul>`,
       acoes: [
         { rotulo: 'Cancelar', classe: 'btn--fantasma' },
         {
@@ -280,12 +278,6 @@ LH.vistas = LH.vistas || {};
       fundo.querySelectorAll('[data-k]').forEach((c) => { c.checked = e.target.checked; });
     });
   }
-
-  /** Item do PNCP -> item da proposta (o valor estimado NÃO vira o preço: o preço é do licitante). */
-  const itemDoEdital = (it, k) => ({
-    numero: it.numero ?? k + 1, descricao: it.descricao || '', unidade: String(it.unidade || 'UN').toUpperCase().slice(0, 12),
-    quantidade: Number(it.quantidade) || 1, unitario: 0, marca: '',
-  });
 
   LH.vistas['proposta/criar'] = {
     titulo: 'Gerador de proposta',
@@ -417,6 +409,24 @@ LH.vistas = LH.vistas || {};
       let numero = '';
       let lista = []; // licitações do usuário (favoritas/CRM)
 
+      let pronto = false; // só salva/baixa depois de carregar (senão uma proposta aberta viraria outra)
+      let sujo = false; // alterações ainda não salvas
+      form.addEventListener('input', () => { sujo = true; });
+      const aoSair = (e) => {
+        if (!form.isConnected) return window.removeEventListener('beforeunload', aoSair);
+        if (sujo) e.preventDefault();
+      };
+      window.addEventListener('beforeunload', aoSair);
+      let ocupado = false; // clique duplo não salva nem baixa duas vezes
+      const umaVez = (fn) => async (...a) => {
+        if (ocupado) return;
+        ocupado = true;
+        try { await fn(...a); } finally { ocupado = false; }
+      };
+      const aindaNao = () => {
+        if (!pronto) LH.aviso('A proposta ainda está carregando. Se não abrir, recarregue a página.', 'alerta');
+        return !pronto;
+      };
       let foto = null; // snapshot da empresa salvo na proposta aberta
       /** Empresa do formulário: o snapshot da proposta, enquanto for a mesma empresa. */
       const empresaForm = () => (LH.repo.modo === 'demo' && !form.empresaId.value && !atual ? empresa() : null) || empresaDe({
@@ -436,8 +446,8 @@ LH.vistas = LH.vistas || {};
           descricao: tr.querySelector('[name=descricao]').value.trim(),
           marca: tr.querySelector('[name=marca]').value.trim(),
           unidade: tr.querySelector('[name=unidade]').value.trim() || 'UN',
-          quantidade: fmt.lerNumero(tr.querySelector('[name=quantidade]').value),
-          unitario: fmt.lerNumero(tr.querySelector('[name=unitario]').value),
+          quantidade: regras.lerNumero(tr.querySelector('[name=quantidade]').value),
+          unitario: regras.lerNumero(tr.querySelector('[name=unitario]').value),
         }));
         const total = totalProposta(itens);
         const licitacao = Object.fromEntries(CAMPOS_LIC.map((k) => [k, String(form[k].value || '').trim()]));
@@ -469,8 +479,8 @@ LH.vistas = LH.vistas || {};
       };
       const recalcular = () => {
         [...corpo.rows].forEach((tr) => {
-          const q = fmt.lerNumero(tr.querySelector('[name=quantidade]').value);
-          const u = fmt.lerNumero(tr.querySelector('[name=unitario]').value);
+          const q = regras.lerNumero(tr.querySelector('[name=quantidade]').value);
+          const u = regras.lerNumero(tr.querySelector('[name=unitario]').value);
           tr.querySelector('[data-total]').textContent = q && u ? fmt.moeda(totalLinha({ quantidade: q, unitario: u })) : '—';
         });
         const { total } = ler();
@@ -511,6 +521,7 @@ LH.vistas = LH.vistas || {};
         if (vazia) corpo.innerHTML = '';
         corpo.insertAdjacentHTML('beforeend', itens.map((it, k) => linhaItem(it, corpo.rows.length + k)).join(''));
         recalcular();
+        sujo = true;
         LH.aviso(`${itens.length} item(ns) na proposta. Agora preencha a marca e o seu valor unitário.`, 'sucesso');
       };
       // Declarações: uma linha por declaração, com o texto completo editável.
@@ -556,12 +567,46 @@ LH.vistas = LH.vistas || {};
       };
 
       // Empresas da conta (a ativa vem marcada).
-      const empresas = LH.repo.empresas?.() || [];
-      form.empresaId.innerHTML = empresas.length
-        ? LH.opcoes(empresas.map((e) => [e.id, `${e.razao || 'Empresa sem nome'}${e.cnpj ? ` · ${LH.cnpj.mascara(e.cnpj)}` : ''}`]), LH.repo.empresaAtualId?.() || '')
-        : '<option value="">Nenhuma empresa cadastrada</option>';
+      let empresas = LH.repo.empresas?.() || [];
+      const listarEmpresas = (escolhida) => { form.empresaId.innerHTML = empresas.length
+        ? LH.opcoes(empresas.map((e) => [e.id, `${e.razao || 'Empresa sem nome'}${e.cnpj ? ` · ${LH.cnpj.mascara(e.cnpj)}` : ''}`]), escolhida)
+        : '<option value="">Nenhuma empresa cadastrada</option>'; };
+      listarEmpresas(LH.repo.empresaAtualId?.() || '');
+      /** Troca nos campos da assinatura só o que não foi ajustado à mão. */
+      const renovarFechamento = (antes) => {
+        const f = regras.atualizarFechamento({ cidade: form.fimCidade.value, representante: form.fimRepresentante.value, rg: form.fimRg.value, cpf: form.fimCpf.value, cargo: form.fimCargo.value }, antes, empresaForm());
+        form.fimCidade.value = f.cidade; form.fimRepresentante.value = f.representante; form.fimRg.value = f.rg; form.fimCpf.value = f.cpf; form.fimCargo.value = f.cargo;
+      };
+      /** Relê o cadastro. A proposta salva continua com os dados congelados. */
+      const recarregarEmpresas = async () => {
+        const antes = empresaForm();
+        if (!(await LH.repo.atualizarEmpresas()) || !form.isConnected) return;
+        empresas = LH.repo.empresas();
+        const id = form.empresaId.value;
+        listarEmpresas(id || (atual ? '' : LH.repo.empresaAtualId() || ''));
+        if (id && !empresas.some((e) => String(e.id) === id)) {
+          if (foto && String(foto.id) === id) form.empresaId.add(new Option(`${foto.razao} (dados salvos na proposta)`, id));
+          else form.empresaId.add(new Option('Escolha a empresa', ''), 0);
+          form.empresaId.value = foto && String(foto.id) === id ? id : '';
+        } else if (!id && atual) { form.empresaId.add(new Option('Escolha a empresa', ''), 0); form.empresaId.value = ''; }
+        const depois = empresaForm();
+        const mudou = JSON.stringify(regras.snapshotEmpresa(antes)) !== JSON.stringify(regras.snapshotEmpresa(depois));
+        mostrarEmpresa();
+        if (form.bancoOrigem.value === 'cadastro') mostrarBanco();
+        if (!mudou) return;
+        renovarFechamento(antes);
+        if (raiz.querySelector('#previa').innerHTML) previa();
+        LH.aviso('O cadastro da empresa mudou: os dados desta proposta foram atualizados. Confira.', 'info');
+      };
+      /** Antes de salvar ou baixar: rede lenta ou fora do ar não segura o botão. */
+      const conferirCadastro = () => Promise.race([recarregarEmpresas().catch(() => {}), new Promise((r) => { setTimeout(r, 4000); })]);
+      const aoVoltar = () => {
+        if (!form.isConnected) return document.removeEventListener('visibilitychange', aoVoltar);
+        if (document.visibilityState === 'visible' && pronto) recarregarEmpresas().catch(() => {});
+      };
+      document.addEventListener('visibilitychange', aoVoltar);
       form.empresaId.addEventListener('change', () => {
-        mostrarEmpresa(); mostrarBanco(); preencherFechamento();
+        mostrarEmpresa(); mostrarBanco(); preencherFechamento({ data: form.fimData.value });
         const meepp = raiz.querySelector('[data-decl="meepp"] input[type=checkbox]');
         if (meepp) meepp.checked = false; // outra empresa: precisa ser marcada de novo
       });
@@ -612,6 +657,7 @@ LH.vistas = LH.vistas || {};
       // Carrega a proposta (ao editar) ou o próximo número, e as licitações do usuário.
       (async () => {
         try {
+          await recarregarEmpresas().catch((e) => LH.aviso(e.message, 'alerta')); // sem conexão: segue com o que já tem
           if (p.id) {
             atual = await LH.repo.proposta(p.id);
             if (!atual) { LH.aviso('Proposta não encontrada.', 'alerta'); return LH.ir('proposta/minhas'); }
@@ -639,6 +685,7 @@ LH.vistas = LH.vistas || {};
           } else {
             numero = '';
           }
+          pronto = true;
           raiz.querySelector('#numero-proposta').textContent = numero || NUMERO_PENDENTE;
           recalcular();
           const escolhida = Number(atual?.licitacaoId || p.licitacao) || null;
@@ -663,6 +710,13 @@ LH.vistas = LH.vistas || {};
       });
       form.codigo.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarCodigo(); } });
       corpo.addEventListener('input', recalcular);
+      // Ao sair do campo, mostra como o número foi lido ("1.000" vira "1000").
+      corpo.addEventListener('change', (e) => {
+        if (!['quantidade', 'unitario'].includes(e.target.name)) return;
+        const n = regras.lerNumero(e.target.value);
+        if (n) e.target.value = numeroTexto(n);
+        else if (e.target.value.trim()) LH.aviso('Não entendi esse número. Use, por exemplo, 1.234,56.', 'alerta');
+      });
       // Preço de referência: resultados homologados de itens parecidos (palavras principais da descrição).
       LH.ao(raiz, 'click', '[data-preco]', async (e, b) => {
         const tr = b.closest('tr');
@@ -698,9 +752,18 @@ LH.vistas = LH.vistas || {};
           recalcular();
         }
         if (acao === 'atualizar-empresa') {
-          foto = null;
-          mostrarEmpresa(); mostrarBanco(); preencherFechamento();
-          LH.aviso('Dados da empresa atualizados. Salve a proposta para guardar.', 'sucesso');
+          b.disabled = true;
+          (async () => {
+            try {
+              await recarregarEmpresas();
+              const antes = empresaForm();
+              foto = null;
+              mostrarEmpresa(); mostrarBanco(); renovarFechamento(antes);
+              sujo = true;
+              if (raiz.querySelector('#previa').innerHTML) previa();
+              LH.aviso('Dados da empresa atualizados. Salve a proposta para guardar.', 'sucesso');
+            } catch (erro) { b.disabled = false; LH.aviso(erro.message, 'perigo'); }
+          })();
         }
         if (acao === 'buscar-licitacao') buscarCodigo();
         if (acao === 'decl-padrao') desenharDeclaracoes(declaracoesPadrao());
@@ -715,13 +778,15 @@ LH.vistas = LH.vistas || {};
         form.validade.focus();
         return false;
       };
-      async function gerar(acao) {
-        if (!form.reportValidity()) return;
+      const gerar = umaVez(async (acao) => {
+        if (aindaNao() || !form.reportValidity()) return;
+        await conferirCadastro();
         const proposta = ler();
         if (!validadeValida(proposta)) return;
         if (!proposta.total) return LH.aviso('Preencha a quantidade e o valor unitário dos itens.', 'alerta');
         if (!(await conferirPendencias(proposta, 'Baixar mesmo assim'))) return;
         try { proposta.numero = await garantirNumero(); } catch (erro) { return LH.aviso(erro.message, 'perigo'); }
+        if (!atual || sujo) LH.aviso('O arquivo não fica guardado aqui: clique em "Salvar proposta" para registrar esta versão.', 'info');
         if (acao === 'word') return baixarWord(proposta);
         previa();
         await Promise.all([...raiz.querySelectorAll('#previa img')].map((i) => i.decode().catch(() => {}))); // logo pronto antes de imprimir
@@ -731,9 +796,11 @@ LH.vistas = LH.vistas || {};
         window.print();
         imprimindo = false;
         setTimeout(() => { document.title = titulo; }, 1000);
-      }
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
+      });
+      form.addEventListener('submit', (e) => { e.preventDefault(); salvar(); });
+      const salvar = umaVez(async () => {
+        if (aindaNao()) return;
+        await conferirCadastro();
         const proposta = ler();
         if (!validadeValida(proposta)) return;
         if (!proposta.total) return LH.aviso('Preencha a quantidade e o valor unitário dos itens.', 'alerta');
@@ -742,12 +809,13 @@ LH.vistas = LH.vistas || {};
         botao.disabled = true;
         try {
           proposta.numero = await garantirNumero();
+          sujo = false; // o que for digitado durante o salvamento volta a marcar
           const id = await LH.repo.salvarProposta(proposta);
           atual = { ...proposta, id };
           foto = proposta.extras.empresa.razao ? proposta.extras.empresa : null;
           mostrarEmpresa();
           LH.aviso(`Proposta ${proposta.numero} salva em "Minhas propostas".`, 'sucesso');
-        } catch (erro) { LH.aviso(erro.message, 'perigo'); }
+        } catch (erro) { sujo = true; LH.aviso(erro.message, 'perigo'); }
         botao.disabled = false;
       });
     },
@@ -807,6 +875,7 @@ LH.vistas = LH.vistas || {};
         try {
           const original = await LH.repo.proposta(b.dataset.duplicar);
           if (!original) throw new Error('Proposta não encontrada.');
+          await LH.repo.atualizarEmpresas();
           const copia = regras.duplicar(original, { numero: await LH.repo.proximoNumeroProposta(), hoje: LH.datas.hoje(), empresas: LH.repo.empresas() });
           await LH.repo.salvarProposta({ ...copia, total: totalProposta(copia.itens) });
           LH.aviso('Proposta duplicada.', 'sucesso');

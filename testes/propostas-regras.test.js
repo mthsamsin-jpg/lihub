@@ -135,6 +135,29 @@ test('Pix: formato por tipo e pendências', () => {
   igual(campos({ pixTipo: 'cnpj', pix: '11222333000181' }, '11444777000161'), ['Chave Pix com CNPJ diferente do da empresa']);
 });
 
+test('números digitados: milhar com ponto, vírgula e ida e volta sem perda', () => {
+  for (const [t, n] of [['1.000', 1000], ['1.234.567', 1234567], ['1.234,56', 1234.56], ['1234,5', 1234.5], ['1234.56', 1234.56], ['0,004', 0.004], ['R$ 2.500,00', 2500], ['', 0], ['abc', 0], ['-5', 0], ['1,2,3', 0], ['1.23.4', 0]]) assert.equal(r.lerNumero(t), n, t);
+  for (const n of [1.5, 1.234, 1000, 0.000001, 98765.4321, 12345678.9]) assert.equal(r.lerNumero(r.numeroTexto(n)), n, String(n));
+  igual([r.numeroTexto(''), r.numeroTexto(1.234)], ['', '1,234']);
+});
+
+test('item do edital: não inventa quantidade nem preço e reconhece item fora da disputa', () => {
+  igual(r.itemDoEdital({ numero: 3, descricao: 'x', quantidade: null, unidade: 'caixa', valorUnitario: 9 }, 0), { numero: 3, descricao: 'x', unidade: 'CAIXA', quantidade: '', unitario: 0, marca: '' });
+  assert.equal(r.itemDoEdital({ quantidade: 2.5 }, 4).quantidade, 2.5);
+  assert.equal(r.itemDoEdital({ quantidade: 2.5 }, 4).numero, 5);
+  assert.ok(r.itemEncerrado({ situacao: 'Anulado/Revogado/Cancelado' }));
+  assert.ok(!r.itemEncerrado({ situacao: 'Em andamento' }) && !r.itemEncerrado({}));
+});
+
+test('fechamento: acompanha o cadastro, mas o ajuste feito à mão fica', () => {
+  const antes = { cidade: 'Campinas', uf: 'SP', representante: 'Ana', cpfRepresentante: '1', cargo: 'Sócia' };
+  const depois = { cidade: 'Santos', uf: 'SP', representante: 'Bia', cpfRepresentante: '2', cargo: 'Diretora', rgRepresentante: '9' };
+  igual(r.atualizarFechamento({ data: 'd', cidade: 'Recife/PE', representante: 'Ana', rg: '', cpf: '1', cargo: 'Procuradora' }, antes, depois),
+    { data: 'd', cidade: 'Recife/PE', representante: 'Bia', rg: '9', cpf: '2', cargo: 'Procuradora' });
+  const c = r.duplicar({ id: 'p', empresaId: 'a', extras: { empresa: { id: 'a', razao: 'X', ...antes }, fechamento: { data: 'v', cidade: 'Campinas/SP', representante: 'Ana', rg: '', cpf: '1', cargo: 'Sócia' } } }, { numero: 'n', hoje: 'h', empresas: [{ id: 'a', razao: 'X', ...depois }] });
+  igual(c.extras.fechamento, { data: 'h', cidade: 'Santos/SP', representante: 'Bia', rg: '9', cpf: '2', cargo: 'Diretora' });
+});
+
 test('CPF e validade', () => {
   assert.ok(r.cpfValido('52998224725'));
   for (const c of ['', '123', '529.982.247-24', '00000000000']) assert.ok(!r.cpfValido(c), c);
