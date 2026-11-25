@@ -243,7 +243,7 @@ LH.vistas = LH.vistas || {};
       });
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (form.cnpj.value && !LH.cnpj.valido(form.cnpj.value)) return LH.aviso('CNPJ inválido: confira os números.', 'alerta');
+        if (form.cnpj.value && !LH.cnpj.valido(form.cnpj.value)) return LH.aviso('CNPJ inválido: confira os caracteres.', 'alerta');
         const botao = form.querySelector('[type=submit]');
         botao.disabled = true;
         try {

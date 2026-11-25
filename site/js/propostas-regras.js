@@ -99,11 +99,13 @@ window.LH = window.LH || {};
     const b = Object.fromEntries(CAMPOS_BANCO.map((k) => [k, String(fonte?.[k] ?? '')]));
     return { ...b, tipoConta: b.tipoConta || TIPOS_CONTA[0] };
   }
+  /** Só letras e números: o CNPJ pode ser alfanumérico. */
+  const cnpjLimpo = (v) => String(v || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
   function cnpjValido(cnpj) {
-    const d = String(cnpj || '').replace(/\D/g, '');
-    if (d.length !== 14 || /^(\d)\1{13}$/.test(d)) return false;
+    const d = cnpjLimpo(cnpj);
+    if (!/^[0-9A-Z]{12}\d{2}$/.test(d) || /^(.)\1{13}$/.test(d)) return false;
     return [12, 13].every((n) => {
-      const soma = [...d.slice(0, n)].reduce((s, x, i) => s + Number(x) * (((n - 1 - i) % 8) + 2), 0);
+      const soma = [...d.slice(0, n)].reduce((s, x, i) => s + (x.charCodeAt(0) - 48) * (((n - 1 - i) % 8) + 2), 0);
       return (soma % 11 < 2 ? 0 : 11 - (soma % 11)) === Number(d[n]);
     });
   }
@@ -126,7 +128,7 @@ window.LH = window.LH || {};
     const d = v.replace(/\D/g, '');
     let chave = v;
     if (pixValido(tipo, v)) {
-      if (tipo === 'cnpj') chave = d.replace(/^(..)(...)(...)(....)(..)$/, '$1.$2.$3/$4-$5');
+      if (tipo === 'cnpj') chave = cnpjLimpo(v).replace(/^(..)(...)(...)(....)(..)$/, '$1.$2.$3/$4-$5');
       if (tipo === 'cpf') chave = d.replace(/^(...)(...)(...)(..)$/, '$1.$2.$3-$4');
       if (tipo === 'telefone') chave = foneLocal(v).replace(/^(..)(\d+)(\d{4})$/, '($1) $2-$3');
     }
@@ -136,8 +138,7 @@ window.LH = window.LH || {};
     if (!tipo) return '';
     if (!String(pix || '').trim()) return 'Chave Pix';
     if (!pixValido(tipo, pix)) return 'Chave Pix inválida para o tipo escolhido';
-    const so = (v) => String(v || '').replace(/\D/g, '');
-    if (tipo === 'cnpj' && so(e.cnpj) && so(pix) !== so(e.cnpj)) return 'Chave Pix com CNPJ diferente do da empresa';
+    if (tipo === 'cnpj' && cnpjLimpo(e.cnpj) && cnpjLimpo(pix) !== cnpjLimpo(e.cnpj)) return 'Chave Pix com CNPJ diferente do da empresa';
     return '';
   }
 

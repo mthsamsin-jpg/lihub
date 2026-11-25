@@ -184,8 +184,8 @@ LH.vistas = LH.vistas || {};
         <form class="card spot form" id="form-empresa" data-reveal novalidate>
           <div class="card__titulo"><h2>${icone('mais')} Nova empresa</h2></div>
           <label class="campo"><span class="campo__rotulo">Razão social</span><input name="razao" required maxlength="200"></label>
-          <label class="campo"><span class="campo__rotulo">CNPJ</span><input name="cnpj" required inputmode="numeric" placeholder="00.000.000/0000-00">
-            <span class="campo__erro" id="erro-cnpj" hidden>CNPJ inválido: confira os números.</span></label>
+          <label class="campo"><span class="campo__rotulo">CNPJ</span><input name="cnpj" required autocapitalize="characters" placeholder="00.000.000/0000-00">
+            <span class="campo__erro" id="erro-cnpj" hidden>CNPJ inválido: confira os caracteres.</span></label>
           <div class="form__linha">
             <label class="campo"><span class="campo__rotulo">Porte</span><select name="porte">${LH.opcoes([['MEI', 'MEI'], ['ME', 'ME'], ['EPP', 'EPP'], ['Demais', 'Demais']], 'ME')}</select></label>
             <label class="campo"><span class="campo__rotulo">UF</span><select name="uf">${LH.opcoes(LH.dados.UFS, 'SP')}</select></label>

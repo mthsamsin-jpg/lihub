@@ -10,7 +10,7 @@ export const RegistroPadrao = z.object({
   external_id: z.string().min(1).max(200),
   source: z.string().regex(/^[a-z][a-z0-9_]{1,39}$/),
   orgao: z.string().nullable(),
-  orgao_cnpj: z.string().regex(/^\d{14}$/).nullable().optional(),
+  orgao_cnpj: z.string().regex(/^[0-9A-Z]{12}\d{2}$/).nullable().optional(),
   municipio: z.string().nullable(),
   uf: z.string().regex(/^[A-Z]{2}$/).nullable(),
   objeto: z.string().min(1),
@@ -32,12 +32,12 @@ export const RegistroPadrao = z.object({
  */
 export function registroPadrao(v) {
   const uf = texto(v.uf)?.toUpperCase() ?? null;
-  const cnpj = texto(v.orgao_cnpj)?.replace(/\D/g, '') ?? null;
+  const cnpj = texto(v.orgao_cnpj)?.toUpperCase().replace(/[^0-9A-Z]/g, '') ?? null;
   return {
     external_id: texto(v.external_id),
     source: v.source,
     orgao: texto(v.orgao),
-    orgao_cnpj: cnpj && cnpj.length === 14 ? cnpj : null,
+    orgao_cnpj: cnpj && /^[0-9A-Z]{12}\d{2}$/.test(cnpj) ? cnpj : null,
     municipio: texto(v.municipio),
     uf: uf && /^[A-Z]{2}$/.test(uf) ? uf : null,
     objeto: texto(v.objeto) ?? '(objeto não informado)',

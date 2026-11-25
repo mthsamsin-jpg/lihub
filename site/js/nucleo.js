@@ -200,20 +200,20 @@ window.LH = window.LH || {};
 
   // --- CNPJ ----------------------------------------------------------------------
   LH.cnpj = {
-    limpar: (v) => String(v ?? '').replace(/\D/g, '').slice(0, 14),
+    // Numérico ou alfanumérico (Receita, desde julho/2026): 12 letras/números + 2 dígitos.
+    limpar: (v) => String(v ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 14),
     mascara(v) {
       const d = LH.cnpj.limpar(v);
-      return d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-        .replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+      return [...d].map((x, i) => ({ 2: '.', 5: '.', 8: '/', 12: '-' }[i] || '') + x).join('');
     },
     /** Confere os dígitos verificadores (mesma regra da função cnpj_valido do banco). */
     valido(v) {
       const d = LH.cnpj.limpar(v);
-      if (d.length !== 14 || /^(\d)\1{13}$/.test(d)) return false;
+      if (!/^[0-9A-Z]{12}\d{2}$/.test(d) || /^(.)\1{13}$/.test(d)) return false;
       const digito = (base) => {
         let soma = 0;
         let peso = base.length - 7;
-        for (const n of base) { soma += Number(n) * peso--; if (peso < 2) peso = 9; }
+        for (const n of base) { soma += (n.charCodeAt(0) - 48) * peso--; if (peso < 2) peso = 9; }
         const resto = soma % 11;
         return resto < 2 ? 0 : 11 - resto;
       };

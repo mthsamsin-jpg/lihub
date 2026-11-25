@@ -36,7 +36,7 @@ create table if not exists public.robo_concorrentes (
   organizacao_id       uuid not null references public.organizacoes (id) on delete cascade,
   portal               text not null check (char_length(portal) <= 40),
   identificador        text not null check (char_length(identificador) between 1 and 200),
-  cnpj                 text check (cnpj is null or cnpj ~ '^\d{14}$'),
+  cnpj                 text check (cnpj is null or cnpj ~ '^[0-9A-Z]{12}[0-9]{2}$'),
   disputas             int not null default 0 check (disputas >= 0),
   lances               int not null default 0 check (lances >= 0),
   resposta_mediana_ms  int check (resposta_mediana_ms is null or resposta_mediana_ms >= 0),

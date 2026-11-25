@@ -26,7 +26,7 @@ export const UFS = Object.freeze([
  * Ex.: "19738706000183-1-000026/2023" -> { cnpj, ano: 2023, sequencial: 26 }
  */
 export function interpretarNumeroControle(numero) {
-  const m = /^(\d{14})-\d+-(\d+)\/(\d{4})$/.exec(String(numero ?? '').trim());
+  const m = /^([0-9A-Z]{12}\d{2})-\d+-(\d+)\/(\d{4})$/.exec(String(numero ?? '').trim().toUpperCase());
   if (!m) return null;
   return { cnpj: m[1], sequencial: Number(m[2]), ano: Number(m[3]) };
 }

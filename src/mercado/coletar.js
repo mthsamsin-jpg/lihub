@@ -13,7 +13,11 @@ import { interpretarNumeroControle } from '../pncp/dominio.js';
 const DIA = 86_400_000;
 const num = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 const txt = (v, max = 500) => (v == null ? null : String(v).trim().slice(0, max) || null);
-const soDigitos = (v) => String(v ?? '').replace(/\D/g, '') || null;
+/** CNPJ (numérico ou alfanumérico) sem pontuação; CPF e outros, só dígitos. */
+const documento = (v) => {
+  const t = String(v ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+  return (/^[0-9A-Z]{12}\d{2}$/.test(t) ? t : t.replace(/\D/g, '')) || null;
+};
 
 /** Quando tentar de novo uma compra sem resultado: 2, 4, 8... dias (até 15). */
 export const proximaTentativa = (tentativas, agora = Date.now()) =>
@@ -40,7 +44,7 @@ export function linhaDeResultado(lic, item, r) {
     quantidade: num(item.quantidade),
     valor_unit_estimado: num(item.valorUnitarioEstimado),
     sequencial_resultado: num(r.sequencialResultado) ?? 1,
-    fornecedor_ni: soDigitos(r.niFornecedor),
+    fornecedor_ni: documento(r.niFornecedor),
     fornecedor_nome: txt(r.nomeRazaoSocialFornecedor, 300),
     fornecedor_porte: txt(r.porteFornecedorNome, 60),
     quantidade_homologada: num(r.quantidadeHomologada),

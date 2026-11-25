@@ -94,7 +94,7 @@ export function ligarPncpAoVivo(app, { buscar = buscarNoPncp, itens = listarIten
 
   app.get('/api/pncp/compras/:cnpj/:ano/:sequencial/itens', async (c) => {
     const { cnpj, ano, sequencial } = c.req.param();
-    if (!/^\d{14}$/.test(cnpj) || !/^\d{4}$/.test(ano) || !/^\d{1,9}$/.test(sequencial)) return c.json({ erro: 'Identificação da compra inválida.' }, 400);
+    if (!/^[0-9A-Z]{12}\d{2}$/.test(cnpj) || !/^\d{4}$/.test(ano) || !/^\d{1,9}$/.test(sequencial)) return c.json({ erro: 'Identificação da compra inválida.' }, 400);
     try {
       return c.json({ itens: normalizarItens(await itens({ cnpj, ano, sequencial }, { tentativas: 2 })) });
     } catch (e) {

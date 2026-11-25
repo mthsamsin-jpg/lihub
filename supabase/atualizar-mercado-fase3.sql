@@ -95,7 +95,7 @@ set search_path = ''
 as $$
   with r as (
     select * from public.mercado_resultados
-    where fornecedor_ni = regexp_replace(coalesce(p_ni, ''), '[^0-9]', '', 'g')
+    where fornecedor_ni = upper(regexp_replace(coalesce(p_ni, ''), '[^0-9A-Za-z]', '', 'g'))
       and data_resultado >= current_date - interval '24 months'
   )
   select jsonb_build_object(

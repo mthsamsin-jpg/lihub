@@ -1757,7 +1757,7 @@ create table if not exists public.robo_concorrentes (
   organizacao_id       uuid not null references public.organizacoes (id) on delete cascade,
   portal               text not null check (char_length(portal) <= 40),
   identificador        text not null check (char_length(identificador) between 1 and 200),
-  cnpj                 text check (cnpj is null or cnpj ~ '^\d{14}$'),
+  cnpj                 text check (cnpj is null or cnpj ~ '^[0-9A-Z]{12}[0-9]{2}$'),
   disputas             int not null default 0 check (disputas >= 0),
   lances               int not null default 0 check (lances >= 0),
   resposta_mediana_ms  int check (resposta_mediana_ms is null or resposta_mediana_ms >= 0),
@@ -1816,7 +1816,7 @@ create table if not exists public.mercado_resultados (
   quantidade             numeric(18, 4),
   valor_unit_estimado    numeric(18, 4),
   sequencial_resultado   int not null default 1,
-  fornecedor_ni          text,              -- CNPJ (14) ou CPF (11), só dígitos
+  fornecedor_ni          text,              -- CNPJ (14, pode ter letras) ou CPF (11), sem pontuação
   fornecedor_nome        text,
   fornecedor_porte       text,              -- ME, EPP, Demais...
   quantidade_homologada  numeric(18, 4),
@@ -1868,7 +1868,7 @@ alter table public.analises_edital add column if not exists automatica boolean n
 
 -- 4. Consultas de inteligência (rodam com a permissão de quem consulta).
 
--- 4.1 Concorrentes: por CNPJ (só dígitos, parcial) ou parte da razão social.
+-- 4.1 Concorrentes: por CNPJ (parcial, numérico ou alfanumérico) ou parte da razão social.
 create or replace function public.mercado_concorrentes(p_busca text, p_limite int default 20)
 returns table (
   fornecedor_ni     text,
@@ -1891,6 +1891,7 @@ set search_path = ''
 as $$
   with b as (
     select regexp_replace(coalesce(p_busca, ''), '[^0-9]', '', 'g') as digitos,
+           upper(regexp_replace(coalesce(p_busca, ''), '[^0-9A-Za-z]', '', 'g')) as codigo,
            lower(extensions.unaccent(btrim(coalesce(p_busca, '')))) as texto
   )
   select r.fornecedor_ni, max(r.fornecedor_nome), max(r.fornecedor_porte),
@@ -1905,6 +1906,7 @@ as $$
   from public.mercado_resultados r cross join b
   where r.fornecedor_ni is not null
     and ((length(b.digitos) >= 8 and r.fornecedor_ni like b.digitos || '%')
+         or (length(b.codigo) between 8 and 14 and b.codigo ~ '[0-9]' and r.fornecedor_ni like b.codigo || '%')
          or (length(b.texto) >= 3 and lower(extensions.unaccent(coalesce(r.fornecedor_nome, ''))) like '%' || b.texto || '%'))
   group by r.fornecedor_ni
   order by count(*) desc
@@ -1922,7 +1924,7 @@ set search_path = ''
 as $$
   select coalesce(jsonb_agg(to_jsonb(r) order by r.data_resultado desc nulls last, r.id desc), '[]'::jsonb)
   from (select * from public.mercado_resultados
-        where fornecedor_ni = regexp_replace(coalesce(p_ni, ''), '[^0-9]', '', 'g')
+        where fornecedor_ni = upper(regexp_replace(coalesce(p_ni, ''), '[^0-9A-Za-z]', '', 'g'))
         order by data_resultado desc nulls last, id desc
         limit least(greatest(coalesce(p_limite, 100), 1), 500)) r;
 $$;
@@ -2164,7 +2166,7 @@ set search_path = ''
 as $$
   with r as (
     select * from public.mercado_resultados
-    where fornecedor_ni = regexp_replace(coalesce(p_ni, ''), '[^0-9]', '', 'g')
+    where fornecedor_ni = upper(regexp_replace(coalesce(p_ni, ''), '[^0-9A-Za-z]', '', 'g'))
       and data_resultado >= current_date - interval '24 months'
   )
   select jsonb_build_object(

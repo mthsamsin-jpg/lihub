@@ -37,8 +37,8 @@ LH.vistas = LH.vistas || {};
             ${campo('fantasia', 'Nome fantasia', e.fantasia)}
           </div>
           <div class="form__linha">
-            <label class="campo"><span class="campo__rotulo">CNPJ</span><input name="cnpj" value="${esc(LH.cnpj.mascara(e.cnpj))}" inputmode="numeric" placeholder="00.000.000/0000-00">
-              <span class="campo__erro" id="erro-cnpj-emp" hidden>CNPJ inválido: confira os números.</span></label>
+            <label class="campo"><span class="campo__rotulo">CNPJ</span><input name="cnpj" value="${esc(LH.cnpj.mascara(e.cnpj))}" autocapitalize="characters" placeholder="00.000.000/0000-00">
+              <span class="campo__erro" id="erro-cnpj-emp" hidden>CNPJ inválido: confira os caracteres.</span></label>
             ${campo('ie', 'Inscrição estadual', e.ie)}
             ${campo('im', 'Inscrição municipal', e.im)}
           </div>
