@@ -30,7 +30,6 @@ import { descobrirRetro, dentroDaJanela, termosRetro } from './mercado/retro.js'
 import { avisarRadares, enviadorDoAmbiente } from './radar/avisos.js';
 import { canaisDoAmbiente as canaisDeEmail } from '../worker/notificacoes.js';
 import { lerEditaisAutomaticamente } from './ia/leitura-automatica.js';
-import { configWhatsapp, ligarWhatsapp } from './whatsapp.js';
 
 const log = criarLog('servidor');
 
@@ -95,12 +94,6 @@ const app = criarApp({
 // O site (pasta site/) sai pelo mesmo endereço da API.
 // Busca ao vivo no PNCP (por palavra) e itens de cada compra.
 ligarPncpAoVivo(app);
-
-// WhatsApp (API oficial da Meta): resposta automática do suporte e alertas.
-const whatsapp = configWhatsapp();
-ligarWhatsapp(app, { cfg: whatsapp, log: criarLog('whatsapp') });
-if (!whatsapp) log.aviso('WHATSAPP_TOKEN não definida: resposta automática e alertas por WhatsApp desligados.');
-else if (!whatsapp.segredoApp) log.aviso('WHATSAPP_SEGREDO_APP não definida: as mensagens recebidas no WhatsApp serão recusadas.');
 
 
 // Robô Turbo 2.0, modo real: cofre de credenciais + sessões com Playwright.

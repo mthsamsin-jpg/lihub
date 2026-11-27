@@ -1775,10 +1775,9 @@ revoke insert, update, delete, truncate on public.robo_concorrentes from anon, a
 -- Alertas do robô por e-mail (o da conta). Cada pessoa escolhe se quer receber
 -- (desligado até ela pedir).
 alter table public.perfis add column if not exists alerta_email boolean not null default false;
--- Alertas também por WhatsApp (no telefone do cadastro), cada pessoa escolhe.
+alter table public.perfis drop column if exists alerta_whatsapp;
 drop table if exists public.robo_alertas;
-alter table public.perfis add column if not exists alerta_whatsapp boolean not null default false;
-grant update (alerta_email, alerta_whatsapp) on public.perfis to authenticated;
+grant update (alerta_email) on public.perfis to authenticated;
 
 
 -- Fim do esquema.

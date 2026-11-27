@@ -2,12 +2,12 @@
    Uso LicitaHub · suporte.js
    Botão do WhatsApp (canto da tela) com assuntos prontos: cada um abre o
    WhatsApp do suporte com a mensagem já organizada, para o cliente só completar.
-   No servidor, src/whatsapp.js responde na hora pedindo os detalhes do assunto.
+   A saudação automática fica no próprio app WhatsApp Business (docs/WHATSAPP.md).
    ============================================================================= */
 window.LH = window.LH || {};
 
 (function () {
-  // [título, campos para o cliente completar]. Os títulos batem com src/whatsapp.js.
+  // [título, campos para o cliente completar]. Usados também nas respostas rápidas do app.
   const ASSUNTOS = [
     ['Proposta comercial e declarações', ['Nº da proposta', 'O que tentei fazer', 'O que apareceu']],
     ['Busca, radar e favoritos', ['Palavras e filtros usados', 'Link ou nº da licitação', 'Minha dúvida']],
