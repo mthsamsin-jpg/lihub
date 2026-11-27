@@ -19,6 +19,27 @@ LH.vistas = LH.vistas || {};
   const AVISO_RESPONSABILIDADE = `<p class="nota nota--alerta nao-imprimir">${icone('alerta')} Revise a proposta e o edital antes de enviar. O Uso LicitaHub ajuda a montar o documento, mas a responsabilidade final pela proposta é sua.</p>`;
 
   const empresa = () => LH.repo.empresaPerfil();
+  // Plataforma da disputa: a logo do portal sai no topo da proposta (site/img/portais).
+  const PORTAIS = [
+    ['comprasnet', 'Compras.gov.br (Comprasnet)'], ['bll', 'BLL Compras'], ['pcp', 'Portal de Compras Públicas'], ['licitacoes-e', 'Licitações-e (Banco do Brasil)'],
+    ['bnc', 'BNC'], ['bbmnet', 'BBMNET'], ['licitar', 'Licitar Digital'], ['licitamais', 'Licita Mais Brasil'], ['comprasbr', 'ComprasBR'],
+    ['petronect', 'Petronect'], ['licitanet', 'Licitanet'],
+  ];
+  const COM_LOGO = new Set(['comprasnet', 'bll', 'pcp', 'licitacoes-e', 'bnc', 'bbmnet', 'licitar', 'licitamais', 'comprasbr', 'petronect']);
+  const nomePortal = (k) => PORTAIS.find(([c]) => c === k)?.[1] || '';
+  const logosPortal = new Map(); // chave -> data URL (o Word precisa da imagem embutida)
+  /** Logo do portal como data URL (null se não houver). */
+  async function logoPortal(k) {
+    if (!COM_LOGO.has(k)) return null;
+    if (!logosPortal.has(k)) {
+      logosPortal.set(k, fetch(`img/portais/${k}.png`).then((r) => (r.ok ? r.blob() : null)).then((b) => (b ? new Promise((ok) => {
+        const leitor = new FileReader(); leitor.onload = () => ok(leitor.result); leitor.onerror = () => ok(null); leitor.readAsDataURL(b);
+      }) : null)).catch(() => null));
+    }
+    return logosPortal.get(k);
+  }
+  /** Portal salvo na proposta, ou o da licitação (nome do PNCP). */
+  const portalDe = (p) => p.extras?.plataforma ?? '';
   const numeroCurto = (n) => String(n ?? '').split(' ').pop();
   /** Licitação da proposta: o resumo salvo junto, ou a que está em memória. */
   const licitacaoDe = (p) => p.licitacao || LH.licitacaoEmCache(p.licitacaoId) || null;
@@ -124,7 +145,7 @@ LH.vistas = LH.vistas || {};
     const linhaInfo = (rotulo, valor) => (valor ? `<tr><th scope="row" width="28%">${rotulo}</th><td>${linhas(valor)}</td></tr>` : '');
     const faltam = documento ? [] : pendenciasDe(p);
     // Logo: tamanho em pt (o Word ignora max-width/max-height); o mesmo na tela e no PDF.
-    const logo = e.logo ? `<img class="folha__logo" decoding="sync" src="${esc(e.logo)}" alt="Logo ${esc(e.razao || '')}"${p.logoPt ? ` width="${Math.round(p.logoPt.w * 4 / 3)}" height="${Math.round(p.logoPt.h * 4 / 3)}" style="width:${p.logoPt.w}pt;height:${p.logoPt.h}pt"` : ''}>` : '';
+    const logo = p.logoSrc ? `<img class="folha__logo" decoding="sync" src="${esc(p.logoSrc)}" alt="${esc(nomePortal(portalDe(p)))}"${p.logoPt ? ` width="${Math.round(p.logoPt.w * 4 / 3)}" height="${Math.round(p.logoPt.h * 4 / 3)}" style="width:${p.logoPt.w}pt;height:${p.logoPt.h}pt"` : ''}>` : '';
     return `
       ${faltam.length ? `<p class="nota nota--alerta nao-imprimir aviso-lacunas">${icone('alerta')} Confira: ${esc(faltam.map((f) => f.campo).join('; '))}. O que estiver vazio sai em branco.${faltam.some((f) => f.onde === 'empresa') ? ' <a href="#/empresa">Completar o cadastro</a>.' : ''}</p>` : ''}
       <div class="folha folha--proposta">
@@ -211,7 +232,7 @@ LH.vistas = LH.vistas || {};
 
   /** Proposta em Word (.doc): HTML que o Word abre e edita. */
   async function baixarWord(p) {
-    const logoPt = await medirLogo(empresaDe(p).logo);
+    const logoPt = await medirLogo(p.logoSrc);
     // Word: só entende uma classe por elemento; seção e rodapé usam as marcas mso-*.
     const estilos = `@page S1{size:595.3pt 841.9pt;margin:42pt 42pt 54pt 42pt;mso-footer-margin:24pt;mso-footer:f1;mso-paper-source:0}div.S1{page:S1}
       body{font-family:Arial,sans-serif;font-size:10.5pt;color:#000}p,div{margin:0 0 4pt}h2,h3{font-family:Arial,sans-serif;font-style:normal;color:#000;page-break-after:avoid}h2{text-align:center;font-size:15pt;margin:0}h3{font-size:12pt;margin:12pt 0 4pt}
@@ -292,10 +313,7 @@ LH.vistas = LH.vistas || {};
         <datalist id="unidades-proposta">${UNIDADES.map((u) => `<option value="${u}"></option>`).join('')}</datalist>
         <section class="card spot form">
           <div class="card__titulo"><h2>${icone('predio')} <span class="passo-num">1</span> Empresa e condições</h2><span class="selo" id="numero-proposta">…</span></div>
-          <div class="empresa-proposta">
-            <div class="empresa-proposta__logo" id="empresa-logo" aria-hidden="true"></div>
-            <label class="campo"><span class="campo__rotulo">Empresa proponente</span><select name="empresaId"></select></label>
-          </div>
+          <label class="campo"><span class="campo__rotulo">Empresa proponente</span><select name="empresaId"></select></label>
           <p class="fraco empresa-proposta__resumo" id="empresa-resumo"></p>
           <div class="form__linha">
             <label class="campo"><span class="campo__rotulo">Validade da proposta (dias)</span><input name="validade" inputmode="numeric" value="60"></label>
@@ -312,6 +330,11 @@ LH.vistas = LH.vistas || {};
             <label class="campo"><span class="campo__rotulo">ou ID / nº de controle PNCP / link do PNCP</span>
               <span class="campo__com-botao"><input name="codigo" placeholder="ex.: 12345 ou 04628376000104-1-000060/2026">
               <button class="btn" type="button" data-acao="buscar-licitacao">${icone('busca')} Buscar</button></span></label>
+          </div>
+          <div class="portal-proposta">
+            <label class="campo"><span class="campo__rotulo">Plataforma da disputa (a logo sai no topo da proposta)</span>
+              <select name="plataforma"><option value="">Sem logo de plataforma</option>${PORTAIS.map(([k, n]) => `<option value="${k}">${esc(n)}${COM_LOGO.has(k) ? '' : ' (sem logo)'}</option>`).join('')}</select></label>
+            <div class="portal-proposta__logo" id="portal-logo" aria-live="polite"></div>
           </div>
           <p class="fraco" id="lic-status" aria-live="polite">Os campos abaixo são preenchidos sozinhos e podem ser editados (ou preenchidos à mão).</p>
           <div class="form__linha">
@@ -461,6 +484,7 @@ LH.vistas = LH.vistas || {};
         const extras = {
           ...(atual?.extras || {}),
           empresa: regras.snapshotEmpresa(empresaForm()),
+          plataforma: form.plataforma.value,
           declaracoes: [...raiz.querySelectorAll('[data-decl]')].map((d) => ({
             id: d.dataset.decl, titulo: d.dataset.titulo, ativo: d.querySelector('input[type=checkbox]').checked,
             texto: d.querySelector('textarea').value.trim().slice(0, 2000),
@@ -495,7 +519,7 @@ LH.vistas = LH.vistas || {};
       };
       const previa = () => {
         const caixa = raiz.querySelector('#previa');
-        const proposta = ler();
+        const proposta = { ...ler(), logoSrc: logoAtual };
         caixa.innerHTML = `${estiloPagina(proposta)}<div class="secao__titulo nao-imprimir"><h2>Pré-visualização</h2></div>${folhaProposta(proposta)}`;
         return caixa;
       };
@@ -517,8 +541,26 @@ LH.vistas = LH.vistas || {};
         for (const k of CAMPOS_LIC) if (cab[k] != null && form[k]) form[k].value = cab[k];
         avisarHorarios();
       };
+      // Plataforma: logo do portal (vem da licitação; o usuário pode trocar).
+      let logoAtual = null;
+      let portalManual = false;
+      const mostrarPortal = async () => {
+        const k = form.plataforma.value;
+        const caixa = raiz.querySelector('#portal-logo');
+        logoAtual = await logoPortal(k);
+        if (form.plataforma.value !== k || !form.isConnected) return; // trocou de novo enquanto carregava
+        caixa.innerHTML = logoAtual ? `<img src="${logoAtual}" alt="${esc(nomePortal(k))}">`
+          : `<span class="fraco">${k ? 'Esta plataforma ainda não tem logo: a proposta sai sem.' : 'Sem logo no topo.'}</span>`;
+        if (raiz.querySelector('#previa').innerHTML) previa();
+      };
+      const escolherPortal = (k) => { form.plataforma.value = k || ''; return mostrarPortal(); };
+      form.plataforma.addEventListener('change', () => { portalManual = true; sujo = true; mostrarPortal(); });
       const usarLicitacao = (l) => {
         preencherLicitacao(cabecalhoDe(l));
+        if (l && !portalManual && !atual) {
+          const k = LH.plataformaDe?.(l.plataforma);
+          if (k && k !== 'outros' && PORTAIS.some(([c]) => c === k)) escolherPortal(k);
+        }
         if (l?.id && lista.some((x) => x.id === l.id)) form.licitacaoId.value = String(l.id);
         status.textContent = l ? `Dados de "${(l.objeto || '').slice(0, 80)}" preenchidos. Confira e ajuste se precisar.` : '';
       };
@@ -530,6 +572,11 @@ LH.vistas = LH.vistas || {};
         sujo = true;
         LH.aviso(`${itens.length} item(ns) na proposta. Agora preencha a marca e o seu valor unitário.`, 'sucesso');
       };
+      /** Caixa de texto do tamanho do texto (nada cortado). */
+      const crescer = (t) => { t.style.height = 'auto'; t.style.height = `${t.scrollHeight + 2}px`; };
+      LH.ao(raiz, 'input', '#declaracoes textarea', (e, t) => crescer(t));
+      const aoRedimensionar = () => { if (!raiz.isConnected) return window.removeEventListener('resize', aoRedimensionar); raiz.querySelectorAll('#declaracoes textarea').forEach(crescer); };
+      window.addEventListener('resize', aoRedimensionar);
       // Declarações: uma linha por declaração, com o texto completo editável.
       const desenharDeclaracoes = (lista) => {
         raiz.querySelector('#declaracoes').innerHTML = lista.map((d) => `
@@ -537,6 +584,7 @@ LH.vistas = LH.vistas || {};
             <label class="campo--check"><input type="checkbox" ${d.ativo ? 'checked' : ''}><span><b>${esc(d.titulo)}</b></span></label>
             <textarea rows="2" maxlength="2000" aria-label="${esc(d.titulo)}">${esc(d.texto)}</textarea>
           </div>`).join('');
+        raiz.querySelectorAll('#declaracoes textarea').forEach(crescer);
       };
       // Banco: com "cadastro", os campos mostram os dados da empresa (só leitura).
       const lerBanco = () => ({ ...Object.fromEntries(CAMPOS_BANCO.map((k) => [k, form[k].value.trim()])), ...(form.pixTipo.value ? {} : { pix: '' }) });
@@ -563,11 +611,8 @@ LH.vistas = LH.vistas || {};
       };
       const mostrarEmpresa = () => {
         const e = empresaForm();
-        const caixaLogo = raiz.querySelector('#empresa-logo');
-        caixaLogo.innerHTML = e.logo ? `<img src="${esc(e.logo)}" alt="">` : `<span>${esc((e.razao || '?').trim().charAt(0).toUpperCase() || '?')}</span>`;
-        caixaLogo.title = e.logo ? 'Logo que sai no topo da proposta' : 'Sem logo: cadastre em Minha empresa';
         if (!empresas.length && !foto) {
-          raiz.querySelector('#empresa-resumo').innerHTML = `<span class="nota nota--alerta empresa-proposta__vazia">${icone('alerta')} Nenhuma empresa cadastrada nesta conta. <a class="btn btn--primario btn--pequeno" href="#/empresa">Cadastrar a empresa</a> Os dados (CNPJ, endereço, banco, responsável e logo) entram sozinhos na proposta.</span>`;
+          raiz.querySelector('#empresa-resumo').innerHTML = `<span class="nota nota--alerta empresa-proposta__vazia">${icone('alerta')} Nenhuma empresa cadastrada nesta conta. <a class="btn btn--primario btn--pequeno" href="#/empresa">Cadastrar a empresa</a> Os dados (CNPJ, endereço, banco e responsável) entram sozinhos na proposta.</span>`;
           return;
         }
         raiz.querySelector('#empresa-resumo').innerHTML = e.cnpj
@@ -632,6 +677,7 @@ LH.vistas = LH.vistas || {};
       form.bancoOrigem.addEventListener('change', () => mostrarBanco());
       mostrarEmpresa();
       desenharDeclaracoes(declaracoesPadrao());
+      mostrarPortal();
       mostrarBanco();
       preencherFechamento();
 
@@ -720,6 +766,7 @@ LH.vistas = LH.vistas || {};
             form.prazo.value = atual.prazo;
             form.pagamento.value = atual.pagamento;
             form.observacoes.value = atual.observacoes;
+            await escolherPortal(portalDe(atual));
             foto = atual.extras?.empresa?.razao ? atual.extras.empresa : null;
             const idEmpresa = String(foto?.id || atual.empresaId || '');
             // Empresa excluída do cadastro: continua na proposta, com os dados salvos.
@@ -842,6 +889,7 @@ LH.vistas = LH.vistas || {};
         if (!(await conferirPendencias(proposta, 'Baixar mesmo assim'))) return;
         try { proposta.numero = await garantirNumero(); } catch (erro) { return LH.aviso(erro.message, 'perigo'); }
         if (!atual || sujo) LH.aviso('O arquivo não fica guardado aqui: clique em "Salvar proposta" para registrar esta versão.', 'info');
+        proposta.logoSrc = logoAtual = await logoPortal(form.plataforma.value);
         if (acao === 'word') return baixarWord(proposta);
         previa();
         await Promise.all([...raiz.querySelectorAll('#previa img')].map((i) => i.decode().catch(() => {}))); // logo pronto antes de imprimir

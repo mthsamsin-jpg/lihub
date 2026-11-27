@@ -56,7 +56,7 @@ window.LH = window.LH || {};
 
   // --- Empresa: cópia dos dados no momento de salvar ---------------------------------
   const CAMPOS_EMPRESA = ['id', 'razao', 'fantasia', 'cnpj', 'porte', 'regime', 'ie', 'im', 'uf', 'cidade', 'endereco', 'cep', 'email', 'telefone',
-    'representante', 'cpfRepresentante', 'rgRepresentante', 'cargo', 'banco', 'agencia', 'conta', 'tipoConta', 'pixTipo', 'pix', 'logo'];
+    'representante', 'cpfRepresentante', 'rgRepresentante', 'cargo', 'banco', 'agencia', 'conta', 'tipoConta', 'pixTipo', 'pix'];
   const snapshotEmpresa = (e) => Object.fromEntries(CAMPOS_EMPRESA.map((k) => [k, e?.[k] ?? '']));
   const VAZIA = Object.freeze(snapshotEmpresa({}));
   /** Empresa da proposta: snapshot > cadastro escolhido > vazia. Nunca outra empresa. */

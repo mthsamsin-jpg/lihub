@@ -42,18 +42,6 @@ LH.vistas = LH.vistas || {};
             ${campo('ie', 'Inscrição estadual', e.ie)}
             ${campo('im', 'Inscrição municipal', e.im)}
           </div>
-          <div class="logo-empresa">
-            <div class="logo-empresa__previa" data-logo-previa>${e.logo ? `<img src="${esc(e.logo)}" alt="Logo da empresa">` : '<span class="fraco">Sem logo</span>'}</div>
-            <div>
-              <span class="campo__rotulo">Logo da empresa (sai no topo da proposta)</span>
-              <div class="chips">
-                <label class="btn btn--pequeno">${icone('baixar')} Escolher imagem<input type="file" accept="image/png,image/jpeg,image/webp" data-logo-arquivo hidden></label>
-                <button type="button" class="btn btn--pequeno btn--fantasma" data-logo-remover ${e.logo ? '' : 'hidden'}>${icone('lixeira')} Remover</button>
-              </div>
-              <p class="fraco">PNG ou JPG. A imagem é reduzida automaticamente. Clique em "Salvar dados da empresa" depois de escolher.</p>
-            </div>
-            <input type="hidden" name="logo" value="${esc(e.logo || '')}">
-          </div>
         </section>
         <section class="card spot form" data-reveal>
           <div class="card__titulo"><h2>${icone('moeda')} Configurações fiscais</h2></div>
@@ -124,33 +112,6 @@ LH.vistas = LH.vistas || {};
       form.pixTipo.addEventListener('change', ajustarPix);
       ajustarPix();
       raiz.querySelector('#empresa-atual')?.addEventListener('change', (e) => { LH.repo.escolherEmpresa(e.target.value); LH.ir('empresa'); });
-      // Logo: reduz no navegador (máx. 480x160) para caber no cadastro sem pesar.
-      const previaLogo = raiz.querySelector('[data-logo-previa]');
-      const botaoRemover = raiz.querySelector('[data-logo-remover]');
-      const usarLogo = (url) => {
-        form.logo.value = url || '';
-        mexeu = true;
-        previaLogo.innerHTML = url ? `<img src="${esc(url)}" alt="Logo da empresa">` : '<span class="fraco">Sem logo</span>';
-        botaoRemover.hidden = !url;
-      };
-      raiz.querySelector('[data-logo-arquivo]').addEventListener('change', async (ev) => {
-        const arq = ev.target.files?.[0];
-        ev.target.value = '';
-        if (!arq) return;
-        if (!/^image\/(png|jpeg|webp)$/.test(arq.type)) return LH.aviso('Use uma imagem PNG, JPG ou WEBP.', 'alerta');
-        if (arq.size > 5 * 1024 * 1024) return LH.aviso('Imagem grande demais (máx. 5 MB).', 'alerta');
-        try {
-          const img = await createImageBitmap(arq);
-          const escala = Math.min(1, 480 / img.width, 160 / img.height);
-          const tela = Object.assign(document.createElement('canvas'), { width: Math.round(img.width * escala), height: Math.round(img.height * escala) });
-          tela.getContext('2d').drawImage(img, 0, 0, tela.width, tela.height);
-          let url = tela.toDataURL('image/png');
-          if (url.length > 120_000) url = tela.toDataURL('image/jpeg', 0.86);
-          if (url.length > 160_000) return LH.aviso('Não consegui reduzir a imagem o suficiente. Tente um arquivo mais simples.', 'alerta');
-          usarLogo(url);
-        } catch { LH.aviso('Não consegui ler essa imagem.', 'perigo'); }
-      });
-      botaoRemover.addEventListener('click', () => usarLogo(''));
       form.cnpj.addEventListener('input', () => { form.cnpj.value = LH.cnpj.mascara(form.cnpj.value); erro.hidden = true; form.cnpj.classList.remove('invalido'); });
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
