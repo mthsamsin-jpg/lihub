@@ -221,5 +221,60 @@ window.LH = window.LH || {};
   /** Validade em dias: inteiro de 1 a 365 (limite do banco). */
   const validadeOk = (v) => /^\d{1,3}$/.test(String(v).trim()) && Number(v) >= 1 && Number(v) <= 365;
 
-  LH.propostasRegras = { fechamentoPadrao, atualizarFechamento, lerNumero, numeroTexto, itemDoEdital, itemEncerrado, CAMPOS_BANCO, TIPOS_CONTA, TIPOS_PIX, bancoDe, pixValido, pixTexto, pendencias, cpfValido, validadeOk, LEGAIS, textoLegal, declaracoesPadrao, declaracoesDe, snapshotEmpresa, empresaDe, duplicar, totalLinha, totalProposta, proximoNumero };
+  // --- Planilha de itens (CSV salvo do Excel ou células coladas) ---------------
+  // Reconhece o cabeçalho (Item, Descrição, Unid., Qtd., Marca, Valor unit.) em qualquer ordem.
+  // Sem cabeçalho, usa a ordem: Item; Descrição; Unidade; Quantidade; Valor unitário; Marca.
+  const COLUNAS = [
+    ['numero', /^(item|n[º°o.]*|n[uú]mero|lote)$/],
+    ['descricao', /descri|especifica|produto|objeto|servi[cç]o/],
+    ['unidade', /^(un|und|unid|unidade|medida|u\.?\s*m\.?|unidade de medida)\.?$/],
+    ['quantidade', /^(qtd|qtde|quant|quantidade)\.?/],
+    ['unitario', /unit|pre[cç]o|valor/],
+    ['marca', /marca|modelo|fabricante/],
+  ];
+  const ORDEM_SEM_CABECALHO = ['numero', 'descricao', 'unidade', 'quantidade', 'unitario', 'marca'];
+  function linhasCsv(texto, sep) {
+    const linhas = []; let linha = []; let campo = ''; let aspas = false;
+    for (let i = 0; i < texto.length; i++) {
+      const c = texto[i];
+      if (aspas) {
+        if (c === '"' && texto[i + 1] === '"') { campo += '"'; i++; } else if (c === '"') aspas = false; else campo += c;
+      } else if (c === '"' && campo === '') aspas = true;
+      else if (c === sep) { linha.push(campo); campo = ''; } else if (c === '\n' || c === '\r') {
+        if (c === '\r' && texto[i + 1] === '\n') i++;
+        linha.push(campo); linhas.push(linha); linha = []; campo = '';
+      } else campo += c;
+    }
+    if (campo !== '' || linha.length) { linha.push(campo); linhas.push(linha); }
+    return linhas.map((l) => l.map((x) => x.trim())).filter((l) => l.some(Boolean));
+  }
+  /** Texto da planilha -> { itens, ignoradas }. Itens sem descrição são ignorados. */
+  function lerPlanilha(texto) {
+    const t = String(texto ?? '').replace(/^﻿/, '');
+    const primeira = t.split(/\r?\n/).find((l) => l.trim()) || '';
+    const sep = primeira.includes('\t') ? '\t' : primeira.includes(';') ? ';' : ',';
+    let linhas = linhasCsv(t, sep);
+    const norm = (x) => x.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    let mapa = ORDEM_SEM_CABECALHO;
+    const cab = (linhas[0] || []).map((c) => {
+      const n = norm(c);
+      return COLUNAS.find(([, re]) => re.test(n))?.[0] || null;
+    });
+    if (cab.filter(Boolean).length >= 2 && cab.includes('descricao')) { mapa = cab; linhas = linhas.slice(1); }
+    let ignoradas = 0;
+    const itens = [];
+    for (const l of linhas) {
+      const v = {};
+      mapa.forEach((k, i) => { if (k && v[k] == null) v[k] = l[i] ?? ''; });
+      if (!v.descricao) { ignoradas++; continue; }
+      const qtd = lerNumero(v.quantidade);
+      itens.push({
+        numero: v.numero || String(itens.length + 1), descricao: v.descricao.slice(0, 4000), marca: (v.marca || '').slice(0, 200),
+        unidade: (v.unidade || 'UN').toUpperCase().slice(0, 12), quantidade: mapa.includes('quantidade') ? qtd || '' : 1, unitario: lerNumero(v.unitario),
+      });
+    }
+    return { itens, ignoradas };
+  }
+
+  LH.propostasRegras = { lerPlanilha, fechamentoPadrao, atualizarFechamento, lerNumero, numeroTexto, itemDoEdital, itemEncerrado, CAMPOS_BANCO, TIPOS_CONTA, TIPOS_PIX, bancoDe, pixValido, pixTexto, pendencias, cpfValido, validadeOk, LEGAIS, textoLegal, declaracoesPadrao, declaracoesDe, snapshotEmpresa, empresaDe, duplicar, totalLinha, totalProposta, proximoNumero };
 }());

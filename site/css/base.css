@@ -73,6 +73,8 @@ body {
 }
 
 img, svg { display: block; max-width: 100%; }
+/* Ícone solto no meio do texto (sem regra própria): do tamanho da letra, nunca gigante. */
+p > svg, li > svg, label > svg, small > svg, .fraco > svg { width: 1.1em; height: 1.1em; display: inline-block; vertical-align: -0.2em; flex: none; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 a { color: var(--ciano); text-decoration: none; }

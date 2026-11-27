@@ -164,3 +164,30 @@ test('CPF e validade', () => {
   for (const v of ['1', 60, '365']) assert.ok(r.validadeOk(v), String(v));
   for (const v of ['', '0', '366', '10,5', 'abc', '-3']) assert.ok(!r.validadeOk(v), v);
 });
+
+test('planilha: colado do Excel com cabeçalho em outra ordem', () => {
+  const t = 'Qtd.\tDescrição do item\tValor unitário\tItem\tMarca\tUnid.\n1.000\tPapel A4 75g\tR$ 25,90\t3\tChamex\tcx\n2,5\tCaneta azul\t1,005\t4\t\tun\n\t\t\t5\t\t\n';
+  const { itens, ignoradas } = r.lerPlanilha(t);
+  igual(itens, [
+    { numero: '3', descricao: 'Papel A4 75g', marca: 'Chamex', unidade: 'CX', quantidade: 1000, unitario: 25.9 },
+    { numero: '4', descricao: 'Caneta azul', marca: '', unidade: 'UN', quantidade: 2.5, unitario: 1.005 },
+  ]);
+  assert.equal(ignoradas, 1);
+});
+
+test('planilha: CSV do Excel (;) com aspas, sem cabeçalho e com BOM', () => {
+  const t = '﻿1;"Cadeira ""giratória""; com braço";UN;10;350,00;Flexform\r\n2;Mesa;UN;;1.234,56;\r\n';
+  const { itens } = r.lerPlanilha(t);
+  assert.equal(itens.length, 2);
+  assert.equal(itens[0].descricao, 'Cadeira "giratória"; com braço');
+  assert.equal(itens[0].quantidade, 10);
+  assert.equal(itens[0].marca, 'Flexform');
+  assert.equal(itens[1].quantidade, '', 'quantidade vazia fica em branco');
+  assert.equal(itens[1].unitario, 1234.56);
+  assert.equal(r.totalProposta(itens.slice(0, 1)), 3500);
+});
+
+test('planilha: vazia ou sem descrição não gera itens', () => {
+  assert.equal(r.lerPlanilha('').itens.length, 0);
+  assert.equal(r.lerPlanilha('Item;Descrição\n1;\n').itens.length, 0);
+});

@@ -290,8 +290,22 @@ LH.vistas = LH.vistas || {};
       })}
       <form class="grade" id="form-proposta" autocomplete="off">
         <datalist id="unidades-proposta">${UNIDADES.map((u) => `<option value="${u}"></option>`).join('')}</datalist>
-        <section class="card spot form" data-reveal>
-          <div class="card__titulo"><h2>${icone('arquivo')} Licitação</h2><span class="selo" id="numero-proposta">…</span></div>
+        <section class="card spot form">
+          <div class="card__titulo"><h2>${icone('predio')} <span class="passo-num">1</span> Empresa e condições</h2><span class="selo" id="numero-proposta">…</span></div>
+          <div class="empresa-proposta">
+            <div class="empresa-proposta__logo" id="empresa-logo" aria-hidden="true"></div>
+            <label class="campo"><span class="campo__rotulo">Empresa proponente</span><select name="empresaId"></select></label>
+          </div>
+          <p class="fraco empresa-proposta__resumo" id="empresa-resumo"></p>
+          <div class="form__linha">
+            <label class="campo"><span class="campo__rotulo">Validade da proposta (dias)</span><input name="validade" inputmode="numeric" value="60"></label>
+            <label class="campo"><span class="campo__rotulo">Prazo de entrega/execução</span><input name="prazo" maxlength="200" placeholder="ex.: 15 dias após o pedido"></label>
+            <label class="campo"><span class="campo__rotulo">Condições de pagamento</span><input name="pagamento" maxlength="200" placeholder="ex.: 30 dias após o aceite"></label>
+          </div>
+        </section>
+
+        <section class="card spot form">
+          <div class="card__titulo"><h2>${icone('arquivo')} <span class="passo-num">2</span> Licitação</h2></div>
           <div class="form__linha">
             <label class="campo"><span class="campo__rotulo">Minhas licitações (favoritas e CRM)</span>
               <select name="licitacaoId"><option value="">Carregando...</option></select></label>
@@ -324,31 +338,35 @@ LH.vistas = LH.vistas || {};
           <input type="hidden" name="idPncp">
         </section>
 
-        <section class="card spot form" data-reveal>
-          <div class="card__titulo"><h2>${icone('predio')} Empresa e condições</h2></div>
-          <div class="form__linha">
-            <label class="campo"><span class="campo__rotulo">Empresa proponente</span><select name="empresaId"></select></label>
-            <p class="fraco" id="empresa-resumo" style="align-self:end"></p>
+        <section class="card spot">
+          <div class="card__titulo"><h2>${icone('etiqueta')} <span class="passo-num">3</span> Itens</h2>
+            <span class="chips">
+              <button class="btn btn--pequeno" type="button" data-acao="importar">${icone('baixar')} Importar itens do edital</button>
+              <button class="btn btn--pequeno" type="button" data-acao="planilha">${icone('arquivo')} Colar ou importar planilha</button>
+              <button class="btn btn--pequeno" type="button" data-acao="item">${icone('mais')} Adicionar item</button>
+            </span></div>
+          <div class="tabela-rolagem">
+            <table class="tabela itens itens-proposta">
+              <thead><tr><th>Item</th><th>Qtd.</th><th>Unid.</th><th>Descrição / especificação</th><th>Marca</th><th>Valor unit. (R$)</th><th class="numero">Total</th><th></th></tr></thead>
+              <tbody id="itens">${linhaItem({}, 0)}</tbody>
+            </table>
           </div>
-          <div class="form__linha">
-            <label class="campo"><span class="campo__rotulo">Validade da proposta (dias)</span><input name="validade" inputmode="numeric" value="60"></label>
-            <label class="campo"><span class="campo__rotulo">Prazo de entrega/execução</span><input name="prazo" maxlength="200" placeholder="ex.: 15 dias após o pedido"></label>
-            <label class="campo"><span class="campo__rotulo">Condições de pagamento</span><input name="pagamento" maxlength="200" placeholder="ex.: 30 dias após o aceite"></label>
-          </div>
+          <div class="total-geral"><span class="suave">Valor global</span><strong id="total">R$ 0,00</strong></div>
+          <p class="fraco" id="extenso" style="text-align:right"></p>
         </section>
 
-        <section class="card spot form" data-reveal>
-          <div class="card__titulo"><h2>${icone('arquivoCheck')} Declarações</h2>
+        <section class="card spot form">
+          <div class="card__titulo"><h2>${icone('arquivoCheck')} <span class="passo-num">4</span> Declarações</h2>
             <button class="btn btn--pequeno btn--fantasma" type="button" data-acao="decl-padrao">Restaurar textos padrão</button></div>
           <p class="fraco">Saem completas na proposta. Revise e ajuste cada texto conforme o edital; desmarque a que não se aplica. <b>{validade}</b> e <b>{pagamento}</b> usam os campos acima.</p>
           <div class="decl-proposta" id="declaracoes"></div>
         </section>
 
-        <section class="card spot form" data-reveal>
-          <div class="card__titulo"><h2>${icone('moeda')} Dados bancários e fechamento</h2></div>
+        <section class="card spot form">
+          <div class="card__titulo"><h2>${icone('moeda')} <span class="passo-num">5</span> Dados bancários e fechamento</h2></div>
+          <label class="campo"><span class="campo__rotulo">Dados bancários</span>
+            <select name="bancoOrigem"><option value="cadastro">Usar os do cadastro da empresa</option><option value="proposta">Informar outros só nesta proposta</option></select></label>
           <div class="form__linha">
-            <label class="campo"><span class="campo__rotulo">Dados bancários</span>
-              <select name="bancoOrigem"><option value="cadastro">Usar os do cadastro da empresa</option><option value="proposta">Informar outros só nesta proposta</option></select></label>
             <label class="campo"><span class="campo__rotulo">Banco</span><input name="banco" maxlength="80"></label>
             <label class="campo"><span class="campo__rotulo">Agência</span><input name="agencia" maxlength="20"></label>
             <label class="campo"><span class="campo__rotulo">Conta</span><input name="conta" maxlength="30"></label>
@@ -372,21 +390,9 @@ LH.vistas = LH.vistas || {};
           <p class="fraco">Vêm do <a href="#/empresa">cadastro da empresa</a> e podem ser ajustados só nesta proposta.</p>
         </section>
 
-        <section class="card spot" data-reveal>
-          <div class="card__titulo"><h2>${icone('etiqueta')} Itens</h2>
-            <span class="chips">
-              <button class="btn btn--pequeno" type="button" data-acao="importar">${icone('baixar')} Importar itens do edital</button>
-              <button class="btn btn--pequeno" type="button" data-acao="item">${icone('mais')} Adicionar item</button>
-            </span></div>
-          <div class="tabela-rolagem">
-            <table class="tabela itens itens-proposta">
-              <thead><tr><th>Item</th><th>Qtd.</th><th>Unid.</th><th>Descrição / especificação</th><th>Marca</th><th>Valor unit. (R$)</th><th class="numero">Total</th><th></th></tr></thead>
-              <tbody id="itens">${linhaItem({}, 0)}</tbody>
-            </table>
-          </div>
-          <div class="total-geral"><span class="suave">Valor global</span><strong id="total">R$ 0,00</strong></div>
-          <p class="fraco" id="extenso" style="text-align:right"></p>
-          <label class="campo" style="margin-top:14px"><span class="campo__rotulo">Observações (opcional)</span>
+        <section class="card spot form">
+          <div class="card__titulo"><h2>${icone('check')} <span class="passo-num">6</span> Observações e gerar</h2></div>
+          <label class="campo"><span class="campo__rotulo">Observações (opcional)</span>
             <textarea name="observacoes" maxlength="2000" placeholder="Garantia, assistência técnica, frete..."></textarea></label>
           <div class="card__rodape">
             <button class="btn btn--primario" type="submit">${icone('check')} Salvar proposta</button>
@@ -557,6 +563,13 @@ LH.vistas = LH.vistas || {};
       };
       const mostrarEmpresa = () => {
         const e = empresaForm();
+        const caixaLogo = raiz.querySelector('#empresa-logo');
+        caixaLogo.innerHTML = e.logo ? `<img src="${esc(e.logo)}" alt="">` : `<span>${esc((e.razao || '?').trim().charAt(0).toUpperCase() || '?')}</span>`;
+        caixaLogo.title = e.logo ? 'Logo que sai no topo da proposta' : 'Sem logo: cadastre em Minha empresa';
+        if (!empresas.length && !foto) {
+          raiz.querySelector('#empresa-resumo').innerHTML = `<span class="nota nota--alerta empresa-proposta__vazia">${icone('alerta')} Nenhuma empresa cadastrada nesta conta. <a class="btn btn--primario btn--pequeno" href="#/empresa">Cadastrar a empresa</a> Os dados (CNPJ, endereço, banco, responsável e logo) entram sozinhos na proposta.</span>`;
+          return;
+        }
         raiz.querySelector('#empresa-resumo').innerHTML = e.cnpj
           ? `${esc(LH.cnpj.mascara(e.cnpj))}${e.banco ? ` · banco ${esc(e.banco)} ag. ${esc(e.agencia)} ${esc(bancoDe({}, e).tipoConta.toLowerCase())} ${esc(e.conta)}` : ' · <a href="#/empresa">cadastre os dados bancários</a>'}`
           : `${icone('info')} <a href="#/empresa">Complete os dados da empresa</a>: eles entram na proposta.`;
@@ -652,6 +665,47 @@ LH.vistas = LH.vistas || {};
           if (!itens?.length) return LH.aviso('O PNCP não tem itens publicados para esta licitação. Adicione à mão.', 'alerta');
           escolherItensDoEdital(itens, (marcados) => adicionarItens(marcados.map(itemDoEdital)));
         } catch (e) { LH.aviso(e.message, 'perigo'); } finally { botao.disabled = false; botao.innerHTML = original; }
+      };
+
+      // Planilha: arquivo .csv (Excel: "Salvar como CSV") ou células copiadas e coladas.
+      const abrirPlanilha = () => {
+        const fechar = LH.modal({
+          titulo: 'Colar ou importar planilha de itens',
+          html: `<p class="fraco">Copie as linhas no Excel/Google Planilhas e cole abaixo, ou escolha um arquivo .csv. Com cabeçalho, as colunas são reconhecidas pelo nome (Item, Descrição, Unid., Qtd., Valor unit., Marca). Sem cabeçalho, use esta ordem: <b>Item · Descrição · Unidade · Quantidade · Valor unitário · Marca</b>.</p>
+            <label class="btn btn--pequeno" style="margin:6px 0">${icone('baixar')} Escolher arquivo .csv<input type="file" accept=".csv,.txt,text/csv,text/plain" data-planilha-arquivo hidden></label>
+            <textarea data-planilha-texto rows="8" style="width:100%;font-family:monospace" placeholder="Item	Descrição	Unid.	Qtd.	Valor unit.	Marca"></textarea>
+            <p class="fraco" data-planilha-resumo aria-live="polite"></p>`,
+          acoes: [
+            { rotulo: 'Cancelar', classe: 'btn--fantasma' },
+            {
+              rotulo: 'Adicionar à proposta', classe: 'btn--primario',
+              acao: (f, fundo) => {
+                const { itens } = regras.lerPlanilha(fundo.querySelector('[data-planilha-texto]').value);
+                if (!itens.length) return LH.aviso('Não encontrei itens com descrição. Confira a planilha.', 'alerta');
+                f();
+                adicionarItens(itens);
+              },
+            },
+          ],
+        });
+        const fundo = [...document.querySelectorAll('.modal-fundo')].at(-1);
+        const texto = fundo.querySelector('[data-planilha-texto]');
+        const resumir = () => {
+          const { itens, ignoradas } = regras.lerPlanilha(texto.value);
+          fundo.querySelector('[data-planilha-resumo]').textContent = texto.value.trim()
+            ? `${itens.length} item(ns) reconhecido(s)${ignoradas ? `; ${ignoradas} linha(s) sem descrição ignorada(s)` : ''}.` : '';
+        };
+        texto.addEventListener('input', resumir);
+        fundo.querySelector('[data-planilha-arquivo]').addEventListener('change', async (e) => {
+          const arq = e.target.files[0];
+          if (!arq) return;
+          if (arq.size > 2_000_000) return LH.aviso('Arquivo grande demais (máx. 2 MB).', 'alerta');
+          const bytes = new Uint8Array(await arq.arrayBuffer());
+          // CSV do Excel costuma vir em Windows-1252; UTF-8 quando é válido.
+          try { texto.value = new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { texto.value = new TextDecoder('windows-1252').decode(bytes); }
+          resumir();
+        });
+        return fechar;
       };
 
       // Carrega a proposta (ao editar) ou o próximo número, e as licitações do usuário.
@@ -769,6 +823,7 @@ LH.vistas = LH.vistas || {};
         if (acao === 'decl-padrao') desenharDeclaracoes(declaracoesPadrao());
 
         if (acao === 'importar') importar();
+        if (acao === 'planilha') abrirPlanilha();
         if (acao === 'previa') previa().scrollIntoView({ behavior: 'smooth' });
         if (acao === 'pdf' || acao === 'word') gerar(acao);
       });
@@ -831,7 +886,7 @@ LH.vistas = LH.vistas || {};
         texto: 'Propostas salvas, com a situação de cada uma.',
         acoes: `<a class="btn btn--primario" href="#/proposta/criar">${icone('mais')} Criar proposta</a>`,
       })}
-      <section class="card spot" data-reveal>
+      <section class="card spot">
         <div class="tabela-rolagem">
           <table class="tabela">
             <thead><tr><th>Número</th><th>Licitação</th><th>Criada em</th><th>Situação</th><th class="numero">Valor</th><th></th></tr></thead>
@@ -907,7 +962,7 @@ LH.vistas = LH.vistas || {};
       })}
       <div class="grade grade--lateral">
         <section class="grade" style="align-content:start">
-          <div class="card spot" data-reveal>
+          <div class="card spot">
             <div class="card__titulo"><h2>${icone('arquivoCheck')} Modelo</h2></div>
             <div class="lista" role="radiogroup" aria-label="Modelo de declaração">
               ${MODELOS.map((m, i) => `
@@ -918,7 +973,7 @@ LH.vistas = LH.vistas || {};
             </div>
           </div>
         </section>
-        <form class="card spot form" id="form-decl" data-reveal autocomplete="off">
+        <form class="card spot form" id="form-decl" autocomplete="off">
           <div class="card__titulo"><h2>${icone('lapis')} Dados</h2></div>
           <div class="form__linha">
             <label class="campo"><span class="campo__rotulo">Razão social</span><input name="razao" value="${esc(e.razao)}"></label>
@@ -944,7 +999,7 @@ LH.vistas = LH.vistas || {};
           </div>
         </form>
       </div>
-      <p class="nota nao-imprimir" data-reveal style="margin-top:18px">${icone('info')} Modelos de referência. Se o edital trouxer um modelo próprio, use o do edital.</p>
+      <p class="nota nao-imprimir" style="margin-top:18px">${icone('info')} Modelos de referência. Se o edital trouxer um modelo próprio, use o do edital.</p>
       <section class="area-impressao" id="decl-previa" style="margin-top:18px"></section>`;
     },
     montar(raiz) {
