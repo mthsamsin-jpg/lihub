@@ -534,12 +534,12 @@ window.LH = window.LH || {};
     },
     /** Alerta por e-mail do Robô Turbo 2.0 desta pessoa (vai para o e-mail da conta). */
     async alertasRobo() {
-      const { data, error } = await db().from('perfis').select('alerta_email').eq('id', LH.nuvem.usuario.id).single();
+      const { data, error } = await db().from('perfis').select('alerta_email, alerta_whatsapp, telefone').eq('id', LH.nuvem.usuario.id).single();
       if (error) throw erroBanco(error, 'Não consegui ler os seus alertas');
-      return { email: !!data.alerta_email, enderecoEmail: LH.nuvem.usuario.email };
+      return { email: !!data.alerta_email, enderecoEmail: LH.nuvem.usuario.email, whatsapp: !!data.alerta_whatsapp, telefone: data.telefone || '' };
     },
-    async salvarAlertasRobo({ email }) {
-      const { error } = await db().from('perfis').update({ alerta_email: !!email }).eq('id', LH.nuvem.usuario.id);
+    async salvarAlertasRobo({ email, whatsapp }) {
+      const { error } = await db().from('perfis').update({ alerta_email: !!email, alerta_whatsapp: !!whatsapp }).eq('id', LH.nuvem.usuario.id);
       if (error) throw erroBanco(error, 'Não consegui salvar os alertas');
     },
     async salvarConta({ nome, telefone }) {
@@ -1014,7 +1014,7 @@ window.LH = window.LH || {};
     // Robô Turbo 2.0 (demonstração: neste navegador)
     roboItens: async () => LH.estado.obter('robo') || [],
     roboHistorico: async () => [],
-    alertasRobo: async () => ({ email: false, enderecoEmail: 'voce@empresa.com.br', ...(LH.estado.obter('alertasRobo') || {}) }),
+    alertasRobo: async () => ({ email: false, enderecoEmail: 'voce@empresa.com.br', whatsapp: false, telefone: '(11) 98765-4321', ...(LH.estado.obter('alertasRobo') || {}) }),
     salvarAlertasRobo: async (a) => { LH.estado.salvar('alertasRobo', a); },
     async salvarRoboItem(item) {
       const lista = LH.estado.obter('robo') || [];

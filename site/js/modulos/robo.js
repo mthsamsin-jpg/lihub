@@ -164,7 +164,7 @@ LH.vistas = LH.vistas || {};
         orbe.title = t;
         orbe.setAttribute('aria-label', t);
       };
-      LH.repo.alertasRobo?.().then((a) => marcarOrbe(a.email)).catch(() => {});
+      LH.repo.alertasRobo?.().then((a) => marcarOrbe(a.email || a.whatsapp)).catch(() => {});
       const caixa = raiz.querySelector('#robo-itens');
       const chat = raiz.querySelector('#robo-chat');
       const painelRanking = raiz.querySelector('#robo-ranking');
@@ -540,7 +540,9 @@ LH.vistas = LH.vistas || {};
             <p>Durante a disputa no modo real, o robô avisa quando a <strong>chance de vitória</strong> muda de forma relevante, com o <strong>fechamento previsto</strong> e a <strong>margem estimada</strong>.</p>
             <label class="campo campo--check"><input type="checkbox" name="email" ${atual.email ? 'checked' : ''}>
               <span><strong>Por e-mail</strong> · ${esc(atual.enderecoEmail || 'e-mail da sua conta')}</span></label>
-            <p class="fraco">Os alertas são uma estimativa estatística, não garantia de resultado. Chegam só as mudanças mais importantes, para não lotar a caixa de entrada.</p>
+            <label class="campo campo--check"><input type="checkbox" name="whatsapp" ${atual.whatsapp ? 'checked' : ''} ${atual.telefone ? '' : 'disabled'}>
+              <span><strong>Por WhatsApp</strong> · ${atual.telefone ? esc(atual.telefone) : 'cadastre o seu WhatsApp em <a href="#/perfil">Meu Perfil</a>'}<br><span class="fraco">Só as mudanças urgentes, no máximo uma a cada 5 minutos.</span></span></label>
+            <p class="fraco">Os alertas são uma estimativa estatística, não garantia de resultado. Chegam só as mudanças mais importantes, para não lotar a caixa de entrada nem o celular.</p>
             <p class="texto-perigo" data-erro hidden></p>
           </form>`,
           acoes: [
@@ -549,9 +551,9 @@ LH.vistas = LH.vistas || {};
               const f = janela.querySelector('form');
               const erro = janela.querySelector('[data-erro]');
               try {
-                await LH.repo.salvarAlertasRobo({ email: f.email.checked });
-                marcarOrbe(f.email.checked);
-                LH.aviso(f.email.checked ? 'Alertas por e-mail ligados.' : 'Alertas por e-mail desligados.', 'sucesso');
+                await LH.repo.salvarAlertasRobo({ email: f.email.checked, whatsapp: f.whatsapp.checked });
+                marcarOrbe(f.email.checked || f.whatsapp.checked);
+                LH.aviso(f.email.checked || f.whatsapp.checked ? 'Alertas salvos.' : 'Alertas desligados.', 'sucesso');
                 fechar();
               } catch (e) { erro.textContent = e.message; erro.hidden = false; }
             } },

@@ -1,7 +1,9 @@
 // Alertas do Robô Turbo 2.0 por e-mail, para a pessoa que conectou o robô ao pregão
 // e pediu para receber (perfis.alerta_email). Envio pelo Resend (RESEND_API_KEY),
 // remetente EMAIL_REMETENTE do domínio do site.
-// (O WhatsApp fica para quando houver um número empresarial na API oficial da Meta.)
+// Também por WhatsApp (perfis.alerta_whatsapp, no número do cadastro), com o modelo
+// aprovado pela Meta: só as mudanças urgentes, no máximo 1 a cada 5 minutos.
+import { configWhatsapp, enviarModelo, numeroWhatsapp } from '../src/whatsapp.js';
 
 const escaparHtml = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -36,7 +38,7 @@ export async function enviarEmail({ para, assunto, texto, html }, { chave, remet
 export function canaisDoAmbiente(env = process.env) {
   const t = (k) => env[k]?.trim() || null;
   const email = t('RESEND_API_KEY') ? { chave: t('RESEND_API_KEY'), remetente: t('EMAIL_REMETENTE') || 'nao-responda@usolicitahub.com.br' } : null;
-  return { email, site: t('SITE_URL') || 'https://usolicitahub.com.br' };
+  return { email, whatsapp: configWhatsapp(env), site: t('SITE_URL') || 'https://usolicitahub.com.br' };
 }
 
 /**
@@ -48,16 +50,31 @@ export function canaisDoAmbiente(env = process.env) {
  * @param {ReturnType<typeof canaisDoAmbiente>} canais
  * @returns {null | ((alerta: object) => Promise<void>)}
  */
-export function criarNotificador(destino, canais, { log = console, agora = () => Date.now(), intervaloEmailMs = 60_000, fetch: f = fetch } = {}) {
+export function criarNotificador(destino, canais, { log = console, agora = () => Date.now(), intervaloEmailMs = 60_000, intervaloWhatsappMs = 5 * 60_000, fetch: f = fetch } = {}) {
   if (destino?.alertaEmail && destino.email && !canais?.email) log.aviso?.('Alerta por e-mail ligado, mas o servidor não tem RESEND_API_KEY.');
-  if (!(destino?.alertaEmail && destino.email && canais?.email)) return null;
+  const comEmail = !!(destino?.alertaEmail && destino.email && canais?.email);
+  const numero = destino?.alertaWhatsapp ? numeroWhatsapp(destino.telefone) : null;
+  if (destino?.alertaWhatsapp && !numero) log.aviso?.('Alerta por WhatsApp ligado, mas o telefone do cadastro não é um celular válido.');
+  if (numero && !canais?.whatsapp) log.aviso?.('Alerta por WhatsApp ligado, mas o servidor não tem WHATSAPP_TOKEN.');
+  const comWhatsapp = !!(numero && canais?.whatsapp);
+  if (!comEmail && !comWhatsapp) return null;
   let ultimoEmail = -Infinity;
+  let ultimoWhatsapp = -Infinity;
   return async (alerta) => {
     const urgente = ['sem_chance', 'virou_favoravel', 'virou_desfavoravel', 'primeira'].includes(alerta.motivo);
-    if (!urgente && agora() - ultimoEmail < intervaloEmailMs) return;
-    ultimoEmail = agora();
-    try {
-      await enviarEmail({ para: destino.email, ...montarEmail(alerta, { site: canais.site }) }, { ...canais.email, fetch: f });
-    } catch (e) { log.erro?.(`Alerta por e-mail: ${e.message}`); }
+    const envios = [];
+    if (comEmail && (urgente || agora() - ultimoEmail >= intervaloEmailMs)) {
+      ultimoEmail = agora();
+      envios.push(enviarEmail({ para: destino.email, ...montarEmail(alerta, { site: canais.site }) }, { ...canais.email, fetch: f })
+        .catch((e) => log.erro?.(`Alerta por e-mail: ${e.message}`)));
+    }
+    // WhatsApp custa por mensagem: só o urgente, com intervalo. Um canal falhar não impede o outro.
+    if (comWhatsapp && urgente && agora() - ultimoWhatsapp >= intervaloWhatsappMs) {
+      ultimoWhatsapp = agora();
+      const pregao = `${alerta.pregao}${alerta.lote ? `, lote ${alerta.lote}` : ''}`;
+      envios.push(enviarModelo(canais.whatsapp, numero, [pregao, alerta.texto, `${canais.site}/app.html#/robo`], f)
+        .catch((e) => log.erro?.(`Alerta por WhatsApp: ${e.message}`)));
+    }
+    await Promise.all(envios);
   };
 }

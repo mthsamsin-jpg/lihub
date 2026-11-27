@@ -1,0 +1,28 @@
+/* Botão do WhatsApp do suporte (site e painel). */
+.zap { position: fixed; right: 20px; bottom: 20px; z-index: 85; display: grid; justify-items: end; gap: 10px; font-family: inherit; }
+.zap__botao {
+  width: 56px; height: 56px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center;
+  background: #25d366; color: #fff; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28); transition: transform 0.15s;
+}
+.zap__botao:hover { transform: scale(1.06); }
+.zap__botao:focus-visible, .zap__lista a:focus-visible, .zap__fechar:focus-visible { outline: 3px solid #0284c7; outline-offset: 2px; }
+.zap__botao svg { width: 32px; height: 32px; }
+.zap__painel {
+  width: min(340px, calc(100vw - 32px)); max-height: min(70vh, 560px); overflow: auto; padding: 16px; border-radius: 16px;
+  background: #fff; color: #10233a; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3); border: 1px solid #d6dde6;
+}
+.zap__topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.zap__topo strong { font-size: 1rem; }
+.zap__fechar { border: 0; background: none; font-size: 1.5rem; line-height: 1; cursor: pointer; color: #5a6b80; padding: 2px 6px; }
+.zap__texto, .zap__rodape { font-size: 0.82rem; color: #5a6b80; margin: 6px 0 10px; }
+.zap__rodape { margin: 10px 0 0; }
+.zap__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.zap__lista a {
+  display: block; padding: 9px 12px; border-radius: 10px; background: #f1f7f3; color: #0b3d22; text-decoration: none;
+  font-size: 0.9rem; font-weight: 600; border: 1px solid #d3ecdc;
+}
+.zap__lista a:hover { background: #dcf5e5; }
+/* O mini player do robô ocupa o mesmo canto. */
+body:has(.robo-mini) .zap { display: none; }
+@media (max-width: 600px) { .zap { right: 16px; bottom: 16px; } .zap__botao { width: 52px; height: 52px; } }
+@media print { .zap { display: none !important; } }

@@ -409,7 +409,7 @@ LH.vistas = LH.vistas || {};
       </div>
       <div class="grade grade--3" style="margin-top:22px">
         <article class="card spot" data-reveal><div class="card__titulo"><h2>${icone('email')} E-mail</h2></div><p><a href="mailto:${esc(SUPORTE.email)}">${esc(SUPORTE.email)}</a></p><p class="fraco">${esc(SUPORTE.horario)}</p></article>
-        <article class="card spot" data-reveal><div class="card__titulo"><h2>${icone('whatsapp')} WhatsApp</h2></div><p>${esc(SUPORTE.whatsapp)}</p><p class="fraco">${esc(SUPORTE.horario)}</p></article>
+        <article class="card spot" data-reveal><div class="card__titulo"><h2>${icone('whatsapp')} WhatsApp</h2></div><p>${esc(SUPORTE.whatsapp)}</p><p><button class="btn btn--primario btn--pequeno" type="button" data-abrir-zap>${icone('whatsapp')} Escolher o assunto e chamar</button></p><p class="fraco">${esc(SUPORTE.horario)}</p></article>
         <article class="card spot" data-reveal><div class="card__titulo"><h2>${icone('escudo')} Documentos legais</h2></div>
           <div class="chips"><button class="btn btn--pequeno" type="button" data-legal="termos">Termos de uso</button><button class="btn btn--pequeno" type="button" data-legal="privacidade">Privacidade</button><button class="btn btn--pequeno" type="button" data-legal="lgpd">LGPD</button></div></article>
       </div>`,
@@ -426,6 +426,7 @@ LH.vistas = LH.vistas || {};
         });
         raiz.querySelector('#faq-vazio').hidden = visiveis > 0;
       });
+      LH.ao(raiz, 'click', '[data-abrir-zap]', (e) => { e.stopPropagation(); LH.abrirSuporte?.(); });
       LH.ao(raiz, 'click', '[data-tutorial]', () => LH.aviso('Os vídeos tutoriais entram na versão final.', 'info'));
     },
   };

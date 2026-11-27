@@ -131,9 +131,9 @@ export function criarGerenciador({
       const { data: linhasHist } = await admin.from('robo_historico').select('descricao, desagio_pct')
         .eq('organizacao_id', item.organizacaoId).order('encerrado_em', { ascending: false }).limit(500);
       const historico = historicoParecido(item.descricao, linhasHist || []);
-      // Alertas por e-mail para quem conectou o robô (se a pessoa pediu no perfil).
-      const { data: perfil } = await admin.from('perfis').select('alerta_email').eq('id', usuario.id).maybeSingle();
-      const notificar = criarNotificador({ email: usuario.email || null, alertaEmail: !!perfil?.alerta_email }, canais, { log });
+      // Alertas por e-mail e WhatsApp para quem conectou o robô (se a pessoa pediu).
+      const { data: perfil } = await admin.from('perfis').select('alerta_email, alerta_whatsapp, telefone').eq('id', usuario.id).maybeSingle();
+      const notificar = criarNotificador({ email: usuario.email || null, alertaEmail: !!perfil?.alerta_email, alertaWhatsapp: !!perfil?.alerta_whatsapp, telefone: perfil?.telefone || null }, canais, { log });
       const base = { sessao_id: sessao.id, organizacao_id: item.organizacaoId, robo_item_id: item.id };
       const s = new SessaoReal({
         sessao, item, adaptador, log,

@@ -10,7 +10,8 @@ window.LH = window.LH || {};
   // Preencha com os dados reais antes de publicar o site.
   LH.SUPORTE = {
     email: 'suporte@seudominio.com.br',
-    whatsapp: '(00) 00000-0000',
+    whatsapp: '(48) 99145-4256',
+    whatsappNumero: '5548991454256',
     horario: 'Segunda a sexta, das 9h às 18h',
     cnpj: '00.000.000/0001-00',
   };
